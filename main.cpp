@@ -105,6 +105,13 @@ MobiView::MobiView()
 	IndexList[4]    = &IndexList5;
 	IndexList[5]    = &IndexList6;
 	
+	IndexLock[0]    = &IndexLock1;
+	IndexLock[1]    = &IndexLock2;
+	IndexLock[2]    = &IndexLock3;
+	IndexLock[3]    = &IndexLock4;
+	IndexLock[4]    = &IndexLock5;
+	IndexLock[5]    = &IndexLock6;
+	
 	EIndexList[0]   = &EIndexList1;
 	EIndexList[1]   = &EIndexList2;
 	EIndexList[2]   = &EIndexList3;
@@ -118,6 +125,9 @@ MobiView::MobiView()
 		IndexList[Idx]->Hide();
 		IndexList[Idx]->Disable();
 		IndexList[Idx]->WhenAction = THISBACK(RefreshParameterView);
+		
+		IndexLock[Idx]->Hide();
+		IndexLock[Idx]->WhenAction = THISBACK(RefreshParameterView);
 		
 		EIndexList[Idx]->Hide();
 		EIndexList[Idx]->Disable();
@@ -169,7 +179,7 @@ void MobiView::RefreshParameterView()
 		
 		//Indexes_String[Idx] = IndexList[Id]->GetList().Get(0).ToString().ToStd();
 		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
-		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data();
+		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data(); //NOTE: Have to reverse since GetParameterGroupIndexSets returns in reverse order. May want to fix that!
 	}
 	
 	uint64 ParameterCount = ModelDll.GetAllParametersCount(DataSet, SelectedGroupName.data());
@@ -252,13 +262,80 @@ void MobiView::RefreshParameterView()
 	}
 }
 
+
+void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row)
+{
+	if(Level == IndexSetNames.size())
+	{
+		//Do the actual update.
+		size_t IndexCount = CurrentIndexes.size();
+		std::vector<char *> Indexes(IndexCount);
+		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
+		{
+			Indexes[IndexCount - Idx - 1] = (char *)CurrentIndexes[Idx].data(); //NOTE: Have to do the reversing since the GetParameterGroupIndexSets returns them in "reverse order". We may want to fix that..
+		}
+		
+		std::string Name = ParameterView.Get(Row, 0).ToString().ToStd();
+		parameter_type Type = CurrentParameterTypes[Row];
+		
+		switch(Type)
+		{
+			case ParameterType_Double:
+			{
+				double V = ParameterView.Get(1);
+				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
+			} break;
+			
+			case ParameterType_UInt:
+			{
+				int64 V = ParameterView.Get(1);
+				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
+			} break;
+			
+			case ParameterType_Bool:
+			{
+				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
+				bool V = (bool)((Option*)ctrl)->Get();
+				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
+			} break;
+			
+			case ParameterType_Time:
+			{
+				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
+				Date D = ((EditDateNotNull*)ctrl)->GetData();
+				std::string V = Format(D).ToStd();
+				ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
+			} break;
+		}
+		CheckDllUserError();
+	}
+	else
+	{
+		const char *IndexSetName = IndexSetNames[Level];
+		size_t Id = IndexSetNameToId[IndexSetName];
+		
+		if(IndexLock[Id]->Get())
+		{
+			size_t IndexCount = ModelDll.GetIndexCount(DataSet, IndexSetName);
+			std::vector<char *> IndexNames(IndexCount);
+			ModelDll.GetIndexes(DataSet, IndexSetName, IndexNames.data());
+			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
+			{
+				CurrentIndexes[Level] = IndexNames[Idx];
+				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
+			}
+		}
+		else
+		{
+			CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
+			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
+		}
+	}
+}
+
+
 void MobiView::ParameterEditAccepted(int Row)
 {
-	std::string name = ParameterView.Get(Row, 0).ToString().ToStd();
-	parameter_type Type = CurrentParameterTypes[Row];
-	//ErrorBox.Set(String("edited to ") + val.ToString());
-	
-	
 	//TODO: High degree of copypaste from above. Factor this out.
 	Value SelectedGroup = ParameterGroupSelecter.Get(0);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
@@ -269,60 +346,14 @@ void MobiView::ParameterEditAccepted(int Row)
 	std::vector<char *> IndexSetNames(IndexSetCount);
 	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
 	
-	for(size_t Idx = 0; Idx < 6; ++Idx)
-	{
-		IndexList[Idx]->Disable();
-	}
-	
-	std::vector<std::string> Indexes_String(IndexSetCount);
-	std::vector<char *> Indexes(IndexSetCount);
-	
-	for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-	{
-		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
-		IndexList[Id]->Enable();
-		
-		//Indexes_String[Idx] = IndexList[Id]->GetList().Get(0).ToString().ToStd();
-		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
-		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data();
-	}
-	
-	switch(Type)
-	{
-		case ParameterType_Double:
-		{
-			double V = ParameterView.Get(1);
-			ModelDll.SetParameterDouble(DataSet, name.data(), Indexes.data(), Indexes.size(), V);
-		} break;
-		
-		case ParameterType_UInt:
-		{
-			int64 V = ParameterView.Get(1);
-			ModelDll.SetParameterUInt(DataSet, name.data(), Indexes.data(), Indexes.size(), (uint64)V);
-		} break;
-		
-		case ParameterType_Bool:
-		{
-			Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
-			bool V = (bool)((Option*)ctrl)->Get();
-			ModelDll.SetParameterBool(DataSet, name.data(), Indexes.data(), Indexes.size(), V);
-		} break;
-		
-		case ParameterType_Time:
-		{
-			Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
-			Date D = ((EditDateNotNull*)ctrl)->GetData();
-			std::string V = Format(D).ToStd();
-			ModelDll.SetParameterTime(DataSet, name.data(), Indexes.data(), Indexes.size(), V.data());
-		} break;
-	}
-	CheckDllUserError();
+	std::vector<std::string> CurrentIndexes(IndexSetCount);
+	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row);
 }
 
 void MobiView::SaveParameters()
 {
 	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size()) return;
-	//TODO: Want both save and "save as".
+	//TODO: Want both save and "save as"?
 	//TODO: Mechanism for determining if there has actually been edits that need to be saved.
 	//TODO: Maybe also a "do you really want to overwrite <filename>".
 	ModelDll.WriteParametersToFile(DataSet, CurrentParameterFile.data());
@@ -446,6 +477,8 @@ void MobiView::Load()
 		}
 		IndexList[IndexSet]->GoBegin();
 		IndexList[IndexSet]->Show();
+		IndexLock[IndexSet]->Show();
+		
 		EIndexList[IndexSet]->GoBegin();
 		EIndexList[IndexSet]->Show();
 		
@@ -465,6 +498,9 @@ void MobiView::RunModel()
 
 void MobiView::EquationOrInputSelected()
 {
+	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
+	if(Timesteps == 0) return; //Oops, only for equations, not inputs..
+	
 	int RowCount = EquationSelecter.GetCount();
 	
 	int CursorRow = EquationSelecter.GetCursor();
@@ -475,7 +511,7 @@ void MobiView::EquationOrInputSelected()
 		{
 			std::string EquationName = EquationSelecter.Get(Row, 0).ToString().ToStd();
 			
-			uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, EquationName.data());
+			uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, EquationName.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
 			std::vector<char *> IndexSets(IndexSetCount);
 			ModelDll.GetResultIndexSets(DataSet, EquationName.data(), IndexSets.data());
 			
@@ -500,8 +536,9 @@ void MobiView::EquationOrInputSelected()
 void MobiView::RePlot()
 {
 	if(!EquationSelecter.IsSelection()) return;
-	//TODO: Test if the model has been run at all, otherwise this may cause a crash.
 	
+	//TODO: Instead of just returning, maybe print text in the plotting view saying that the
+	//model has not been run.
 	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
 	if(Timesteps == 0) return; //Oops, only for equations, not inputs..
 	

@@ -22,5 +22,11 @@ LAYOUT(MobiViewLayout, 1196, 880)
 	ITEM(ArrayCtrl, EIndexList5, LeftPosZ(388, 88).TopPosZ(740, 108))
 	ITEM(ArrayCtrl, EIndexList6, LeftPosZ(484, 88).TopPosZ(740, 108))
 	ITEM(ScatterCtrl, Plot, LeftPosZ(8, 828).TopPosZ(348, 364))
+	ITEM(Option, IndexLock1, NotNull(true).SetLabel(t_("Lock")).LeftPosZ(192, 100).TopPosZ(52, 16))
+	ITEM(Option, IndexLock2, NotNull(true).SetLabel(t_("Lock")).LeftPosZ(300, 100).TopPosZ(52, 16))
+	ITEM(Option, IndexLock3, NotNull(true).SetLabel(t_("Lock")).LeftPosZ(408, 100).TopPosZ(52, 16))
+	ITEM(Option, IndexLock4, NotNull(true).SetLabel(t_("Lock")).LeftPosZ(516, 100).TopPosZ(52, 16))
+	ITEM(Option, IndexLock5, NotNull(true).SetLabel(t_("Lock")).LeftPosZ(624, 100).TopPosZ(52, 16))
+	ITEM(Option, IndexLock6, NotNull(true).SetLabel(t_("Lock")).HSizePosZ(732, 364).TopPosZ(52, 16))
 END_LAYOUT
 

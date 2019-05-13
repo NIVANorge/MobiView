@@ -58,6 +58,8 @@ public:
 	void EquationOrInputSelected();
 	void RePlot();
 	void RefreshParameterView();
+	
+	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row);
 	void ParameterEditAccepted(int Row);
 	
 private:
@@ -74,6 +76,7 @@ private:
 	
 	Label    *IndexSetName[6]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
 	DropList *IndexList[6];
+	Option   *IndexLock[6];
 	ArrayCtrl *EIndexList[6];
 	
 	std::map<std::string, size_t> IndexSetNameToId;
