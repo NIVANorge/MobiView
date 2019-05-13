@@ -1,0 +1,14 @@
+uses
+	CtrlLib,
+	ScatterCtrl;
+
+file
+	DllInterface.h,
+	MobiView.h,
+	main.cpp,
+	MobiView.lay,
+	images.iml;
+
+mainconfig
+	"" = "GUI";
+
