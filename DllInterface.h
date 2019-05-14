@@ -6,7 +6,10 @@ typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
 typedef int    (__cdecl *EncounteredError_t)(char *Errmsgout);
 typedef uint64 (__cdecl *GetTimesteps_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetStartDate_t)(void *DataSetPtr, char *DateOut);
+typedef uint64 (__cdecl *GetInputTimesteps_t)(void *DataSetPtr);
+typedef void   (__cdecl *GetInputStartDate_t)(void *DataSetPtr, char *DateOut);
 typedef void   (__cdecl *GetResultSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double *WriteTo);
+typedef void   (__cdecl *GetInputSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double *WriteTo, bool AlignWithResults);
 typedef void   (__cdecl *SetParameterDouble_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double Value);
 typedef void   (__cdecl *SetParameterUInt_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, uint64 Value);
 typedef void   (__cdecl *SetParameterBool_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, bool Value);
@@ -28,12 +31,16 @@ typedef uint64 (__cdecl *GetParameterGroupIndexSetsCount_t)(void *DataSetPtr, co
 typedef void   (__cdecl *GetParameterGroupIndexSets_t)(void *DataSetPtr, const char *ParameterGroupName, char **NamesOut);
 typedef uint64 (__cdecl *GetResultIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
 typedef void   (__cdecl *GetResultIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
+typedef uint64 (__cdecl *GetInputIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
+typedef void   (__cdecl *GetInputIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
 typedef uint64 (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const char *ParentGroupName);
 typedef void   (__cdecl *GetAllParameterGroups_t)(void *DataSetPtr, char **NamesOut, const char *ParentGroupName);
 typedef uint64 (__cdecl *GetAllParametersCount_t)(void *DataSetPtr, const char *GroupName);
 typedef void   (__cdecl *GetAllParameters_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *GroupName);
 typedef uint64 (__cdecl *GetAllResultsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
+typedef uint64 (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
+typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
 
 struct model_dll_interface
 {
@@ -42,7 +49,10 @@ struct model_dll_interface
 	EncounteredError_t   EncounteredError;
 	GetTimesteps_t       GetTimesteps;
 	GetStartDate_t       GetStartDate;
+	GetInputTimesteps_t  GetInputTimesteps;
+	GetInputStartDate_t  GetInputStartDate;
 	GetResultSeries_t    GetResultSeries;
+	GetInputSeries_t     GetInputSeries;
 	SetParameterDouble_t SetParameterDouble;
 	SetParameterUInt_t   SetParameterUInt;
 	SetParameterBool_t   SetParameterBool;
@@ -64,12 +74,16 @@ struct model_dll_interface
 	GetParameterGroupIndexSets_t GetParameterGroupIndexSets;
 	GetResultIndexSetsCount_t GetResultIndexSetsCount;
 	GetResultIndexSets_t GetResultIndexSets;
+	GetInputIndexSetsCount_t GetInputIndexSetsCount;
+	GetInputIndexSets_t GetInputIndexSets;
 	GetAllParameterGroupsCount_t GetAllParameterGroupsCount;
 	GetAllParameterGroups_t GetAllParameterGroups;
 	GetAllParametersCount_t GetAllParametersCount;
 	GetAllParameters_t   GetAllParameters;
 	GetAllResultsCount_t GetAllResultsCount;
 	GetAllResults_t      GetAllResults;
+	GetAllInputsCount_t  GetAllInputsCount;
+	GetAllInputs_t       GetAllInputs;
 };
 
 void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
@@ -79,7 +93,10 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->RunModel =           (RunModel_t)          GetProcAddress(hinstanceDll, "DllRunModel");
 	Model->GetTimesteps =       (GetTimesteps_t)      GetProcAddress(hinstanceDll, "DllGetTimesteps");
 	Model->GetStartDate =       (GetStartDate_t)      GetProcAddress(hinstanceDll, "DllGetStartDate");
+	Model->GetInputTimesteps =  (GetInputTimesteps_t) GetProcAddress(hinstanceDll, "DllGetInputTimesteps");
+	Model->GetInputStartDate =  (GetInputStartDate_t) GetProcAddress(hinstanceDll, "DllGetInputStartDate");
 	Model->GetResultSeries =    (GetResultSeries_t)   GetProcAddress(hinstanceDll, "DllGetResultSeries");
+	Model->GetInputSeries =     (GetInputSeries_t)    GetProcAddress(hinstanceDll, "DllGetInputSeries");
 	Model->SetParameterDouble = (SetParameterDouble_t)GetProcAddress(hinstanceDll, "DllSetParameterDouble");
 	Model->SetParameterUInt   = (SetParameterUInt_t)  GetProcAddress(hinstanceDll, "DllSetParameterUInt");
 	Model->SetParameterBool   = (SetParameterBool_t)  GetProcAddress(hinstanceDll, "DllSetParameterBool");
@@ -101,13 +118,16 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->GetParameterGroupIndexSets = (GetParameterGroupIndexSets_t)GetProcAddress(hinstanceDll, "DllGetParameterGroupIndexSets");
 	Model->GetResultIndexSetsCount = (GetResultIndexSetsCount_t)GetProcAddress(hinstanceDll, "DllGetResultIndexSetsCount");
 	Model->GetResultIndexSets = (GetResultIndexSets_t)GetProcAddress(hinstanceDll, "DllGetResultIndexSets");
+	Model->GetInputIndexSetsCount = (GetInputIndexSetsCount_t)GetProcAddress(hinstanceDll, "DllGetInputIndexSetsCount");
+	Model->GetInputIndexSets = (GetInputIndexSets_t)GetProcAddress(hinstanceDll, "DllGetInputIndexSets");
 	Model->GetAllParameterGroupsCount = (GetAllParameterGroupsCount_t)GetProcAddress(hinstanceDll, "DllGetAllParameterGroupsCount");
 	Model->GetAllParameterGroups = (GetAllParameterGroups_t)GetProcAddress(hinstanceDll, "DllGetAllParameterGroups");
 	Model->GetAllParametersCount = (GetAllParametersCount_t)GetProcAddress(hinstanceDll, "DllGetAllParametersCount");
 	Model->GetAllParameters =   (GetAllParameters_t)GetProcAddress(hinstanceDll, "DllGetAllParameters");
 	Model->GetAllResultsCount = (GetAllResultsCount_t)GetProcAddress(hinstanceDll, "DllGetAllResultsCount");
 	Model->GetAllResults      = (GetAllResults_t)     GetProcAddress(hinstanceDll, "DllGetAllResults");
-	
+	Model->GetAllInputsCount  = (GetAllInputsCount_t) GetProcAddress(hinstanceDll, "DllGetAllInputsCount");
+	Model->GetAllInputs       = (GetAllInputs_t)      GetProcAddress(hinstanceDll, "DllGetAllInputs");
 	
 	//TODO: Handle errors if GetProcAddress fails!
 	

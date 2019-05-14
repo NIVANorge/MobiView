@@ -55,8 +55,11 @@ public:
 	void Load();
 	void SaveParameters();
 	void RunModel();
-	void EquationOrInputSelected();
+	
+	void PlotModeChange();
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, double ResultOffset);
 	void RePlot();
+	
 	void RefreshParameterView();
 	
 	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row);

@@ -22,7 +22,7 @@ void MobiView::HandleDllError()
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-	ErrorBox.Set(String((char *)lpMsgBuf));
+	LogBox.Set(String((char *)lpMsgBuf));
 
     LocalFree(lpMsgBuf);
 }
@@ -36,7 +36,7 @@ bool MobiView::CheckDllUserError()
 		
 		if(ErrCode != 0)
 		{
-			ErrorBox.Set(String(ErrMsgBuf));
+			LogBox.Set(String(ErrMsgBuf)); //TODO: Proper logging
 			return true;
 		}
 	}
@@ -65,7 +65,11 @@ MobiView::MobiView()
 	
 	EquationSelecter.AddColumn("Equation");
 	EquationSelecter.MultiSelect();
-	EquationSelecter.WhenSel = THISBACK(EquationOrInputSelected);
+	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
+	
+	InputSelecter.AddColumn("Input");
+	InputSelecter.MultiSelect();
+	InputSelecter.WhenSel = THISBACK(PlotModeChange);
 	
 	ParameterGroupSelecter.AddColumn("Parameter group");
 	
@@ -147,6 +151,13 @@ MobiView::MobiView()
 	PlotColors = {{0, 130, 200}, {230, 25, 75}, {60, 180, 75}, {245, 130, 48}, {145, 30, 180},
                   {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
                   {170, 110, 40}, {128, 0, 0}, {170, 255, 195}, {128, 128, 0}, {255, 215, 180}, {0, 0, 128}, {255, 225, 25}};
+
+
+
+	//Plot mode buttons:
+		
+	ScatterInputs.WhenAction << THISBACK(PlotModeChange);
+
 }
 
 void MobiView::RefreshParameterView()
@@ -433,6 +444,21 @@ void MobiView::Load()
 		}
 	}
 	
+	
+	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
+	if(CheckDllUserError()) return;
+	std::vector<char *> InputNames(InputCount);
+	std::vector<char *> InputTypes(InputCount);
+	ModelDll.GetAllInputs(DataSet, InputNames.data(), InputTypes.data());
+	if (CheckDllUserError()) return;
+	
+	for(size_t Idx = 0; Idx < InputCount; ++Idx)
+	{
+		InputSelecter.Add(InputNames[Idx]);
+	}
+	
+	
+	
 	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
 	if (CheckDllUserError()) return;
 	std::vector<char *> ParameterGroupNames(ParameterGroupCount);
@@ -493,32 +519,31 @@ void MobiView::RunModel()
 	
 	ModelDll.RunModel(DataSet);
 	
-	RePlot();
+	PlotModeChange(); //NOTE: This is to refresh the plot if necessary.
 }
 
-void MobiView::EquationOrInputSelected()
+void MobiView::PlotModeChange()
 {
-	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
-	if(Timesteps == 0) return; //Oops, only for equations, not inputs..
 	
-	int RowCount = EquationSelecter.GetCount();
+	//TODO: This could be more fine grained. We don't have to update the index list every time.
 	
-	int CursorRow = EquationSelecter.GetCursor();
+	for(size_t Idx = 0; Idx < 6; ++Idx)
+	{
+		EIndexList[Idx]->Disable();
+	}
+	
+	int RowCount = InputSelecter.GetCount();
+	int CursorRow = InputSelecter.GetCursor();
 	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		if(EquationSelecter.IsSelected(Row))// || Row == CursorRow) //Ugh. does not work properly when you deselect!
+		if(InputSelecter.IsSelected(Row) || Row == CursorRow) //Ugh. does not work properly when you deselect!
 		{
-			std::string EquationName = EquationSelecter.Get(Row, 0).ToString().ToStd();
+			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
 			
-			uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, EquationName.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
+			uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 			std::vector<char *> IndexSets(IndexSetCount);
-			ModelDll.GetResultIndexSets(DataSet, EquationName.data(), IndexSets.data());
-			
-			for(size_t Idx = 0; Idx < 6; ++Idx)
-			{
-				EIndexList[Idx]->Disable();
-			}
+			ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
 			
 			for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
 			{
@@ -529,77 +554,189 @@ void MobiView::EquationOrInputSelected()
 		}
 	}
 	
+	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
+	if(Timesteps != 0)
+	{
+		int RowCount = EquationSelecter.GetCount();
+		int CursorRow = EquationSelecter.GetCursor();
+		
+		for(int Row = 0; Row < RowCount; ++Row)
+		{
+			if(EquationSelecter.IsSelected(Row) || Row == CursorRow) //Ugh. does not work properly when you deselect!
+			{
+				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
+				
+				uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
+				std::vector<char *> IndexSets(IndexSetCount);
+				ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+				
+				for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
+				{
+					const char *IndexSet = IndexSets[Idx];
+					size_t Id = IndexSetNameToId[IndexSet];
+					EIndexList[Id]->Enable();
+				}
+			}
+		}
+	}
+	
 	RePlot();
 }
 
 
+void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, double Offset)
+{
+	if(Level == IndexSets.size())
+	{
+		std::vector<char *> Indexes(CurrentIndexes.size());
+		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+		{
+			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
+		}
+		char **IndexData = Indexes.data();
+		if(CurrentIndexes.size() == 0) IndexData = nullptr;
+		
+		
+		//TODO: Better way to do this: ?
+		PlotData.push_back({});
+		PlotData[PlotIdx].resize(Timesteps);
+		
+		if(Mode == 0)
+		{
+			ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data());
+		}
+		else if(Mode == 1)
+		{
+			ModelDll.GetInputSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data(), false);
+		}
+		if(CheckDllUserError()) return;
+		
+		double *Data = PlotData[PlotIdx].data();
+		int Len = (int)PlotData[PlotIdx].size();
+		
+		int ColorIdx = PlotIdx % PlotColors.size();
+		
+		String Legend = Name.data();
+		if(CurrentIndexes.size() > 0)
+		{
+			Legend << " {";
+			for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+			{
+				Legend << CurrentIndexes[Idx].data();
+				if(Idx < CurrentIndexes.size()-1) Legend << ", ";
+			}
+			Legend << "}";
+		}
+		
+		auto &Graph = Plot.AddSeries(Data, Len, Offset, 1).Stroke(1.0, PlotColors[ColorIdx]).Legend(Legend);
+		
+		if(ScatterInputs.Get() && Mode == 1)
+		{
+			//TODO: Styles 4-5 are whacked when fill color is white.
+			Graph.MarkColor(Color(255,255,255)).MarkBorderColor(PlotColors[ColorIdx]);
+		}
+		else
+		{
+			Graph.NoMark();
+		}
+		
+		++PlotIdx;
+	}
+	else
+	{
+		char *IndexSetName = IndexSets[Level];
+		size_t Id = IndexSetNameToId[IndexSetName];
+		
+		int RowCount = EIndexList[Id]->GetCount();
+		int CursorRow = EIndexList[Id]->GetCursor();
+		
+		for(int Row = 0; Row < RowCount; ++Row)
+		{
+			if(EIndexList[Id]->IsSelected(Row) || Row == CursorRow)
+			{
+				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, PlotIdx, Timesteps, Offset);
+			}
+		}
+	}
+}
+
 void MobiView::RePlot()
 {
-	if(!EquationSelecter.IsSelection()) return;
-	
-	//TODO: Instead of just returning, maybe print text in the plotting view saying that the
-	//model has not been run.
-	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
-	if(Timesteps == 0) return; //Oops, only for equations, not inputs..
+	if(!EquationSelecter.IsSelection() && !InputSelecter.IsSelection()) return;
 	
 	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series, but I doubt it will be necessary.
 	PlotData.clear();
 	
-	int RowCount = EquationSelecter.GetCount();
-	
-	int CursorRow = EquationSelecter.GetCursor();
-	
 	int PlotIdx = 0;
-	for(int Row = 0; Row < RowCount; ++Row)
-	{
-		if(EquationSelecter.IsSelected(Row) || Row == CursorRow)
-		{
-			std::string EquationName = EquationSelecter.Get(Row, 0).ToString().ToStd();
-			
-			uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, EquationName.data());
-			std::vector<char *> IndexSets(IndexSetCount);
-			ModelDll.GetResultIndexSets(DataSet, EquationName.data(), IndexSets.data());
-			
-			std::vector<std::string> Indexes_String(IndexSetCount);
-			std::vector<char *> Indexes(IndexSetCount);
-			
-			for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-			{
-				const char *IndexSet = IndexSets[Idx];
-				size_t Id = IndexSetNameToId[IndexSet];
-				
-				Indexes_String[Idx] = EIndexList[Id]->Get(0).ToString().ToStd();
-				Indexes[Idx] = (char *)Indexes_String[Idx].data();
-			}
-			
-			//TODO: Better way to do this: ?
-			PlotData.push_back({});
-			PlotData[PlotIdx].resize(Timesteps);
-			
-			ModelDll.GetResultSeries(DataSet, EquationName.data(), Indexes.data(), IndexSetCount, PlotData[PlotIdx].data());
-			if(CheckDllUserError()) return;
-			
-			double *Data = PlotData[PlotIdx].data();
-			int Len = (int)PlotData[PlotIdx].size();
-			
-			int ColorIdx = PlotIdx % PlotColors.size();
-			Plot.AddSeries(Data, Len, 0, 1).Stroke(1.0, PlotColors[ColorIdx]).NoMark();//NOTE: For legend, need to cache the string.. .Legend(EquationName.data());
-			++PlotIdx;
-		}
-	}
-	Plot.ZoomToFit(true, true);
 	
 	char DateStr[256];
 	ModelDll.GetStartDate(DataSet, DateStr);
-	Date D;
-	StrToDate(D, DateStr);
+	Date ResultStartDate;
+	StrToDate(ResultStartDate, DateStr);
+
+	ModelDll.GetInputStartDate(DataSet, DateStr);
+	Date InputStartDate;
+	StrToDate(InputStartDate, DateStr);
+
+	double ResultOffset = (double)(ResultStartDate - InputStartDate);
 	
-	Plot.cbModifFormatX.Clear();
-	Plot.cbModifFormatX << [D](String &s, int i, double d)
+	uint64 ResultTimesteps = ModelDll.GetTimesteps(DataSet);
+	if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. TODO: Maybe print a warning that the model has not been run?
 	{
-		Date D2 = D + (int)d;
-		s = Format(D2);
-	};
+		int RowCount = EquationSelecter.GetCount();
+		int CursorRow = EquationSelecter.GetCursor();
+		
+		for(int Row = 0; Row < RowCount; ++Row)
+		{
+			if(EquationSelecter.IsSelected(Row) || Row == CursorRow) //Not ideal way to do it :(
+			{
+				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
+				
+				uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
+				std::vector<char *> IndexSets(IndexSetCount);
+				ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+				if(CheckDllUserError()) return;
+				
+				std::vector<std::string> CurrentIndexes(IndexSets.size());
+				AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, PlotIdx, ResultTimesteps, ResultOffset);
+			}
+		}
+	}
+	
+	int RowCount = InputSelecter.GetCount();
+	int CursorRow = InputSelecter.GetCursor();
+	
+	uint64 InputTimesteps = ModelDll.GetInputTimesteps(DataSet);
+	
+	for(int Row = 0; Row < RowCount; ++Row)
+	{
+		if(InputSelecter.IsSelected(Row) || Row == CursorRow) //Not ideal way to do it :(
+		{
+			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
+			
+			uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
+			std::vector<char *> IndexSets(IndexSetCount);
+			ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
+			if(CheckDllUserError()) return;
+			
+			std::vector<std::string> CurrentIndexes(IndexSets.size());
+			AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, PlotIdx, InputTimesteps, 0.0);
+		}
+	}
+	
+	
+	if(PlotIdx > 0)
+	{
+		Plot.ZoomToFit(true, true);
+		
+		Plot.cbModifFormatX.Clear();
+		Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+		{
+			Date D2 = InputStartDate + (int)d;
+			s = Format(D2);
+		};
+	}
 	
 	Plot.Refresh();
 }
