@@ -2,9 +2,12 @@
 #include "DllInterface.h"
 
 #include <vector>
-#include <iostream> //TODO: Remove. Just used for debugging now and then
+//#include <iostream> //TODO: Remove. Just used for debugging now and then
 
 #define MAGNUSDEV
+
+#include "ParameterEditing.h"
+#include "Plotting.h"
 
 void MobiView::HandleDllError()
 {
@@ -66,6 +69,7 @@ MobiView::MobiView()
 	EquationSelecter.AddColumn("Equation");
 	EquationSelecter.MultiSelect();
 	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
+	EquationSelecter.Disable();
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.MultiSelect();
@@ -92,6 +96,8 @@ MobiView::MobiView()
 	//update.
 	ParameterView.HeaderObject().ShowTab(0, false);
 	ParameterView.HeaderObject().ShowTab(0, true);
+	
+	ParameterView.NoCursor();
 	
 	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
 	
@@ -123,7 +129,7 @@ MobiView::MobiView()
 	EIndexList[4]   = &EIndexList5;
 	EIndexList[5]   = &EIndexList6;
 	
-	for(size_t Idx = 0; Idx < 6; ++Idx)
+	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		IndexSetName[Idx]->Hide();
 		IndexList[Idx]->Hide();
@@ -146,7 +152,7 @@ MobiView::MobiView()
 	
 	Plot.SetFastViewX(true);
 	Plot.SetSequentialXAll(true);
-	
+	Plot.SetMouseHandling(true, false);
 	
 	PlotColors = {{0, 130, 200}, {230, 25, 75}, {60, 180, 75}, {245, 130, 48}, {145, 30, 180},
                   {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
@@ -154,222 +160,38 @@ MobiView::MobiView()
 
 
 
-	//Plot mode buttons:
-		
+	//Plot mode buttons and controls:
+	TimestepSlider.Range(10); //To be overwritten later.
+	TimestepSlider.SetData(0);
+	TimestepSlider.Hide();
+	TimestepLabel.Hide();
+	TimestepSlider.WhenAction << THISBACK(PlotModeChange);
+	Profile.SetData(0);
+	Profile.Hide();
+	Profile.WhenAction << THISBACK(PlotModeChange);
+	
+	PlotMajorMode.SetData(0);
+	PlotMajorMode.Disable();
+	PlotMajorMode.WhenAction << THISBACK(PlotModeChange);
+	
+	TimeIntervals.SetData(0);
+	TimeIntervals.Disable();
+	TimeIntervals.WhenAction << THISBACK(PlotModeChange);
+	
+	Aggregation.SetData(0);
+	Aggregation.Disable();
+	Aggregation.WhenAction << THISBACK(PlotModeChange);
+	
+	ScatterInputs.Disable();
 	ScatterInputs.WhenAction << THISBACK(PlotModeChange);
-
+	
+	LogarithmicY.Disable();
+	LogarithmicY.WhenAction << THISBACK(PlotModeChange);
+	
+	NormalizeY.Disable();
+	NormalizeY.WhenAction << THISBACK(PlotModeChange);
 }
 
-void MobiView::RefreshParameterView()
-{
-	ParameterView.Clear();
-	
-	//if(ParameterGroupSelecter.GetSelectCount() <= 0) return;   //Why doesn't this work?
-	
-	Value SelectedGroup = ParameterGroupSelecter.Get(0);
-	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
-	
-	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<char *> IndexSetNames(IndexSetCount);
-	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
-	
-	for(size_t Idx = 0; Idx < 6; ++Idx)
-	{
-		IndexList[Idx]->Disable();
-	}
-	
-	std::vector<std::string> Indexes_String(IndexSetCount);
-	std::vector<char *> Indexes(IndexSetCount);
-	
-	for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-	{
-		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
-		IndexList[Id]->Enable();
-		
-		//Indexes_String[Idx] = IndexList[Id]->GetList().Get(0).ToString().ToStd();
-		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
-		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data(); //NOTE: Have to reverse since GetParameterGroupIndexSets returns in reverse order. May want to fix that!
-	}
-	
-	uint64 ParameterCount = ModelDll.GetAllParametersCount(DataSet, SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<char *> ParameterNames(ParameterCount);
-	std::vector<char *> ParameterTypes(ParameterCount);
-	ModelDll.GetAllParameters(DataSet, ParameterNames.data(), ParameterTypes.data(), SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	ParameterControls.Clear();
-	CurrentParameterTypes.clear();
-	for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
-	{
-		const char *Name = ParameterNames[Idx];
-		const char *Type = ParameterTypes[Idx];
-		
-		Value ParVal;
-		Value ParMin;
-		Value ParMax;
-		Value ParUnit;
-		Value ParDesc;
-		const char *Unit = ModelDll.GetParameterUnit(DataSet, Name);
-		if(Unit) ParUnit = Unit;
-		const char *Description = ModelDll.GetParameterDescription(DataSet, Name);
-		if(Description) ParDesc = Description;
-		
-		if(strcmp(Type, "double") == 0)
-		{
-			ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetCount);
-			double Min, Max;
-			ModelDll.GetParameterDoubleMinMax(DataSet, Name, &Min, &Max);
-			ParMin = Min;
-			ParMax = Max;
-			
-			ParameterControls.Create<EditDoubleNotNull>();
-			CurrentParameterTypes.push_back(ParameterType_Double);
-			
-			if (CheckDllUserError()) return;
-		}
-		else if(strcmp(Type, "uint") == 0)
-		{
-			//TODO: Converting to int potentially loses precision. However Value has no uint64
-			//subtype
-			ParVal = (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetCount);
-			uint64 Min, Max;
-			ModelDll.GetParameterUIntMinMax(DataSet, Name, &Min, &Max);
-			int64 M = (int64)Max;
-			if(M < 0) M = INT64_MAX; //Stupid stopgap. We should do this better and actually display uint64's.
-			ParMin = (int64)Min;
-			ParMax = M;
-			
-			ParameterControls.Create<EditInt64NotNull>();
-			CurrentParameterTypes.push_back(ParameterType_UInt);
-			
-			if (CheckDllUserError()) return;
-		}
-		else if(strcmp(Type, "bool") == 0)
-		{
-			ParVal = ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetCount);
-			if(CheckDllUserError()) return;
-			
-			ParameterControls.Create<Option>();
-			CurrentParameterTypes.push_back(ParameterType_Bool);
-		}
-		else if(strcmp(Type, "time") == 0)
-		{
-			char TimeVal[256];
-			ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
-			Date D;
-			StrToDate(D, TimeVal); //Error handling? But should not be necessary.
-			ParVal = D;
-			
-			ParameterControls.Create<EditDateNotNull>();
-			CurrentParameterTypes.push_back(ParameterType_Time);
-		}
-		ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
-		ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
-		ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx); };
-	}
-}
-
-
-void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row)
-{
-	if(Level == IndexSetNames.size())
-	{
-		//Do the actual update.
-		size_t IndexCount = CurrentIndexes.size();
-		std::vector<char *> Indexes(IndexCount);
-		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
-		{
-			Indexes[IndexCount - Idx - 1] = (char *)CurrentIndexes[Idx].data(); //NOTE: Have to do the reversing since the GetParameterGroupIndexSets returns them in "reverse order". We may want to fix that..
-		}
-		
-		std::string Name = ParameterView.Get(Row, 0).ToString().ToStd();
-		parameter_type Type = CurrentParameterTypes[Row];
-		
-		switch(Type)
-		{
-			case ParameterType_Double:
-			{
-				double V = ParameterView.Get(1);
-				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
-			} break;
-			
-			case ParameterType_UInt:
-			{
-				int64 V = ParameterView.Get(1);
-				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
-			} break;
-			
-			case ParameterType_Bool:
-			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
-				bool V = (bool)((Option*)ctrl)->Get();
-				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
-			} break;
-			
-			case ParameterType_Time:
-			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
-				Date D = ((EditDateNotNull*)ctrl)->GetData();
-				std::string V = Format(D).ToStd();
-				ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
-			} break;
-		}
-		CheckDllUserError();
-	}
-	else
-	{
-		const char *IndexSetName = IndexSetNames[Level];
-		size_t Id = IndexSetNameToId[IndexSetName];
-		
-		if(IndexLock[Id]->Get())
-		{
-			size_t IndexCount = ModelDll.GetIndexCount(DataSet, IndexSetName);
-			std::vector<char *> IndexNames(IndexCount);
-			ModelDll.GetIndexes(DataSet, IndexSetName, IndexNames.data());
-			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
-			{
-				CurrentIndexes[Level] = IndexNames[Idx];
-				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
-			}
-		}
-		else
-		{
-			CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
-			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
-		}
-	}
-}
-
-
-void MobiView::ParameterEditAccepted(int Row)
-{
-	//TODO: High degree of copypaste from above. Factor this out.
-	Value SelectedGroup = ParameterGroupSelecter.Get(0);
-	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
-	
-	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<char *> IndexSetNames(IndexSetCount);
-	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
-	
-	std::vector<std::string> CurrentIndexes(IndexSetCount);
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row);
-}
-
-void MobiView::SaveParameters()
-{
-	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size()) return;
-	//TODO: Want both save and "save as"?
-	//TODO: Mechanism for determining if there has actually been edits that need to be saved.
-	//TODO: Maybe also a "do you really want to overwrite <filename>".
-	ModelDll.WriteParametersToFile(DataSet, CurrentParameterFile.data());
-	CheckDllUserError();
-}
 
 void MobiView::Load()
 {
@@ -457,6 +279,11 @@ void MobiView::Load()
 		InputSelecter.Add(InputNames[Idx]);
 	}
 	
+	PlotMajorMode.Enable();
+	ScatterInputs.Enable();
+	LogarithmicY.Enable();
+	NormalizeY.Enable();
+	TimeIntervals.Enable();
 	
 	
 	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
@@ -511,234 +338,6 @@ void MobiView::Load()
 		MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
 	}
 	
-}
-
-void MobiView::RunModel()
-{
-	if(!hinstModelDll || !ModelDll.RunModel) return;
-	
-	ModelDll.RunModel(DataSet);
-	
-	PlotModeChange(); //NOTE: This is to refresh the plot if necessary.
-}
-
-void MobiView::PlotModeChange()
-{
-	
-	//TODO: This could be more fine grained. We don't have to update the index list every time.
-	
-	for(size_t Idx = 0; Idx < 6; ++Idx)
-	{
-		EIndexList[Idx]->Disable();
-	}
-	
-	int RowCount = InputSelecter.GetCount();
-	int CursorRow = InputSelecter.GetCursor();
-	
-	for(int Row = 0; Row < RowCount; ++Row)
-	{
-		if(InputSelecter.IsSelected(Row) || Row == CursorRow) //Ugh. does not work properly when you deselect!
-		{
-			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
-			
-			uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
-			std::vector<char *> IndexSets(IndexSetCount);
-			ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
-			
-			for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-			{
-				const char *IndexSet = IndexSets[Idx];
-				size_t Id = IndexSetNameToId[IndexSet];
-				EIndexList[Id]->Enable();
-			}
-		}
-	}
-	
-	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
-	if(Timesteps != 0)
-	{
-		int RowCount = EquationSelecter.GetCount();
-		int CursorRow = EquationSelecter.GetCursor();
-		
-		for(int Row = 0; Row < RowCount; ++Row)
-		{
-			if(EquationSelecter.IsSelected(Row) || Row == CursorRow) //Ugh. does not work properly when you deselect!
-			{
-				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
-				
-				uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
-				std::vector<char *> IndexSets(IndexSetCount);
-				ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
-				
-				for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-				{
-					const char *IndexSet = IndexSets[Idx];
-					size_t Id = IndexSetNameToId[IndexSet];
-					EIndexList[Id]->Enable();
-				}
-			}
-		}
-	}
-	
-	RePlot();
-}
-
-
-void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, double Offset)
-{
-	if(Level == IndexSets.size())
-	{
-		std::vector<char *> Indexes(CurrentIndexes.size());
-		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-		{
-			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
-		}
-		char **IndexData = Indexes.data();
-		if(CurrentIndexes.size() == 0) IndexData = nullptr;
-		
-		
-		//TODO: Better way to do this: ?
-		PlotData.push_back({});
-		PlotData[PlotIdx].resize(Timesteps);
-		
-		if(Mode == 0)
-		{
-			ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data());
-		}
-		else if(Mode == 1)
-		{
-			ModelDll.GetInputSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data(), false);
-		}
-		if(CheckDllUserError()) return;
-		
-		double *Data = PlotData[PlotIdx].data();
-		int Len = (int)PlotData[PlotIdx].size();
-		
-		int ColorIdx = PlotIdx % PlotColors.size();
-		
-		String Legend = Name.data();
-		if(CurrentIndexes.size() > 0)
-		{
-			Legend << " {";
-			for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-			{
-				Legend << CurrentIndexes[Idx].data();
-				if(Idx < CurrentIndexes.size()-1) Legend << ", ";
-			}
-			Legend << "}";
-		}
-		
-		auto &Graph = Plot.AddSeries(Data, Len, Offset, 1).Stroke(1.0, PlotColors[ColorIdx]).Legend(Legend);
-		
-		if(ScatterInputs.Get() && Mode == 1)
-		{
-			//TODO: Styles 4-5 are whacked when fill color is white.
-			Graph.MarkColor(Color(255,255,255)).MarkBorderColor(PlotColors[ColorIdx]);
-		}
-		else
-		{
-			Graph.NoMark();
-		}
-		
-		++PlotIdx;
-	}
-	else
-	{
-		char *IndexSetName = IndexSets[Level];
-		size_t Id = IndexSetNameToId[IndexSetName];
-		
-		int RowCount = EIndexList[Id]->GetCount();
-		int CursorRow = EIndexList[Id]->GetCursor();
-		
-		for(int Row = 0; Row < RowCount; ++Row)
-		{
-			if(EIndexList[Id]->IsSelected(Row) || Row == CursorRow)
-			{
-				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
-				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, PlotIdx, Timesteps, Offset);
-			}
-		}
-	}
-}
-
-void MobiView::RePlot()
-{
-	if(!EquationSelecter.IsSelection() && !InputSelecter.IsSelection()) return;
-	
-	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series, but I doubt it will be necessary.
-	PlotData.clear();
-	
-	int PlotIdx = 0;
-	
-	char DateStr[256];
-	ModelDll.GetStartDate(DataSet, DateStr);
-	Date ResultStartDate;
-	StrToDate(ResultStartDate, DateStr);
-
-	ModelDll.GetInputStartDate(DataSet, DateStr);
-	Date InputStartDate;
-	StrToDate(InputStartDate, DateStr);
-
-	double ResultOffset = (double)(ResultStartDate - InputStartDate);
-	
-	uint64 ResultTimesteps = ModelDll.GetTimesteps(DataSet);
-	if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. TODO: Maybe print a warning that the model has not been run?
-	{
-		int RowCount = EquationSelecter.GetCount();
-		int CursorRow = EquationSelecter.GetCursor();
-		
-		for(int Row = 0; Row < RowCount; ++Row)
-		{
-			if(EquationSelecter.IsSelected(Row) || Row == CursorRow) //Not ideal way to do it :(
-			{
-				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
-				
-				uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
-				std::vector<char *> IndexSets(IndexSetCount);
-				ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
-				if(CheckDllUserError()) return;
-				
-				std::vector<std::string> CurrentIndexes(IndexSets.size());
-				AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, PlotIdx, ResultTimesteps, ResultOffset);
-			}
-		}
-	}
-	
-	int RowCount = InputSelecter.GetCount();
-	int CursorRow = InputSelecter.GetCursor();
-	
-	uint64 InputTimesteps = ModelDll.GetInputTimesteps(DataSet);
-	
-	for(int Row = 0; Row < RowCount; ++Row)
-	{
-		if(InputSelecter.IsSelected(Row) || Row == CursorRow) //Not ideal way to do it :(
-		{
-			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
-			
-			uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
-			std::vector<char *> IndexSets(IndexSetCount);
-			ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
-			if(CheckDllUserError()) return;
-			
-			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, PlotIdx, InputTimesteps, 0.0);
-		}
-	}
-	
-	
-	if(PlotIdx > 0)
-	{
-		Plot.ZoomToFit(true, true);
-		
-		Plot.cbModifFormatX.Clear();
-		Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
-		{
-			Date D2 = InputStartDate + (int)d;
-			s = Format(D2);
-		};
-	}
-	
-	Plot.Refresh();
 }
 
 GUI_APP_MAIN

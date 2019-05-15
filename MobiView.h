@@ -43,6 +43,9 @@ parameter_type ParseParameterType(const char *Name)
 	return Type;
 }
 
+
+#define MAX_INDEX_SETS 6
+
 class MobiView : public WithMobiViewLayout<TopWindow> {
 public:
 	typedef MobiView CLASSNAME;
@@ -57,8 +60,13 @@ public:
 	void RunModel();
 	
 	void PlotModeChange();
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, double ResultOffset);
+	void AddPlot(String &Legend, int PlotIdx, double *Data, int Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate);
+	void AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len);
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
 	void RePlot();
+	
+	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, double *WriteTo);
+	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, double *WriteTo, bool AlignWithResults);
 	
 	void RefreshParameterView();
 	
@@ -77,14 +85,18 @@ private:
 	std::string CurrentParameterFile;
 	
 	
-	Label    *IndexSetName[6]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
-	DropList *IndexList[6];
-	Option   *IndexLock[6];
-	ArrayCtrl *EIndexList[6];
+	Label    *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
+	DropList *IndexList[MAX_INDEX_SETS];
+	Option   *IndexLock[MAX_INDEX_SETS];
+	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	
 	std::map<std::string, size_t> IndexSetNameToId;
 	
 	std::vector<std::vector<double>> PlotData; //TODO: Better caching system
+	std::vector<std::vector<double>> AggregateX;
+	std::vector<std::vector<double>> AggregateY;
+	bool PlotWasAutoResized = false;
+	
 	
 	void *DataSet;
 	

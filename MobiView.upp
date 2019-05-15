@@ -5,6 +5,8 @@ uses
 file
 	DllInterface.h,
 	MobiView.h,
+	ParameterEditing.h,
+	Plotting.h,
 	main.cpp,
 	MobiView.lay,
 	images.iml;
