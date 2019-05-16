@@ -215,7 +215,23 @@ void MobiView::SaveParameters()
 	CheckDllUserError();
 }
 
-
+void MobiView::SaveParametersAs()
+{
+	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size()) return;
+	
+	FileSel Sel;
+	Sel.Type("Parameter dat files", "*.dat");
+	String ParameterFile = CurrentParameterFile.data();
+	Sel.PreSelect(ParameterFile);
+	Sel.ExecuteSaveAs("Save parameters as");
+	
+	std::string NewFile = Sel.Get().ToStd();
+	if(NewFile.size())
+	{
+		ModelDll.WriteParametersToFile(DataSet, NewFile.data());
+		CurrentParameterFile = NewFile;
+	}
+}
 
 
 #endif

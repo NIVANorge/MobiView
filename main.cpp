@@ -9,6 +9,13 @@
 #include "ParameterEditing.h"
 #include "Plotting.h"
 
+
+void MobiView::Log(String Msg)
+{
+	LogBox.Append(Msg);
+}
+
+
 void MobiView::HandleDllError()
 {
 	LPVOID lpMsgBuf;
@@ -25,7 +32,8 @@ void MobiView::HandleDllError()
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-	LogBox.Set(String((char *)lpMsgBuf));
+	
+	Log(String((char *)lpMsgBuf));
 
     LocalFree(lpMsgBuf);
 }
@@ -39,7 +47,7 @@ bool MobiView::CheckDllUserError()
 		
 		if(ErrCode != 0)
 		{
-			LogBox.Set(String(ErrMsgBuf)); //TODO: Proper logging
+			Log(String(ErrMsgBuf));
 			return true;
 		}
 	}
@@ -50,8 +58,11 @@ void MobiView::SubBar(Bar &bar)
 {
 	bar.Add(IconImg::Open(), THISBACK(Load)).Tip("Load model, parameter and input files").Key(K_CTRL_O);
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
+	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
+	bar.Separator();
+	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 }
 
 MobiView::MobiView()
@@ -67,17 +78,16 @@ MobiView::MobiView()
 	Sizeable();
 	
 	EquationSelecter.AddColumn("Equation");
-	EquationSelecter.MultiSelect();
 	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
+	EquationSelecter.MultiSelect();
 	EquationSelecter.Disable();
 	
 	InputSelecter.AddColumn("Input");
-	InputSelecter.MultiSelect();
 	InputSelecter.WhenSel = THISBACK(PlotModeChange);
+	InputSelecter.MultiSelect();
 	
 	ParameterGroupSelecter.AddColumn("Parameter group");
 	
-	//ParameterView.NoCursor();  //Don't highlight selected row
 	HeaderCtrl::Column& NameCol  = ParameterView.AddColumn("Name").HeaderTab();
 	HeaderCtrl::Column& ValueCol = ParameterView.AddColumn("Value").HeaderTab();
 	HeaderCtrl::Column& MinCol   = ParameterView.AddColumn("Min").HeaderTab();
@@ -97,7 +107,7 @@ MobiView::MobiView()
 	ParameterView.HeaderObject().ShowTab(0, false);
 	ParameterView.HeaderObject().ShowTab(0, true);
 	
-	ParameterView.NoCursor();
+	//ParameterView.NoCursor();
 	
 	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
 	
@@ -154,6 +164,8 @@ MobiView::MobiView()
 	Plot.SetSequentialXAll(true);
 	Plot.SetMouseHandling(true, false);
 	
+	Plot.SetPlotAreaLeftMargin(50);
+	
 	PlotColors = {{0, 130, 200}, {230, 25, 75}, {60, 180, 75}, {245, 130, 48}, {145, 30, 180},
                   {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
                   {170, 110, 40}, {128, 0, 0}, {170, 255, 195}, {128, 128, 0}, {255, 215, 180}, {0, 0, 128}, {255, 225, 25}};
@@ -165,10 +177,7 @@ MobiView::MobiView()
 	TimestepSlider.SetData(0);
 	TimestepSlider.Hide();
 	TimestepLabel.Hide();
-	TimestepSlider.WhenAction << THISBACK(PlotModeChange);
-	Profile.SetData(0);
-	Profile.Hide();
-	Profile.WhenAction << THISBACK(PlotModeChange);
+	TimestepSlider.WhenAction << THISBACK(ReplotProfile);
 	
 	PlotMajorMode.SetData(0);
 	PlotMajorMode.Disable();
@@ -237,7 +246,7 @@ void MobiView::Load()
 	if(!Success) return;
 	
 	FileSel ParameterSel;
-	ParameterSel.Type("Input dat files", "*.dat");
+	ParameterSel.Type("Parameter dat files", "*.dat");
 #if defined(MAGNUSDEV)
 	ParameterSel.PreSelect("C:/Users/Magnus/Documents/Mobius/Applications/Persist/persist_params_Tarland.dat");
 #endif
@@ -280,6 +289,7 @@ void MobiView::Load()
 	}
 	
 	PlotMajorMode.Enable();
+	PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 	ScatterInputs.Enable();
 	LogarithmicY.Enable();
 	NormalizeY.Enable();
@@ -339,6 +349,24 @@ void MobiView::Load()
 	}
 	
 }
+
+void MobiView::SaveBaseline()
+{
+	if(hinstModelDll && DataSet && ModelDll.GetTimesteps && ModelDll.GetTimesteps(DataSet) != 0)
+	{
+		//TODO: Ask if we really want to overwrite existing baseline?
+		if(BaselineDataSet)
+		{
+			ModelDll.DeleteDataSet(BaselineDataSet);
+		}
+		
+		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
+		PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
+		
+		RePlot(); //In case we had selected baseline already, and now the baseline changed.
+	}
+}
+
 
 GUI_APP_MAIN
 {

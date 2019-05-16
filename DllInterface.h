@@ -3,6 +3,8 @@
 
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
+typedef void * (__cdecl *CopyDataSet_t)(void *DataSetPtr, bool CopyResults);
+typedef void * (__cdecl *DeleteDataSet_t)(void *DataSetPtr);
 typedef int    (__cdecl *EncounteredError_t)(char *Errmsgout);
 typedef uint64 (__cdecl *GetTimesteps_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetStartDate_t)(void *DataSetPtr, char *DateOut);
@@ -46,6 +48,8 @@ struct model_dll_interface
 {
 	SetupModel_t         SetupModel;
 	RunModel_t           RunModel;
+	CopyDataSet_t        CopyDataSet;
+	DeleteDataSet_t      DeleteDataSet;
 	EncounteredError_t   EncounteredError;
 	GetTimesteps_t       GetTimesteps;
 	GetStartDate_t       GetStartDate;
@@ -91,6 +95,8 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->SetupModel =         (SetupModel_t)        GetProcAddress(hinstanceDll, "DllSetupModel");
 	Model->EncounteredError =   (EncounteredError_t)  GetProcAddress(hinstanceDll, "DllEncounteredError");
 	Model->RunModel =           (RunModel_t)          GetProcAddress(hinstanceDll, "DllRunModel");
+	Model->CopyDataSet =        (CopyDataSet_t)       GetProcAddress(hinstanceDll, "DllCopyDataSet");
+	Model->DeleteDataSet =      (DeleteDataSet_t)     GetProcAddress(hinstanceDll, "DllDeleteDataSet");
 	Model->GetTimesteps =       (GetTimesteps_t)      GetProcAddress(hinstanceDll, "DllGetTimesteps");
 	Model->GetStartDate =       (GetStartDate_t)      GetProcAddress(hinstanceDll, "DllGetStartDate");
 	Model->GetInputTimesteps =  (GetInputTimesteps_t) GetProcAddress(hinstanceDll, "DllGetInputTimesteps");
