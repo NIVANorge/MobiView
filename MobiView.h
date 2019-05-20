@@ -49,6 +49,7 @@ struct timeseries_stats
 	double Min;
 	double Max;
 	double Sum;
+	double Median;
 	double Mean;
 	double Variance;
 	double StandardDeviation;
@@ -101,6 +102,9 @@ public:
 	void AddPlot(String &Legend, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
 	void AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
+	
+	void TimestepSliderEvent();
+	void TimestepEditEvent();
 	void ReplotProfile();
 	
 	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
@@ -110,12 +114,16 @@ public:
 	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, double *WriteTo, bool AlignWithResults);
 	
 	void GetSingleResultSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
+	void GetSingleInputSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
 	
 	
 	void RefreshParameterView();
 	
 	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row);
 	void ParameterEditAccepted(int Row);
+	
+	
+	void NullifyNans(double *Data, size_t Len);
 	
 	
 	
@@ -152,7 +160,7 @@ private:
 	
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
-	
+	Date CurrentStartDate; //NOTE: Only currently used when in profile mode.
 	
 	void *DataSet = nullptr;
 	void *BaselineDataSet = nullptr;

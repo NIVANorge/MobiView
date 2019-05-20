@@ -37,6 +37,6 @@ LAYOUT(MobiViewLayout, 1196, 880)
 	ITEM(Switch, Aggregation, SetLabel(t_("Mean\nSum")).LeftPosZ(764, 60).TopPosZ(800, 48))
 	ITEM(Switch, PlotMajorMode, SetLabel(t_("Regular\nHistogram\nProfile\nCompare baseline\nResiduals\nResidual histogram")).LeftPosZ(584, 108).TopPosZ(740, 108))
 	ITEM(SliderCtrl, TimestepSlider, LeftPosZ(8, 684).TopPosZ(716, 24))
-	ITEM(Label, TimestepLabel, SetLabel(t_("Timestep:")).LeftPosZ(696, 140).TopPosZ(716, 19))
+	ITEM(EditDateNotNull, TimestepEdit, LeftPosZ(700, 84).TopPosZ(716, 19))
 END_LAYOUT
 

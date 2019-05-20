@@ -2,6 +2,7 @@
 #include "DllInterface.h"
 
 #include <vector>
+#include <iomanip>
 //#include <iostream> //TODO: Remove. Just used for debugging now and then
 
 #define MAGNUSDEV
@@ -12,7 +13,16 @@
 
 void MobiView::Log(String Msg)
 {
-	LogBox.Append(Msg);
+	auto T = std::time(nullptr);
+	auto TM = *std::localtime(&T);
+	std::stringstream Oss;
+	Oss << std::put_time(&TM, "%H:%M:%S : ");
+	
+	String FormatMsg = "";
+	FormatMsg << Oss.str().data();
+	FormatMsg << Msg;
+	FormatMsg << "\n";
+	LogBox.Append(FormatMsg);
 }
 
 
@@ -176,8 +186,9 @@ MobiView::MobiView()
 	TimestepSlider.Range(10); //To be overwritten later.
 	TimestepSlider.SetData(0);
 	TimestepSlider.Hide();
-	TimestepLabel.Hide();
-	TimestepSlider.WhenAction << THISBACK(ReplotProfile);
+	TimestepEdit.Hide();
+	TimestepSlider.WhenAction << THISBACK(TimestepSliderEvent);
+	TimestepEdit.WhenAction << THISBACK(TimestepEditEvent);
 	
 	PlotMajorMode.SetData(0);
 	PlotMajorMode.Disable();
@@ -230,6 +241,8 @@ void MobiView::Load()
 		HandleDllError();
 		return;
 	}
+	
+	Log(String("Loading model dll: " << DllFile.data()));
 
 	SetupModelDllInterface(&ModelDll, hinstModelDll);
 
@@ -245,6 +258,8 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
+	Log(String("Loading input file: ") << InputFile.data());
+	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
 #if defined(MAGNUSDEV)
@@ -256,6 +271,8 @@ void MobiView::Load()
 	Success = CurrentParameterFile.size() > 0;
 	
 	if(!Success) return;
+	
+	Log(String("Loading parameter file: ") << CurrentParameterFile.data());
 	
 	DataSet = ModelDll.SetupModel(CurrentParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
@@ -363,7 +380,13 @@ void MobiView::SaveBaseline()
 		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
 		PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
 		
+		Log("Baseline saved");
+		
 		RePlot(); //In case we had selected baseline already, and now the baseline changed.
+	}
+	else
+	{
+		Log("You can only save a baseline after the model has been run once");
 	}
 }
 

@@ -207,17 +207,25 @@ void MobiView::ParameterEditAccepted(int Row)
 
 void MobiView::SaveParameters()
 {
-	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size()) return;
-	//TODO: Want both save and "save as"?
+	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size())
+	{
+		Log("Parameters can only be saved once a model and parameter file is loaded");
+		return;
+	}
 	//TODO: Mechanism for determining if there has actually been edits that need to be saved.
 	//TODO: Maybe also a "do you really want to overwrite <filename>".
 	ModelDll.WriteParametersToFile(DataSet, CurrentParameterFile.data());
+	//TODO log
 	CheckDllUserError();
 }
 
 void MobiView::SaveParametersAs()
 {
-	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size()) return;
+	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !CurrentParameterFile.size())
+	{
+		Log("Parameters can only be saved once a model and parameter file is loaded");
+		return;
+	}
 	
 	FileSel Sel;
 	Sel.Type("Parameter dat files", "*.dat");
@@ -230,6 +238,8 @@ void MobiView::SaveParametersAs()
 	{
 		ModelDll.WriteParametersToFile(DataSet, NewFile.data());
 		CurrentParameterFile = NewFile;
+		//TODO log
+		CheckDllUserError();
 	}
 }
 
