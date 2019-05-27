@@ -24,6 +24,8 @@ typedef void   (__cdecl *GetParameterDoubleMinMax_t)(void *DataSetPtr, const cha
 typedef void   (__cdecl *GetParameterUIntMinMax_t)(void *DataSetPtr, const char *Name, uint64 *MinOut, uint64 *MaxOut);
 typedef const char * (__cdecl *GetParameterDescription_t)(void *DataSetPtr, const char *Name);
 typedef const char * (__cdecl *GetParameterUnit_t)(void *DataSetPtr, const char *Name);
+typedef const char * (__cdecl *GetResultUnit_t)(void *DataSetPtr, const char *Name);
+typedef const char * (__cdecl *GetInputUnit_t)(void *DataSetPtr, const char *Name);
 typedef void   (__cdecl *WriteParametersToFile_t)(void *DataSetPtr, const char *Filename);
 typedef uint64 (__cdecl *GetIndexSetsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetIndexSets_t)(void *DataSetPtr, char **NamesOut);
@@ -70,6 +72,8 @@ struct model_dll_interface
 	GetParameterUIntMinMax_t GetParameterUIntMinMax;
 	GetParameterDescription_t GetParameterDescription;
 	GetParameterUnit_t   GetParameterUnit;
+	GetResultUnit_t      GetResultUnit;
+	GetInputUnit_t       GetInputUnit;
 	GetIndexSetsCount_t  GetIndexSetsCount;
 	GetIndexSets_t       GetIndexSets;
 	GetIndexCount_t      GetIndexCount;
@@ -114,7 +118,9 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->GetParameterDoubleMinMax = (GetParameterDoubleMinMax_t)GetProcAddress(hinstanceDll, "DllGetParameterDoubleMinMax");
 	Model->GetParameterUIntMinMax = (GetParameterUIntMinMax_t)GetProcAddress(hinstanceDll, "DllGetParameterUIntMinMax");
 	Model->GetParameterDescription = (GetParameterDescription_t)GetProcAddress(hinstanceDll, "DllGetParameterDescription");
-	Model->GetParameterUnit =   (GetParameterUnit_t)GetProcAddress(hinstanceDll, "DllGetParameterUnit");
+	Model->GetParameterUnit =   (GetParameterUnit_t)  GetProcAddress(hinstanceDll, "DllGetParameterUnit");
+	Model->GetResultUnit =      (GetResultUnit_t)     GetProcAddress(hinstanceDll, "DllGetResultUnit");
+	Model->GetInputUnit =       (GetInputUnit_t)      GetProcAddress(hinstanceDll, "DllGetInputUnit");
 	Model->WriteParametersToFile = (WriteParametersToFile_t)GetProcAddress(hinstanceDll, "DllWriteParametersToFile");
 	Model->GetIndexSetsCount =  (GetIndexSetsCount_t) GetProcAddress(hinstanceDll, "DllGetIndexSetsCount");
 	Model->GetIndexSets =       (GetIndexSets_t)      GetProcAddress(hinstanceDll, "DllGetIndexSets");
@@ -135,7 +141,7 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->GetAllInputsCount  = (GetAllInputsCount_t) GetProcAddress(hinstanceDll, "DllGetAllInputsCount");
 	Model->GetAllInputs       = (GetAllInputs_t)      GetProcAddress(hinstanceDll, "DllGetAllInputs");
 	
-	//TODO: Handle errors if GetProcAddress fails!
+	//TODO: Handle errors if GetProcAddress fails (can happen if e.g. somebody uses an old dll version)!
 	
 }
 

@@ -9,7 +9,7 @@
 
 #include "ParameterEditing.h"
 #include "Plotting.h"
-
+#include "Statistics.h"
 
 void MobiView::Log(String Msg)
 {
@@ -85,15 +85,30 @@ MobiView::MobiView()
 	DataSet = nullptr;
 	
 	CtrlLayout(*this, "MobiView");
-	Sizeable();
+	Sizeable().Zoomable();
 	
-	EquationSelecter.AddColumn("Equation");
-	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
-	EquationSelecter.MultiSelect();
+	//Plot.SizePos();
+	
+	EquationSelecter.VertGrid(false);
 	EquationSelecter.Disable();
+	HeaderCtrl::Column& ENameCol = EquationSelecter.AddColumn("Equation").HeaderTab();
+	HeaderCtrl::Column& EFavCol  = EquationSelecter.AddColumn("F.").HeaderTab();
+	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
+	EquationSelecter.MultiSelect();
+	
+	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
+	
+	ENameCol.SetRatio(0.85);
+	EFavCol.SetRatio(0.15);
+	
+	//NOTE: For some reason the columns don't properly resize unless we do this to make it
+	//update.
+	EquationSelecter.HeaderObject().ShowTab(0, false);
+	EquationSelecter.HeaderObject().ShowTab(0, true);
+	
 	
 	InputSelecter.AddColumn("Input");
-	InputSelecter.WhenSel = THISBACK(PlotModeChange);
+	InputSelecter.WhenAction = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
 	
 	ParameterGroupSelecter.AddColumn("Parameter group");
@@ -157,7 +172,7 @@ MobiView::MobiView()
 		IndexList[Idx]->WhenAction = THISBACK(RefreshParameterView);
 		
 		IndexLock[Idx]->Hide();
-		IndexLock[Idx]->WhenAction = THISBACK(RefreshParameterView);
+		//IndexLock[Idx]->WhenAction = THISBACK(RefreshParameterView);
 		
 		EIndexList[Idx]->Hide();
 		EIndexList[Idx]->Disable();
@@ -205,11 +220,35 @@ MobiView::MobiView()
 	ScatterInputs.Disable();
 	ScatterInputs.WhenAction << THISBACK(PlotModeChange);
 	
-	LogarithmicY.Disable();
-	LogarithmicY.WhenAction << THISBACK(PlotModeChange);
+	YAxisMode.SetData(0);
+	YAxisMode.Disable();
+	YAxisMode.WhenAction << THISBACK(PlotModeChange);
+}
+
+
+
+
+void MobiView::UpdateEquationSelecter()
+{
+	//TODO: The top of the array is weird when row height for some rows is 0.
+	//TODO: Unfavouriting your last selected series does not remove the plot.
 	
-	NormalizeY.Disable();
-	NormalizeY.WhenAction << THISBACK(PlotModeChange);
+	bool ShowFavOnly = ShowFavorites.GetData();
+	
+	for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
+	{
+		if(!ShowFavOnly || EquationSelecter.GetCtrl(Row, 1)->GetData())
+		{
+			EquationSelecter.SetLineCy(Row, Null);
+		}
+		else
+		{
+			EquationSelecter.SetLineCy(Row, 0);
+			EquationSelecter.Select(Row, false, false); //TODO: Should probably think about whether we really want this actually..
+		}
+	}
+	
+	PlotModeChange(); //In order to replot in case the selection changed.
 }
 
 
@@ -242,7 +281,7 @@ void MobiView::Load()
 		return;
 	}
 	
-	Log(String("Loading model dll: " << DllFile.data()));
+	Log(String("Loading model dll: ") + DllFile.data());
 
 	SetupModelDllInterface(&ModelDll, hinstModelDll);
 
@@ -258,7 +297,7 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	Log(String("Loading input file: ") << InputFile.data());
+	Log(String("Loading input file: ") + InputFile.data());
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
@@ -272,7 +311,7 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	Log(String("Loading parameter file: ") << CurrentParameterFile.data());
+	Log(String("Loading parameter file: ") + CurrentParameterFile.data());
 	
 	DataSet = ModelDll.SetupModel(CurrentParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
@@ -284,13 +323,21 @@ void MobiView::Load()
 	ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data());
 	if (CheckDllUserError()) return;
 	
+	int Row = 0;
 	for(size_t Idx = 0; Idx < ResultCount; ++Idx)
 	{
 		if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
 		{
-			EquationSelecter.Add(ResultNames[Idx]);
+			EquationSelecter.Add(ResultNames[Idx], 0);
+			EquationSelecterFavControls.Create<Option>();
+				
+			EquationSelecter.SetCtrl((int)Row, 1, EquationSelecterFavControls.Top());
+			EquationSelecterFavControls.Top().WhenAction = THISBACK(UpdateEquationSelecter);
+			++Row;
 		}
 	}
+	
+	
 	
 	
 	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
@@ -304,13 +351,9 @@ void MobiView::Load()
 	{
 		InputSelecter.Add(InputNames[Idx]);
 	}
-	
+
 	PlotMajorMode.Enable();
 	PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
-	ScatterInputs.Enable();
-	LogarithmicY.Enable();
-	NormalizeY.Enable();
-	TimeIntervals.Enable();
 	
 	
 	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
@@ -357,13 +400,14 @@ void MobiView::Load()
 		}
 		IndexList[IndexSet]->GoBegin();
 		IndexList[IndexSet]->Show();
-		IndexLock[IndexSet]->Show();
 		
 		EIndexList[IndexSet]->GoBegin();
 		EIndexList[IndexSet]->Show();
 		
 		MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
 	}
+	
+	PlotModeChange();
 	
 }
 

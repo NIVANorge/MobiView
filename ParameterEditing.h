@@ -215,8 +215,14 @@ void MobiView::SaveParameters()
 	//TODO: Mechanism for determining if there has actually been edits that need to be saved.
 	//TODO: Maybe also a "do you really want to overwrite <filename>".
 	ModelDll.WriteParametersToFile(DataSet, CurrentParameterFile.data());
-	//TODO log
-	CheckDllUserError();
+	if(CheckDllUserError())
+	{
+		Log("Parameter saving may have been unsuccessful.");
+	}
+	else
+	{
+		Log(String("Parameters saved to ") + CurrentParameterFile.data());
+	}
 }
 
 void MobiView::SaveParametersAs()
@@ -237,9 +243,15 @@ void MobiView::SaveParametersAs()
 	if(NewFile.size())
 	{
 		ModelDll.WriteParametersToFile(DataSet, NewFile.data());
-		CurrentParameterFile = NewFile;
-		//TODO log
-		CheckDllUserError();
+		if(CheckDllUserError())
+		{
+			Log("Parameter saving may have been unsuccessful.");
+		}
+		else
+		{
+			CurrentParameterFile = NewFile;
+			Log(String("Parameters saved to ") + CurrentParameterFile.data());
+		}
 	}
 }
 

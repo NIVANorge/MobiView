@@ -98,8 +98,10 @@ public:
 	void RunModel();
 	void SaveBaseline();
 	
+	void UpdateEquationSelecter();
+	
 	void PlotModeChange();
-	void AddPlot(String &Legend, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
+	void AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
 	void AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
 	
@@ -110,8 +112,8 @@ public:
 	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
 	void RePlot();
 	
-	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, double *WriteTo);
-	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, double *WriteTo, bool AlignWithResults);
+	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo);
+	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
 	
 	void GetSingleResultSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
 	void GetSingleInputSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
@@ -131,7 +133,7 @@ public:
 	void ComputeResidualStats(residual_stats &StatsOut, double *Residuals, double VarObs, size_t Len, Date &StartDate);
 	void ComputeTrendStats(double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 	
-	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name);
+	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit);
 	void DisplayResidualStats(residual_stats &Stats, String &Name);
 	
 private:
@@ -139,6 +141,11 @@ private:
 	
 	Array<Ctrl> ParameterControls;
 	std::vector<parameter_type> CurrentParameterTypes;
+	
+	
+	
+	Array<Ctrl> EquationSelecterFavControls;
+	
 	
 	HINSTANCE hinstModelDll;
 	model_dll_interface ModelDll;

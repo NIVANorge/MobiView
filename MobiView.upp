@@ -6,6 +6,7 @@ file
 	DllInterface.h,
 	MobiView.h,
 	ParameterEditing.h,
+	Statistics.h,
 	Plotting.h,
 	main.cpp,
 	MobiView.lay,
