@@ -6,7 +6,7 @@
 #include <CtrlLib/CtrlLib.h>
 #include <ScatterCtrl/ScatterCtrl.h>
 
-
+#include "StarOption.h"
 
 using namespace Upp;
 
@@ -18,6 +18,8 @@ using namespace Upp;
 #define IMAGECLASS IconImg
 #define IMAGEFILE <MobiView/images.iml>
 #include <Draw/iml.h>
+
+
 #include <vector>
 
 #include "DllInterface.h"
@@ -97,10 +99,13 @@ public:
 	void SaveParametersAs();
 	void RunModel();
 	void SaveBaseline();
+	void StoreSettings();
 	
 	void UpdateEquationSelecter();
 	
 	void PlotModeChange();
+	
+	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
 	void AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
 	void AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
@@ -150,8 +155,6 @@ private:
 	HINSTANCE hinstModelDll;
 	model_dll_interface ModelDll;
 	
-	std::string CurrentParameterFile;
-	
 	
 	Label    *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
 	DropList *IndexList[MAX_INDEX_SETS];
@@ -167,12 +170,19 @@ private:
 	
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
-	Date CurrentStartDate; //NOTE: Only currently used when in profile mode.
+	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
 	
 	void *DataSet = nullptr;
 	void *BaselineDataSet = nullptr;
 	
 	std::vector<Color> PlotColors;
+	
+	
+	
+	
+	std::string DllFile;
+	std::string InputFile;
+	std::string CurrentParameterFile;
 	
 };
 

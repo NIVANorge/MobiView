@@ -8,8 +8,12 @@ file
 	ParameterEditing.h,
 	Statistics.h,
 	Plotting.h,
+	StarOption.cpp,
+	StarOption.h,
 	main.cpp,
 	MobiView.lay,
+	Info.rc,
+	star.iml,
 	images.iml;
 
 mainconfig

@@ -5,17 +5,18 @@ void MobiView::DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, Str
 {
 	String Display = Name + " [" + Unit + "]:\n";
 	
-	Display << "min: " << FormatDouble(Stats.Min, 2) << "\n";
-	Display << "max: " << FormatDouble(Stats.Max, 2) << "\n";
-	Display << "sum: " << FormatDouble(Stats.Sum, 2) << "\n";
-	Display << "mean: " << FormatDouble(Stats.Mean, 2) << "\n";
-	Display << "median: " << FormatDouble(Stats.Median, 2) << "\n";
-	Display << "variance: " << FormatDouble(Stats.Variance, 2) << "\n";
-	Display << "std.dev.: " << FormatDouble(Stats.StandardDeviation, 2) << "\n";
+	Display << "min: "         << FormatDouble(Stats.Min, 2) << "\n";
+	Display << "max: "         << FormatDouble(Stats.Max, 2) << "\n";
+	Display << "sum: "         << FormatDouble(Stats.Sum, 2) << "\n";
+	Display << "mean: "        << FormatDouble(Stats.Mean, 2) << "\n";
+	Display << "median: "      << FormatDouble(Stats.Median, 2) << "\n";
+	Display << "variance: "    << FormatDouble(Stats.Variance, 2) << "\n";
+	Display << "std.dev.: "    << FormatDouble(Stats.StandardDeviation, 2) << "\n";
 	Display << "data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	
 	PlotInfo.Append(Display);
+	PlotInfo.SetCursor(INT64_MAX);
 }
 
 void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
@@ -23,14 +24,15 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	String Display = Name;
 	
 	Display << "\n";
-	Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 2) << "\n";
-	Display << "MAE: " << FormatDouble(Stats.MeanAbsoluteError, 2) << "\n";
-	Display << "RMSE: " << FormatDouble(Stats.RootMeanSquareError, 2) << "\n";
-	Display << "N-S: " << FormatDouble(Stats.NashSutcliffe, 2) << "\n";
+	Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 3) << "\n";
+	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 3) << "\n";
+	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 3) << "\n";
+	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 3) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	
 	PlotInfo.Append(Display);
+	PlotInfo.SetCursor(INT64_MAX);
 }
 
 

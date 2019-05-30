@@ -1,4 +1,4 @@
-LAYOUT(MobiViewLayout, 1196, 880)
+LAYOUT(MobiViewLayout, 1192, 812)
 	ITEM(DocEdit, PlotInfo, SetEditable(false).RightPosZ(184, 168).TopPosZ(8, 332))
 	ITEM(DocEdit, LogBox, SetEditable(false).RightPosZ(12, 168).TopPosZ(8, 332))
 	ITEM(ArrayCtrl, EquationSelecter, RightPosZ(184, 168).VSizePosZ(348, 32))

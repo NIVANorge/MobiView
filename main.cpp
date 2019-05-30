@@ -3,9 +3,6 @@
 
 #include <vector>
 #include <iomanip>
-//#include <iostream> //TODO: Remove. Just used for debugging now and then
-
-#define MAGNUSDEV
 
 #include "ParameterEditing.h"
 #include "Plotting.h"
@@ -21,8 +18,9 @@ void MobiView::Log(String Msg)
 	String FormatMsg = "";
 	FormatMsg << Oss.str().data();
 	FormatMsg << Msg;
-	FormatMsg << "\n";
+	FormatMsg << "\n\n";
 	LogBox.Append(FormatMsg);
+	LogBox.SetCursor(INT64_MAX);
 }
 
 
@@ -90,6 +88,7 @@ MobiView::MobiView()
 	//Plot.SizePos();
 	
 	EquationSelecter.VertGrid(false);
+	EquationSelecter.HorzGrid(false);
 	EquationSelecter.Disable();
 	HeaderCtrl::Column& ENameCol = EquationSelecter.AddColumn("Equation").HeaderTab();
 	HeaderCtrl::Column& EFavCol  = EquationSelecter.AddColumn("F.").HeaderTab();
@@ -106,6 +105,8 @@ MobiView::MobiView()
 	EquationSelecter.HeaderObject().ShowTab(0, false);
 	EquationSelecter.HeaderObject().ShowTab(0, true);
 	
+	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
+	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
@@ -249,19 +250,83 @@ void MobiView::UpdateEquationSelecter()
 	}
 	
 	PlotModeChange(); //In order to replot in case the selection changed.
+	
+	StoreSettings();
+}
+
+
+
+void MobiView::StoreSettings()
+{
+	String SettingsFile = LoadFile(GetDataFile("settings.json"));
+	Value ExistingSettings = ParseJSON(SettingsFile);
+	
+	ValueMap Eq = ExistingSettings["Favorite equations"];
+	
+	Json SettingsJson;
+	
+	SettingsJson
+		("Model dll path", String(DllFile))
+		("Parameter file path", String(CurrentParameterFile))
+		("Input file path", String(InputFile));
+	
+	Json Favorites;
+	
+	String DllFileName = GetFileName(DllFile.data());
+	
+	for(const auto &K : Eq.GetKeys())
+	{
+		if(K != DllFileName)
+		{
+			Favorites(K.ToString(), Eq[K]);
+		}
+	}
+	
+	JsonArray FavForCurrent;
+	for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
+	{
+		if(EquationSelecter.Get(Row, 1)) //I.e. if it was favorited
+		{
+			FavForCurrent << EquationSelecter.Get(Row, 0);
+		}
+	}
+	Favorites(DllFileName, FavForCurrent);
+	
+	SettingsJson("Favorite equations", Favorites);
+	
+	SaveFile("settings.json", SettingsJson.ToString());
+	
 }
 
 
 void MobiView::Load()
 {
-	std::string DllFile;
-	std::string InputFile;
+	if(hinstModelDll)
+	{
+		Log("Sorry! Can't currently reload when you have already loaded. Complain to Magnus!");
+		return;
+	}
+	
+	
+	//TODO: We should probably break up loading of model, parameter and input files into separate steps.
+	
+	
+	String PreviouslyLoadedModel;
+	String PreviouslyLoadedParameterFile;
+	String PreviouslyLoadedInputFile;
+	
+	String SettingsFile = LoadFile(GetDataFile("settings.json"));
+	Value SettingsJson = ParseJSON(SettingsFile);
+	PreviouslyLoadedModel = SettingsJson["Model dll path"];
+	PreviouslyLoadedParameterFile = SettingsJson["Parameter file path"];
+	PreviouslyLoadedInputFile = SettingsJson["Input file path"];
 	
 	FileSel DllSel;
 	DllSel.Type("Model dll files", "*.dll");
-#if defined(MAGNUSDEV)
-	DllSel.PreSelect("C:/Users/Magnus/Documents/Mobius/PythonWrapper/PERSiST/persist.dll");
-#endif
+	if(!PreviouslyLoadedModel.IsEmpty())
+	{
+		DllSel.PreSelect(PreviouslyLoadedModel);
+	}
 	DllSel.ExecuteOpen();
 	DllFile = DllSel.Get().ToStd();
 	
@@ -287,9 +352,10 @@ void MobiView::Load()
 
 	FileSel InputSel;
 	InputSel.Type("Input dat files", "*.dat");
-#if defined(MAGNUSDEV)
-	InputSel.PreSelect("C:/Users/Magnus/Documents/Mobius/Applications/Persist/persist_inputs_Tarland.dat");
-#endif
+	if(!PreviouslyLoadedInputFile.IsEmpty())
+	{
+		InputSel.PreSelect(PreviouslyLoadedInputFile);
+	}
 	InputSel.ExecuteOpen();
 	InputFile = InputSel.Get().ToStd();
 	
@@ -301,9 +367,10 @@ void MobiView::Load()
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
-#if defined(MAGNUSDEV)
-	ParameterSel.PreSelect("C:/Users/Magnus/Documents/Mobius/Applications/Persist/persist_params_Tarland.dat");
-#endif
+	if(!PreviouslyLoadedParameterFile.IsEmpty())
+	{
+		ParameterSel.PreSelect(PreviouslyLoadedParameterFile);
+	}
 	ParameterSel.ExecuteOpen();
 	CurrentParameterFile = ParameterSel.Get().ToStd();
 	
@@ -315,6 +382,14 @@ void MobiView::Load()
 	
 	DataSet = ModelDll.SetupModel(CurrentParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
+	
+	
+	
+	
+	String DllFileName = GetFileName(DllFile.data());
+	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
+	
+	//PromptOK(FavoriteList.ToString());
 	
 	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet);
 	if (CheckDllUserError()) return;
@@ -328,16 +403,19 @@ void MobiView::Load()
 	{
 		if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
 		{
-			EquationSelecter.Add(ResultNames[Idx], 0);
-			EquationSelecterFavControls.Create<Option>();
-				
-			EquationSelecter.SetCtrl((int)Row, 1, EquationSelecterFavControls.Top());
-			EquationSelecterFavControls.Top().WhenAction = THISBACK(UpdateEquationSelecter);
+			String Name = ResultNames[Idx];
+			
+			int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
+			
+			EquationSelecter.Add(ResultNames[Idx], IsFavorite);
+			EquationSelecterFavControls.Create<StarOption>();
+			Ctrl &Favorite = EquationSelecterFavControls.Top();
+			
+			EquationSelecter.SetCtrl((int)Row, 1, Favorite);
+			Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
 			++Row;
 		}
 	}
-	
-	
 	
 	
 	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
@@ -409,6 +487,7 @@ void MobiView::Load()
 	
 	PlotModeChange();
 	
+	StoreSettings();
 }
 
 void MobiView::SaveBaseline()

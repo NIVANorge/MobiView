@@ -1,0 +1,11 @@
+{
+	"Model dll path" :      "C:/Users/Magnus/Documents/Mobius/PythonWrapper/PERSiST/persist.dll",
+	"Parameter file path" : "C:/Users/Magnus/Documents/Mobius/Applications/Persist/persist_params_Tarland.dat",
+	"Input file path" :     "C:/Users/Magnus/Documents/Mobius/Applications/Persist/persist_inputs_Tarland.dat",
+	"Favorite equations" : {
+		"persist.dll" : [
+			"Reach flow",
+			"Reach volume"
+		]
+	}
+}

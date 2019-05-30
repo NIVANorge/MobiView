@@ -7,7 +7,11 @@
 
 void MobiView::RunModel()
 {
-	if(!hinstModelDll || !ModelDll.RunModel) return;
+	if(!hinstModelDll || !ModelDll.RunModel)
+	{
+		Log("Model can only be run once a model has been loaded along with a parameter and input file!");
+		return;
+	}
 	
 	auto Begin = std::chrono::high_resolution_clock::now();
 	ModelDll.RunModel(DataSet);
@@ -16,7 +20,7 @@ void MobiView::RunModel()
 	
 	EquationSelecter.Enable();
 	
-	PlotModeChange(); //NOTE: This is to refresh the plot if necessary.
+	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
 	
 	Log(String("Model was run.\nDuration: ") << Ms << " ms.");
 }
@@ -26,7 +30,7 @@ void MobiView::RunModel()
 void MobiView::PlotModeChange()
 {
 	
-	//TODO: This is called twice on every selection. We should maybe find a way to guard
+	//TODO: This is called twice on every selection of an input or equation. We should maybe find a way to guard
 	//against doing all the work when the state has not changed. But that is tricky..
 	
 	
@@ -55,6 +59,7 @@ void MobiView::PlotModeChange()
 	{
 		TimestepSlider.Show();
 		TimestepEdit.Show();
+		TimeIntervals.Enable();
 	}
 	
 	if(TimeIntervals.IsEnabled())
@@ -68,6 +73,7 @@ void MobiView::PlotModeChange()
 		{
 			Aggregation.Enable();
 			YAxisMode.Disable();
+			TimestepEdit.Disable();
 		}
 	}
 	else
@@ -86,7 +92,7 @@ void MobiView::PlotModeChange()
 	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		if(InputSelecter.IsSelected(Row)) //Ugh. does not work properly when you ctrl-click!
+		if(InputSelecter.IsSelected(Row))
 		{
 			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
 			
@@ -110,7 +116,7 @@ void MobiView::PlotModeChange()
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(EquationSelecter.IsSelected(Row)) //Ugh. does not work properly when you ctrl-click!
+			if(EquationSelecter.IsSelected(Row))
 			{
 				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
 				
@@ -196,6 +202,58 @@ void MobiView::AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Le
 }
 
 
+void MobiView::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
+{
+	double CurrentAggregate = 0.0;
+	int    CurrentCount = 0;
+	Date CurrentDate = StartDate;
+	int CurrentTimestep = 0;
+	
+	while(CurrentTimestep < Timesteps)
+	{
+		double Val = Data[CurrentTimestep];
+		if(std::isfinite(Val) && !IsNull(Val))
+		{
+			CurrentAggregate += Val;
+			++CurrentCount;
+		}
+		
+		++CurrentTimestep;
+		Date NextDate = CurrentDate+1;
+		
+		bool PushAggregate = (CurrentTimestep == Timesteps-1) || (NextDate.year != CurrentDate.year);
+		if(IntervalType == 1)
+		{
+			PushAggregate = PushAggregate || (NextDate.month != CurrentDate.month);
+		}
+		if(PushAggregate)
+		{
+			double YVal = CurrentAggregate;
+			if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation mode is 'mean', else we actually wanted the sum.
+			YValues.push_back(YVal);
+			
+			//TODO: Is it better to put it at the beginning of the year/month or the middle?
+			Date Beginning = CurrentDate;
+			Beginning.day = 0;
+			if(IntervalType == 2) Beginning.month = 0;
+			double XVal = (double)(Beginning - ReferenceDate);
+			
+			//NOTE put the X position roughly in the middle of the respective month or year. This
+			//increases clarity in the plot.
+			if(IntervalType == 1) XVal += 15.5;
+			else if(IntervalType == 2) XVal += 182.5;
+			
+			XValues.push_back(XVal);
+			
+			CurrentAggregate = 0.0;
+			CurrentCount = 0;
+		}
+		
+		CurrentDate = NextDate;
+	}
+}
+
+
 void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
 {
 	//TODO: Also implement logarithmic Y axis and normalized Y axis.
@@ -246,55 +304,15 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 		std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
 		std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
 		
-		double CurrentAggregate = 0.0;
-		int    CurrentCount = 0;
-		Date CurrentDate = StartDate;
-		int CurrentTimestep = 0;
-		
-		while(CurrentTimestep < Timesteps)
-		{
-			double Val = Data[CurrentTimestep];
-			if(std::isfinite(Val) && !IsNull(Val))
-			{
-				CurrentAggregate += Val;
-				++CurrentCount;
-			}
-			
-			++CurrentTimestep;
-			Date NextDate = CurrentDate+1;
-			
-			bool PushAggregate = (CurrentTimestep == Timesteps-1) || (NextDate.year != CurrentDate.year);
-			if(IntervalType == 1)
-			{
-				PushAggregate = PushAggregate || (NextDate.month != CurrentDate.month);
-			}
-			if(PushAggregate)
-			{
-				double YVal = CurrentAggregate;
-				if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation mode is 'mean', else we actually wanted the sum.
-				YValues.push_back(YVal);
-				
-				//TODO: Is it better to put it at the beginning of the year/month or the middle?
-				Date Beginning = CurrentDate;
-				Beginning.day = 0;
-				if(IntervalType == 2) Beginning.month = 0;
-				double XVal = (double)(Beginning - ReferenceDate);
-				XValues.push_back(XVal);
-				
-				CurrentAggregate = 0.0;
-				CurrentCount = 0;
-			}
-			
-			CurrentDate = NextDate;
-		}
+		AggregateData(ReferenceDate, StartDate, Timesteps, Data, IntervalType, AggregationType, XValues, YValues);
 		
 		Graph = &Plot.AddSeries(XValues.data(), YValues.data(), XValues.size());
-		Graph->Units(Unit);
 	}
 	
 	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
 	{
 		Graph->Legend(Legend);
+		Graph->Units(Unit);
 		if(Scatter)
 		{
 			//TODO: Styles 4-5 are whacked when fill color is white.
@@ -560,19 +578,18 @@ void MobiView::RePlot()
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
 			Plot.SetTitle(String("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected"));
-			
-			//TimestepSlider.Hide();
-			//TimestepEdit.Hide();
 		}
 		else
 		{
+			
 			size_t IndexCount = EIndexList[ProfileIndexSet]->GetSelectCount();
 			PlotData.resize(IndexCount);
 			
 			ProfileLabels.resize(IndexCount);
 			
-			int Mode = EquationSelecter.GetSelectCount() != 0 ? 0 : 1;
+			int Mode = EquationSelecter.GetSelectCount() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
 			
+			Date CurrentStartDate;
 			size_t Timesteps;
 			if(Mode == 0)
 			{
@@ -588,29 +605,42 @@ void MobiView::RePlot()
 			size_t IdxIdx = 0;
 			int RowCount = EIndexList[ProfileIndexSet]->GetCount();
 			
-			//String LA = "Rows\n";
+			int IntervalType = TimeIntervals.GetData();
+			int AggregationType = Aggregation.GetData();
+			
 			for(int Row = 0; Row < RowCount; ++Row)
 			{
 				if(EIndexList[ProfileIndexSet]->IsSelected(Row))
 				{
-					PlotData[IdxIdx].resize(Timesteps);
+					std::vector<double> RawData(Timesteps);
 					
 					if(Mode == 0)
 					{
-						GetSingleResultSeries(DataSet, PlotData[IdxIdx].data(), ProfileIndexSet, Row);
+						GetSingleResultSeries(DataSet, RawData.data(), ProfileIndexSet, Row);
 					}
 					else
 					{
-						GetSingleInputSeries(DataSet, PlotData[IdxIdx].data(), ProfileIndexSet, Row);
+						GetSingleInputSeries(DataSet, RawData.data(), ProfileIndexSet, Row);
 					}
 					
+					NullifyNans(RawData.data(), RawData.size());
+					
 					ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
-					//LA << Row << "\n";
+					
+					if(IntervalType == 0)
+					{
+						PlotData[IdxIdx] = RawData; //NOTE: vector copy. We should maybe have avoided this.
+					}
+					if(IntervalType == 1 || IntervalType == 2) //Monthly or yearly aggregation
+					{
+						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
+						
+						AggregateData(CurrentStartDate, CurrentStartDate, Timesteps, RawData.data(), IntervalType, AggregationType, XValues, PlotData[IdxIdx]);
+					}
 					
 					++IdxIdx;
 				}
 			}
-			//Log(LA);
 			
 			if(Mode == 0)
 			{
@@ -622,12 +652,22 @@ void MobiView::RePlot()
 			}
 			ProfileLegend << " profile";
 			
-			TimestepSlider.Range((int)Timesteps - 1);
+			size_t DataLength = PlotData[0].size();
 			
-			CurrentStartDate = ResultStartDate;
-
-			TimestepEdit.SetData(CurrentStartDate);
+			TimestepSlider.Range((int)DataLength - 1);
 			
+			//TODO: This should be based on the current position of the slider instead unless
+			//we reset the slider!
+			ProfileDisplayDate = CurrentStartDate;
+			if(IntervalType == 1 || IntervalType == 2)
+			{
+				ProfileDisplayDate.day = 1;
+				if(IntervalType == 2) ProfileDisplayDate.month = 1;
+			}
+			TimestepEdit.SetData(ProfileDisplayDate);
+			
+			//TODO: This is a reuse of AggregateX and AggregateY outside the original
+			//intention. Maybe refactor the whole plot data storage system?
 			AggregateX.push_back({});
 			AggregateY.push_back({});
 			
@@ -640,9 +680,13 @@ void MobiView::RePlot()
 			double YMax = DBL_MIN;
 			for(size_t Idx = 0; Idx < PlotData.size(); ++Idx)
 			{
-				for(size_t Ts = 0; Ts < Timesteps; ++Ts)
+				for(size_t Ts = 0; Ts < DataLength; ++Ts)
 				{
-					YMax = std::max(YMax, PlotData[Idx][Ts]);
+					double Value = PlotData[Idx][Ts];
+					if(std::isfinite(Value) && !IsNull(Value))
+					{
+						YMax = std::max(YMax, PlotData[Idx][Ts]);
+					}
 				}
 				
 				XValues[Idx] = (double)Idx + 0.5;
@@ -652,7 +696,6 @@ void MobiView::RePlot()
 			Plot.SetRange((double)IndexCount, YMax);
 			Plot.SetMajorUnits(1.0);
 			Plot.SetMinUnits(0.5);
-			//Plot.SetMajorUnitsNum(IndexCount)
 			
 			Plot.cbModifFormatX.Clear();
 			Plot.cbModifFormatX <<
@@ -844,15 +887,44 @@ void MobiView::RePlot()
 				PlotWasAutoResized = true;
 			}
 			
-			Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+			bool MonthlyOrYearly = false;
+			if(TimeIntervals.IsEnabled())
 			{
-				Date D2 = InputStartDate + (int)d;
-				s = Format(D2);
-			};
+				int IntervalType = TimeIntervals.GetData();
+				if(IntervalType == 1)
+				{
+					MonthlyOrYearly = true;
+					
+					Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+					{
+						Date D2 = InputStartDate + (int)d;
+						s << Format("%d-%02d", D2.year, D2.month);
+					};
+				}
+				else if(IntervalType == 2)
+				{
+					MonthlyOrYearly = true;
+					
+					Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+					{
+						Date D2 = InputStartDate + (int)d;
+						s = Format("%d", D2.year);
+					};
+				}
+			}
+			
+			if(!MonthlyOrYearly)
+			{
+				Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+				{
+					Date D2 = InputStartDate + (int)d;
+					s = Format(D2);
+				};
+			}
 		}
 		
 		Plot.cbModifFormatY.Clear();
-		if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2)
+		if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
 		{
 			Plot.cbModifFormatY << [](String &s, int i, double d)
 			{
@@ -864,6 +936,9 @@ void MobiView::RePlot()
 	Plot.SetLabelX(" ");
 	Plot.SetLabelY(" ");
 	
+	Size PlotSize = Plot.GetSize();
+	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....
+	
 	Plot.Refresh();
 }
 
@@ -872,14 +947,39 @@ void MobiView::RePlot()
 void MobiView::TimestepSliderEvent()
 {
 	int Timestep = TimestepSlider.GetData();
-	TimestepEdit.SetData(CurrentStartDate + Timestep);
+	Date NewDate = ProfileDisplayDate;
+	
+	// Recompute the displayed date in the "TimestepEdit" based on the new position of the
+	// slider.
+	int IntervalType = TimeIntervals.GetData();
+	if(IntervalType == 0) // Daily values
+	{
+		NewDate += Timestep;
+	}
+	else if(IntervalType == 1) // Monthly values
+	{
+		int Month = ((NewDate.month + Timestep - 1) % 12) + 1;
+		int YearAdd = (NewDate.month + Timestep - 1) / 12;
+		NewDate.month = Month;
+		NewDate.year += YearAdd;
+	}
+	else if(IntervalType == 2) // Yearly values
+	{
+		NewDate.year += Timestep;
+	}
+	TimestepEdit.SetData(NewDate);
+	
+	
 	ReplotProfile();
 }
 
 void MobiView::TimestepEditEvent()
 {
+	//NOTE: This can only happen if we are in daily mode since the edit is disabled otherwise.
+	//If this changes, this code has to be rethought.
+	
 	Date CurrentDate = TimestepEdit.GetData();
-	int Timestep = CurrentDate - CurrentStartDate;
+	int Timestep = CurrentDate - ProfileDisplayDate;
 	TimestepSlider.SetData(Timestep);
 	ReplotProfile();
 }
@@ -1051,6 +1151,8 @@ void MobiView::GetSingleSelectedInputSeries(void *DataSet, String &Legend, Strin
 
 void MobiView::NullifyNans(double *Data, size_t Len)
 {
+	//NOTE: We do this because the ScatterDraw does not draw gaps in the line at NaNs, only at
+	//Null.
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
 		if(std::isnan(Data[Idx])) Data[Idx] = Null;
