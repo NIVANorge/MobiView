@@ -111,6 +111,8 @@ MobiView::MobiView()
 	InputSelecter.AddColumn("Input");
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
+	InputSelecter.HorzGrid(false);
+	InputSelecter.VertGrid(false);
 	
 	ParameterGroupSelecter.AddColumn("Parameter group");
 	
@@ -455,6 +457,8 @@ void MobiView::Load()
 	size_t MaxIndexCount = 0;
 	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
 	{
+		IndexLock[IndexSet]->Show();
+		
 		const char *Name = IndexSets[IndexSet];
 		
 		IndexSetName[IndexSet]->SetText(Name);
