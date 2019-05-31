@@ -312,20 +312,16 @@ void MobiView::Load()
 	
 	//TODO: We should probably break up loading of model, parameter and input files into separate steps.
 	
-	
-	String PreviouslyLoadedModel;
-	String PreviouslyLoadedParameterFile;
-	String PreviouslyLoadedInputFile;
-	
 	String SettingsFile = LoadFile(GetDataFile("settings.json"));
 	Value SettingsJson = ParseJSON(SettingsFile);
-	PreviouslyLoadedModel = SettingsJson["Model dll path"];
-	PreviouslyLoadedParameterFile = SettingsJson["Parameter file path"];
-	PreviouslyLoadedInputFile = SettingsJson["Input file path"];
+	
+	String PreviouslyLoadedModel         = SettingsJson["Model dll path"];
+	String PreviouslyLoadedParameterFile = SettingsJson["Parameter file path"];
+	String PreviouslyLoadedInputFile     = SettingsJson["Input file path"];
 	
 	FileSel DllSel;
 	DllSel.Type("Model dll files", "*.dll");
-	if(!PreviouslyLoadedModel.IsEmpty())
+	if(!PreviouslyLoadedModel.IsEmpty() && FileExists(PreviouslyLoadedModel))
 	{
 		DllSel.PreSelect(PreviouslyLoadedModel);
 	}
@@ -354,9 +350,13 @@ void MobiView::Load()
 
 	FileSel InputSel;
 	InputSel.Type("Input dat files", "*.dat");
-	if(!PreviouslyLoadedInputFile.IsEmpty())
+	if(!PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
 	{
 		InputSel.PreSelect(PreviouslyLoadedInputFile);
+	}
+	else
+	{
+		InputSel.PreSelect(GetFileFolder(DllFile.data()));
 	}
 	InputSel.ExecuteOpen();
 	InputFile = InputSel.Get().ToStd();
@@ -369,9 +369,13 @@ void MobiView::Load()
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
-	if(!PreviouslyLoadedParameterFile.IsEmpty())
+	if(!PreviouslyLoadedParameterFile.IsEmpty() && FileExists(PreviouslyLoadedParameterFile))
 	{
 		ParameterSel.PreSelect(PreviouslyLoadedParameterFile);
+	}
+	else
+	{
+		ParameterSel.PreSelect(GetFileFolder(InputFile.data()));
 	}
 	ParameterSel.ExecuteOpen();
 	CurrentParameterFile = ParameterSel.Get().ToStd();
@@ -390,8 +394,6 @@ void MobiView::Load()
 	
 	String DllFileName = GetFileName(DllFile.data());
 	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
-	
-	//PromptOK(FavoriteList.ToString());
 	
 	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet);
 	if (CheckDllUserError()) return;
