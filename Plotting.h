@@ -139,7 +139,7 @@ void MobiView::PlotModeChange()
 }
 
 
-void MobiView::AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len)
+int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len)
 {
 	AggregateX.push_back({});
 	AggregateY.push_back({});
@@ -193,12 +193,44 @@ void MobiView::AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Le
 		Color &GraphColor = PlotColors[ColorIdx];
 		double Darken = 0.4;
 		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
-		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor);
+		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
+		
+		return (int)NBins;
 	}
 	else
 	{
 		//TODO?
+		return 0;
 	}
+}
+
+
+void MobiView::AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev)
+{
+	AggregateX.push_back({});
+	AggregateY.push_back({});
+	
+	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
+	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
+	
+	XValues.resize(SampleCount);
+	YValues.resize(SampleCount);
+	
+	double Stride = (Max - Min) / (double)SampleCount;
+	
+	for(int Point = 0; Point < SampleCount; ++Point)
+	{
+		double Low = Min + (double)Point * Stride;
+		double High = Min + (double)(Point+1)*Stride;
+		
+		XValues[Point] = 0.5*(Low + High);
+		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
+	}
+	
+	
+	int ColorIdx = PlotIdx % PlotColors.size();
+	Color &GraphColor = PlotColors[ColorIdx];
+	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
 
@@ -550,7 +582,7 @@ void MobiView::RePlot()
 				StartDate = InputStartDate;
 			}
 			
-			AddHistogram(Legend, PlotIdx, Data.data(), Data.size());
+			AddHistogram(Legend, Unit, PlotIdx, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
 			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), StartDate);
@@ -645,10 +677,12 @@ void MobiView::RePlot()
 			if(Mode == 0)
 			{
 				ProfileLegend = EquationSelecter.Get(0).ToString();
+				ProfileUnit = ModelDll.GetResultUnit(DataSet, ProfileLegend);
 			}
 			else
 			{
 				ProfileLegend = InputSelecter.Get(0).ToString();
+				ProfileUnit = ModelDll.GetInputUnit(DataSet, ProfileLegend);
 			}
 			ProfileLegend << " profile";
 			
@@ -857,7 +891,14 @@ void MobiView::RePlot()
 			}
 			else //PlotMajorMode == MajorMode_ResidualHistogram
 			{
-				AddHistogram(Legend, PlotIdx, Residuals.data(), Residuals.size());
+				int NBins = AddHistogram(Legend, ModUnit, PlotIdx, Residuals.data(), Residuals.size());
+				++PlotIdx;
+				String NormLegend = "Normal distr.";
+				
+				timeseries_stats RS2;
+				ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
+				
+				AddNormalApproximation(NormLegend, PlotIdx, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 				++PlotIdx;
 			}
 		}
@@ -1002,7 +1043,7 @@ void MobiView::ReplotProfile()
 	Color &GraphColor = PlotColors[0];
 	double Darken = 0.4;
 	Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor);
+	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
 	
 	Plot.SetLabelX(" ");
 	Plot.SetLabelY(" ");

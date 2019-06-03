@@ -107,8 +107,10 @@ public:
 	
 	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
 	void AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
-	void AddHistogram(String &Legend, int PlotIdx, double *Data, size_t Len);
+	int  AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
+	void AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev);
+	
 	
 	void TimestepSliderEvent();
 	void TimestepEditEvent();
@@ -170,6 +172,7 @@ private:
 	
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
+	String ProfileUnit;
 	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
 	
 	void *DataSet = nullptr;
