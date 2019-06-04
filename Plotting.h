@@ -262,6 +262,9 @@ void MobiView::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 		{
 			double YVal = CurrentAggregate;
 			if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation mode is 'mean', else we actually wanted the sum.
+			
+			if(!std::isfinite(YVal)) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
+			
 			YValues.push_back(YVal);
 			
 			//TODO: Is it better to put it at the beginning of the year/month or the middle?
@@ -303,14 +306,12 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 	
 	if(IntervalType == 0) //Daily values
 	{
-		
-		//TODO TODO TODO TODO: It may not always be that good of an idea to modify the
+		//TODO: It may not always be that good of an idea to modify the
 		//incoming data...
 		if(NormalY)
 		{
 			for(size_t Idx = 0; Idx < Len; ++Idx)
 			{
-				
 				if(MaxY > 0.0) Data[Idx] = Data[Idx] / MaxY;
 				else Data[Idx] = 0.0;
 			}
@@ -1199,6 +1200,151 @@ void MobiView::NullifyNans(double *Data, size_t Len)
 		if(std::isnan(Data[Idx])) Data[Idx] = Null;
 	}
 }
+
+
+
+
+
+
+
+
+
+//TODO: Unify this with AddPlotRecursive!!
+void MobiView::GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets,
+	std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo)
+{
+	if(Level == IndexSets.size())
+	{
+		std::vector<char *> Indexes(CurrentIndexes.size());
+		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+		{
+			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
+		}
+		char **IndexData = Indexes.data();
+		if(CurrentIndexes.size() == 0) IndexData = nullptr;
+		
+		PushTo.push_back({});
+		std::vector<double> &WriteTo = PushTo[PushTo.size()-1];
+		WriteTo.resize(Timesteps);
+		
+		ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), WriteTo.data());
+		
+		PushNamesTo.push_back({});
+		std::string &FullName = PushNamesTo[PushNamesTo.size()-1];
+		
+		FullName = Name;
+		if(CurrentIndexes.size() > 0)
+		{
+			FullName += " (";
+			for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+			{
+				FullName += CurrentIndexes[Idx].data();
+				if(Idx < CurrentIndexes.size()-1) FullName += ", ";
+			}
+			FullName += ")";
+		}
+		
+		FullName += " [";
+		FullName += ModelDll.GetResultUnit(DataSet, Name.data());
+		FullName += "]";
+
+		if(CheckDllUserError()) return;
+	}
+	else
+	{
+		char *IndexSetName = IndexSets[Level];
+		size_t Id = IndexSetNameToId[IndexSetName];
+		
+		int RowCount = EIndexList[Id]->GetCount();
+		
+		for(int Row = 0; Row < RowCount; ++Row)
+		{
+			if(EIndexList[Id]->IsSelected(Row))
+			{
+				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+				GetResultDataRecursive(Name, IndexSets, CurrentIndexes, Level+1, Timesteps, PushTo, PushNamesTo);
+			}
+		}
+	}
+}
+
+
+#include <fstream>
+
+
+void MobiView::SaveToCsv()
+{
+	if(!DataSet || (ModelDll.GetTimesteps(DataSet) == 0))
+	{
+		Log("Results can only be saved once the model has been loaded and run once.");
+		return;
+	}
+	
+	FileSel Sel;
+	Sel.Type("Csv files", "*.csv");
+	//TODO: Remember the last folder..
+	Sel.ExecuteSaveAs();
+	std::string FileName = Sel.Get().ToStd();
+	if(FileName.empty())
+	{
+		return;
+	}
+	
+	std::vector<std::string> Names;
+	std::vector<std::vector<double>> Data;
+	
+	int RowCount = EquationSelecter.GetCount();
+	
+	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
+	CheckDllUserError();
+	
+	int Idx = 0;
+	for(int Row = 0; Row < RowCount; ++Row)
+	{
+		if(EquationSelecter.IsSelected(Row))
+		{
+			std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
+			
+			uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
+			std::vector<char *> IndexSets(IndexSetCount);
+			ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+			if(CheckDllUserError()) return;
+			
+			std::vector<std::string> CurrentIndexes(IndexSets.size());
+
+			GetResultDataRecursive(Name, IndexSets,	CurrentIndexes, 0, Timesteps, Data, Names);
+			
+			++Idx;
+		}
+	}
+	
+	std::ofstream File;
+	File.open(FileName.data());
+	
+	for(int Idx = 0; Idx < Names.size(); ++Idx)
+	{
+		File << Names[Idx];
+		if(Idx != Names.size()-1) File << ";";
+	}
+	File << "\n";
+	
+	for(uint64 Timestep = 0; Timestep < Timesteps; ++Timestep)
+	{
+		for(int Idx = 0; Idx < Data.size(); ++Idx)
+		{
+			File << Data[Idx][Timestep];
+			if(Idx != Data.size()-1) File << ";";
+		}
+		File << "\n";
+	}
+	
+	File.close();
+	
+	Log(String("Results exported to " + FileName));
+}
+
+
+
 
 
 #endif

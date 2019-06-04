@@ -143,6 +143,12 @@ public:
 	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit);
 	void DisplayResidualStats(residual_stats &Stats, String &Name);
 	
+	
+	
+	
+	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
+	void SaveToCsv();
+	
 private:
 	ToolBar Tool;
 	
