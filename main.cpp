@@ -75,18 +75,20 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Open(), THISBACK(Load)).Tip("Load model, parameter and input files").Key(K_CTRL_O);
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
+	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Separator();
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 	bar.Separator();
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_E);
-	bar.Separator();
-	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
 }
 
 MobiView::MobiView()
 {
+	
+	WhenClose = THISBACK(ClosingChecks);
+	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
@@ -535,6 +537,23 @@ void MobiView::SaveBaseline()
 	else
 	{
 		Log("You can only save a baseline after the model has been run once");
+	}
+}
+
+
+void MobiView::ClosingChecks()
+{
+	if(ParametersWereChangedSinceLastSave)
+	{
+		int Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to close?");
+		if(Cl)
+		{
+			Close();
+		}
+	}
+	else
+	{
+		Close();
 	}
 }
 

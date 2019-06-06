@@ -40,8 +40,8 @@ LAYOUT(MobiViewLayout, 1192, 812)
 	ITEM(Option, ShowFavorites, NotNull(true).SetLabel(t_("Show favorites only")).RightPosZ(184, 168).BottomPosZ(12, 16))
 END_LAYOUT
 
-LAYOUT(SearchLayout, 420, 332)
-	ITEM(ArrayCtrl, ResultField, LeftPosZ(8, 408).TopPosZ(32, 296))
-	ITEM(LineEdit, SearchField, LeftPosZ(8, 408).TopPosZ(4, 24))
+LAYOUT(SearchLayout, 388, 248)
+	ITEM(ArrayCtrl, ResultField, HSizePosZ(4, 4).VSizePosZ(32, 4))
+	ITEM(LineEdit, SearchField, HSizePosZ(4, 4).TopPosZ(4, 24))
 END_LAYOUT
 

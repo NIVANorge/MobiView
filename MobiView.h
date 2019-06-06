@@ -20,6 +20,19 @@ using namespace Upp;
 #include "DllInterface.h"
 
 
+/*
+Major TODO's:
+	- Check what is up with slowness of scatter input series if it is the third one.
+	- Don't allow to run with null parameter values
+*/
+
+
+
+
+
+
+
+
 //TODO: This stuff should really be in a common file with the main Mobius code.
 enum parameter_type
 {
@@ -117,6 +130,9 @@ public:
 	SearchWindow *Search = nullptr;
 	
 	
+	void ClosingChecks();
+	
+	
 	void UpdateEquationSelecter();
 	
 	void PlotModeChange();
@@ -196,6 +212,10 @@ public:
 	
 	void *DataSet = nullptr;
 	void *BaselineDataSet = nullptr;
+	
+	
+	bool ParametersWereChangedSinceLastSave = false;
+	
 	
 	std::vector<Color> PlotColors;
 	
