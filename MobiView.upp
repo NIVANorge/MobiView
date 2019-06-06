@@ -3,13 +3,16 @@ uses
 	ScatterCtrl;
 
 file
+	DllInterface.cpp,
 	DllInterface.h,
+	SearchWindow.cpp,
 	MobiView.h,
-	ParameterEditing.h,
-	Statistics.h,
-	Plotting.h,
+	ParameterEditing.cpp,
+	Statistics.cpp,
+	Plotting.cpp,
 	StarOption.cpp,
 	StarOption.h,
+	MobiView.iml,
 	main.cpp,
 	MobiView.lay,
 	Info.rc,

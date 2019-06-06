@@ -4,9 +4,17 @@
 #include <vector>
 #include <iomanip>
 
-#include "ParameterEditing.h"
-#include "Plotting.h"
-#include "Statistics.h"
+
+
+#define IMAGECLASS IconImg
+#define IMAGEFILE <MobiView/images.iml>
+#include <Draw/iml.h>
+
+
+#define IMAGECLASS MainIconImg
+#define IMAGEFILE <MobiView/MobiView.iml>
+#include <Draw/iml.h>
+
 
 void MobiView::Log(String Msg)
 {
@@ -73,6 +81,8 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 	bar.Separator();
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_E);
+	bar.Separator();
+	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
 }
 
 MobiView::MobiView()
@@ -85,7 +95,7 @@ MobiView::MobiView()
 	DataSet = nullptr;
 	
 	CtrlLayout(*this, "MobiView");
-	Sizeable().Zoomable();
+	Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
 	//Plot.SizePos();
 	
@@ -139,7 +149,7 @@ MobiView::MobiView()
 	
 	//ParameterView.NoCursor();
 	
-	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
+	ParameterGroupSelecter.WhenAction = THISBACK(RefreshParameterView);
 	
 	IndexSetName[0] = &IndexSetName1;
 	IndexSetName[1] = &IndexSetName2;
@@ -231,6 +241,13 @@ MobiView::MobiView()
 }
 
 
+void MobiView::OpenSearch()
+{
+	if(!Search)
+	{
+		Search = new SearchWindow(this);
+	}
+}
 
 
 void MobiView::UpdateEquationSelecter()

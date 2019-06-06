@@ -15,11 +15,6 @@ using namespace Upp;
 
 #include <map>
 
-#define IMAGECLASS IconImg
-#define IMAGEFILE <MobiView/images.iml>
-#include <Draw/iml.h>
-
-
 #include <vector>
 
 #include "DllInterface.h"
@@ -34,7 +29,8 @@ enum parameter_type
 	ParameterType_Time,
 };
 
-parameter_type ParseParameterType(const char *Name)
+inline parameter_type
+ParseParameterType(const char *Name)
 {
 	parameter_type Type;
 	if(strcmp(Name, "double") == 0) Type = ParameterType_Double;
@@ -80,6 +76,22 @@ enum plot_major_mode
 	MajorMode_ResidualHistogram,
 };
 
+class MobiView;
+
+
+class SearchWindow : public WithSearchLayout<TopWindow> {
+public:
+	typedef SearchWindow CLASSNAME;
+	
+	SearchWindow(MobiView *ParentWindow);
+	
+	MobiView *ParentWindow;
+	
+	void Find();
+	void SelectItem();
+};
+
+
 
 #define MAX_INDEX_SETS 6
 
@@ -101,6 +113,10 @@ public:
 	void SaveBaseline();
 	void StoreSettings();
 	
+	void OpenSearch();
+	SearchWindow *Search = nullptr;
+	
+	
 	void UpdateEquationSelecter();
 	
 	void PlotModeChange();
@@ -110,14 +126,15 @@ public:
 	int  AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
 	void AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev);
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
 	
+	
+	void RePlot();
 	
 	void TimestepSliderEvent();
 	void TimestepEditEvent();
 	void ReplotProfile();
 	
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
-	void RePlot();
 	
 	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo);
 	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
@@ -144,18 +161,14 @@ public:
 	void DisplayResidualStats(residual_stats &Stats, String &Name);
 	
 	
-	
-	
 	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
 	void SaveToCsv();
 	
-private:
+
 	ToolBar Tool;
 	
 	Array<Ctrl> ParameterControls;
 	std::vector<parameter_type> CurrentParameterTypes;
-	
-	
 	
 	Array<Ctrl> EquationSelecterFavControls;
 	
@@ -187,12 +200,11 @@ private:
 	std::vector<Color> PlotColors;
 	
 	
-	
-	
 	std::string DllFile;
 	std::string InputFile;
 	std::string CurrentParameterFile;
 	
 };
+
 
 #endif
