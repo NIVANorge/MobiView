@@ -7,3 +7,8 @@ MobiView can load and work with any Mobius model that has been compiled to a .dl
 MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library.
 
 ![Example of MobiView viewing the PERSiST model](img/MobiView.png)
+
+
+
+Known issues:
+On some Windows 10 machines with small screens (i.e. laptops), the window scales in a way that makes the plot almost disappear.
