@@ -11,4 +11,9 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 
 
 Known issues:
-On some Windows 10 machines with small screens (i.e. laptops), the window scales in a way that makes the plot almost disappear.
+Windows 10 may scale the layout of your programs, and for MobiView this may make the window too large for your screen.
+If this happens:
+- Right click your desktop, choose 'display settings', then go to 'Change the size of text, apps, and other items' and set it to 100%.
+If this does not work right away, you could
+- either restart windows
+- or right click MobiView.exe, then go to Settings->Compatibility, click 'Change high DPI settings', then check the first box under 'Program DPI', then change 'Use the DPI that's set for my main display when' to 'I open this program'.
