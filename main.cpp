@@ -116,8 +116,8 @@ MobiView::MobiView()
 	InputSelecter.MultiSelect();
 	InputSelecter.NoGrid();
 	
-	ParameterGroupSelecter.AddColumn("Parameter group");
-	
+	//ParameterGroupSelecter.AddColumn("Parameter group");
+	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 	
 	ParameterView.AddColumn("Name").HeaderTab();
 	ParameterView.AddColumn("Value").HeaderTab();
@@ -128,9 +128,9 @@ MobiView::MobiView()
 	
 	ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
-	ParameterGroupSelecter.WhenAction = THISBACK(RefreshParameterView);
-	ParameterGroupSelecter.HorzGrid(false);
-	ParameterGroupSelecter.VertGrid(false);
+	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
+	//ParameterGroupSelecter.HorzGrid(false);
+	//ParameterGroupSelecter.VertGrid(false);
 	
 	IndexSetName[0] = &IndexSetName1;
 	IndexSetName[1] = &IndexSetName2;
@@ -440,19 +440,31 @@ void MobiView::Load()
 	
 	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
 	if (CheckDllUserError()) return;
-	std::vector<char *> ParameterGroupNames(ParameterGroupCount);
-	ModelDll.GetAllParameterGroups(DataSet, ParameterGroupNames.data(), nullptr);
-	if (CheckDllUserError()) return;
+	
+	AddParameterGroupsRecursive(0, 0, ParameterGroupCount);
+	
+	ParameterGroupSelecter.OpenDeep(0, true);
+	
+	//std::vector<char *> ParameterGroupNames(ParameterGroupCount);
+	//ModelDll.GetAllParameterGroups(DataSet, ParameterGroupNames.data(), nullptr);
+	//if (CheckDllUserError()) return;
 
+/*
 	for(size_t Idx = 0; Idx < ParameterGroupCount; ++Idx)
 	{
-		ParameterGroupSelecter.Add(ParameterGroupNames[Idx]);
+		int GroupId = ParameterGroupSelecter.Add(0, Null, ParameterGroupNames[Idx], true);
+		uint64 ChildCount = ModelDll.GetAllParameterGroupsCount(DataSet, ParameterGroupNames[Idx]);
+		
+		if(ChildCount)
+		{
+			AddParameterGroupsRecursive(GroupId, ParameterGroupNames[Idx], ChildCount);
+		}
 		
 		//NOTE: If we are to do this we have to mark it visualy i.e. by using SetLineColor
 		//uint64 Count = ModelDll.GetAllParametersCount(DataSet, ParameterGroupNames[Idx]);
 		//if(!Count) ParameterGroupSelecter.DisableLine(Idx);
 	}
-	
+	*/
 	
 	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
 	if (CheckDllUserError()) return;
@@ -499,6 +511,25 @@ void MobiView::Load()
 	
 	StoreSettings();
 }
+
+void MobiView::AddParameterGroupsRecursive(int ParentId, const char *ParentName, int Count)
+{
+	std::vector<char *> Names(Count);
+	ModelDll.GetAllParameterGroups(DataSet, Names.data(), ParentName);
+	if(CheckDllUserError()) return;
+	
+	for(int Idx = 0; Idx < Count; ++Idx)
+	{
+		uint64 ChildCount = ModelDll.GetAllParameterGroupsCount(DataSet, Names[Idx]);
+		int GroupId = ParameterGroupSelecter.Add(ParentId, Null, Names[Idx], ChildCount!=0);
+		
+		if(ChildCount)
+		{
+			AddParameterGroupsRecursive(GroupId, Names[Idx], ChildCount);
+		}
+	}
+}
+
 
 void MobiView::SaveBaseline()
 {

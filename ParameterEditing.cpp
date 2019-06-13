@@ -10,7 +10,10 @@ void MobiView::RefreshParameterView()
 	ParameterView.Clear();
 	ParameterView.Reset();
 	
-	Value SelectedGroup = ParameterGroupSelecter.Get(0);
+	Vector<int> Selected = ParameterGroupSelecter.GetSel();
+	if(Selected.size() == 0) return;
+	
+	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
 	
 	if(SelectedGroupName.empty()) return;
@@ -256,7 +259,10 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 void MobiView::ParameterEditAccepted(int Row, int Col)
 {
 	//TODO: High degree of copypaste from above. Factor this out.
-	Value SelectedGroup = ParameterGroupSelecter.Get(0);
+	Vector<int> Selected = ParameterGroupSelecter.GetSel();
+	if(Selected.size() == 0) return;
+	
+	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
 	
 	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());

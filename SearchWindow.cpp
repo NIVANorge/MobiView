@@ -11,7 +11,7 @@ SearchWindow::SearchWindow(MobiView *ParentWindow)
 	
 	Open();
 	
-	WhenClose << [ParentWindow](){ delete ParentWindow->Search; ParentWindow->Search = nullptr; }; //TODO: Is this always a safe way of doing it??
+	WhenClose << [ParentWindow](){ delete ParentWindow->Search; ParentWindow->Search = nullptr; }; //TODO: Is this always a safe way of doing it?? No, apparently not!!
 	
 	SearchField.WhenAction = THISBACK(Find);
 	
@@ -70,13 +70,16 @@ void SearchWindow::SelectItem()
 {
 	String SelectedGroupName = ResultField.Get(1);
 	
-	ArrayCtrl &GroupSelect = ParentWindow->ParameterGroupSelecter;
-	for(int Row = 0; Row < GroupSelect.GetCount(); ++Row)
+	TreeCtrl &GroupSelect = ParentWindow->ParameterGroupSelecter;
+	
+	uint64 Count = ParentWindow->ModelDll.GetAllParameterGroupsCount(ParentWindow->DataSet, 0);
+	
+	for(int Row = 0; Row < Count; ++Row)
 	{
-		String CurName = GroupSelect.Get(Row, 0);
+		String CurName = GroupSelect.Get(Row);
 		if(CurName == SelectedGroupName)
 		{
-			GroupSelect.ClearSelection(true);
+			//GroupSelect.ClearSelection(true);
 			GroupSelect.SetFocus();
 			GroupSelect.SetCursor(Row);
 			break;

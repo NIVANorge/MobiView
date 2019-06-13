@@ -130,6 +130,8 @@ public:
 	SearchWindow *Search = nullptr;
 	
 	
+	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
+	
 	void ClosingChecks();
 	
 	

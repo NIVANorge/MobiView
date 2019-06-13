@@ -137,6 +137,8 @@ void MobiView::PlotModeChange()
 	}
 	
 	
+	//PromptOK("Got here!");
+	
 	RePlot();
 }
 
