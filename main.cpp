@@ -86,7 +86,6 @@ void MobiView::SubBar(Bar &bar)
 
 MobiView::MobiView()
 {
-	
 	WhenClose = THISBACK(ClosingChecks);
 	
 	AddFrame(Tool);
@@ -99,25 +98,15 @@ MobiView::MobiView()
 	CtrlLayout(*this, "MobiView");
 	Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
-	//Plot.SizePos();
-	
-	EquationSelecter.VertGrid(false);
-	EquationSelecter.HorzGrid(false);
+	EquationSelecter.NoGrid();
 	EquationSelecter.Disable();
-	HeaderCtrl::Column& ENameCol = EquationSelecter.AddColumn("Equation").HeaderTab();
-	HeaderCtrl::Column& EFavCol  = EquationSelecter.AddColumn("F.").HeaderTab();
+	EquationSelecter.AddColumn("Equation").HeaderTab();
+	EquationSelecter.AddColumn("F.").HeaderTab();
 	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
 	EquationSelecter.MultiSelect();
+	EquationSelecter.ColumnWidths("85 15");
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
-	
-	ENameCol.SetRatio(0.85);
-	EFavCol.SetRatio(0.15);
-	
-	//NOTE: For some reason the columns don't properly resize unless we do this to make it
-	//update.
-	EquationSelecter.HeaderObject().ShowTab(0, false);
-	EquationSelecter.HeaderObject().ShowTab(0, true);
 	
 	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
 	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
@@ -125,33 +114,23 @@ MobiView::MobiView()
 	InputSelecter.AddColumn("Input");
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
-	InputSelecter.HorzGrid(false);
-	InputSelecter.VertGrid(false);
+	InputSelecter.NoGrid();
 	
 	ParameterGroupSelecter.AddColumn("Parameter group");
 	
-	HeaderCtrl::Column& NameCol  = ParameterView.AddColumn("Name").HeaderTab();
-	HeaderCtrl::Column& ValueCol = ParameterView.AddColumn("Value").HeaderTab();
-	HeaderCtrl::Column& MinCol   = ParameterView.AddColumn("Min").HeaderTab();
-	HeaderCtrl::Column& MaxCol   = ParameterView.AddColumn("Max").HeaderTab();
-	HeaderCtrl::Column& UnitCol  = ParameterView.AddColumn("Unit").HeaderTab();
-	HeaderCtrl::Column& DescCol  = ParameterView.AddColumn("Description").HeaderTab();
 	
-	NameCol.SetRatio(0.2);
-	ValueCol.SetRatio(0.12);
-	MinCol.SetRatio(0.1);
-	MaxCol.SetRatio(0.1);
-	UnitCol.SetRatio(0.1);
-	DescCol.SetRatio(0.38);
+	ParameterView.AddColumn("Name").HeaderTab();
+	ParameterView.AddColumn("Value").HeaderTab();
+	ParameterView.AddColumn("Min").HeaderTab();
+	ParameterView.AddColumn("Max").HeaderTab();
+	ParameterView.AddColumn("Unit").HeaderTab();
+	ParameterView.AddColumn("Description").HeaderTab();
 	
-	//NOTE: For some reason the columns don't properly resize unless we do this to make it
-	//update.
-	ParameterView.HeaderObject().ShowTab(0, false);
-	ParameterView.HeaderObject().ShowTab(0, true);
-	
-	//ParameterView.NoCursor();
+	ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
 	ParameterGroupSelecter.WhenAction = THISBACK(RefreshParameterView);
+	ParameterGroupSelecter.HorzGrid(false);
+	ParameterGroupSelecter.VertGrid(false);
 	
 	IndexSetName[0] = &IndexSetName1;
 	IndexSetName[1] = &IndexSetName2;
@@ -263,11 +242,11 @@ void MobiView::UpdateEquationSelecter()
 	{
 		if(!ShowFavOnly || EquationSelecter.GetCtrl(Row, 1)->GetData())
 		{
-			EquationSelecter.SetLineCy(Row, Null);
+			EquationSelecter.ShowLine(Row, true);
 		}
 		else
 		{
-			EquationSelecter.SetLineCy(Row, 0);
+			EquationSelecter.HideLine(Row);
 			EquationSelecter.Select(Row, false, false); //TODO: Should probably think about whether we really want this actually..
 		}
 	}
@@ -468,6 +447,10 @@ void MobiView::Load()
 	for(size_t Idx = 0; Idx < ParameterGroupCount; ++Idx)
 	{
 		ParameterGroupSelecter.Add(ParameterGroupNames[Idx]);
+		
+		//NOTE: If we are to do this we have to mark it visualy i.e. by using SetLineColor
+		//uint64 Count = ModelDll.GetAllParametersCount(DataSet, ParameterGroupNames[Idx]);
+		//if(!Count) ParameterGroupSelecter.DisableLine(Idx);
 	}
 	
 	

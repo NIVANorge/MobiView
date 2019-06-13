@@ -6,9 +6,9 @@
 
 void MobiView::RefreshParameterView()
 {
+
 	ParameterView.Clear();
-	
-	//if(ParameterGroupSelecter.GetSelectCount() <= 0) return;   //Why doesn't this work?
+	ParameterView.Reset();
 	
 	Value SelectedGroup = ParameterGroupSelecter.Get(0);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
@@ -21,9 +21,11 @@ void MobiView::RefreshParameterView()
 	std::vector<char *> IndexSetNames(IndexSetCount);
 	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
 	
+	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		IndexList[Idx]->Disable();
+		IndexLock[Idx]->Enable();
 	}
 	
 	std::vector<std::string> Indexes_String(IndexSetCount);
@@ -34,10 +36,10 @@ void MobiView::RefreshParameterView()
 		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
 		IndexList[Id]->Enable();
 		
-		//Indexes_String[Idx] = IndexList[Id]->GetList().Get(0).ToString().ToStd();
 		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
 		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data(); //NOTE: Have to reverse since GetParameterGroupIndexSets returns in reverse order. May want to fix that!
 	}
+	
 	
 	uint64 ParameterCount = ModelDll.GetAllParametersCount(DataSet, SelectedGroupName.data());
 	if (CheckDllUserError()) return;
@@ -47,81 +49,141 @@ void MobiView::RefreshParameterView()
 	ModelDll.GetAllParameters(DataSet, ParameterNames.data(), ParameterTypes.data(), SelectedGroupName.data());
 	if (CheckDllUserError()) return;
 	
-	ParameterControls.Clear();
-	CurrentParameterTypes.clear();
-	for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
+	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[0], IndexSetNames[1]) == 0))
 	{
-		const char *Name = ParameterNames[Idx];
-		const char *Type = ParameterTypes[Idx];
+		//NOTE: The last (not first since this list is reversed, sigh..) two index set
+		//dependencies are the same, and so we edit this as a row..
+		ParameterView.AddColumn("Name");
 		
-		Value ParVal;
-		Value ParMin;
-		Value ParMax;
-		Value ParUnit;
-		Value ParDesc;
-		const char *Unit = ModelDll.GetParameterUnit(DataSet, Name);
-		if(Unit) ParUnit = Unit;
-		const char *Description = ModelDll.GetParameterDescription(DataSet, Name);
-		if(Description) ParDesc = Description;
+		size_t Id = IndexSetNameToId[IndexSetNames[0]];
 		
-		if(strcmp(Type, "double") == 0)
+		IndexLock[Id]->Disable(); //If we were to enable it, we would have to make it work properly in this editing mode.
+		
+		DropList &Idxs = *IndexList[Id];
+		std::vector<std::string> IterateIndexes(Idxs.GetCount());
+		for(int Row = 0; Row < Idxs.GetCount(); ++Row)
 		{
-			ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetCount);
-			double Min, Max;
-			ModelDll.GetParameterDoubleMinMax(DataSet, Name, &Min, &Max);
-			ParMin = Min;
-			ParMax = Max;
-			
-			ParameterControls.Create<EditDoubleNotNull>();
-			CurrentParameterTypes.push_back(ParameterType_Double);
-			
-			if (CheckDllUserError()) return;
+			IterateIndexes[Row] = Idxs.GetValue(Row).ToString().ToStd();
 		}
-		else if(strcmp(Type, "uint") == 0)
+		
+		for(int Row = 0; Row < IterateIndexes.size(); ++Row)
 		{
-			//TODO: Converting to int potentially loses precision. However Value has no uint64
-			//subtype
-			ParVal = (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetCount);
-			uint64 Min, Max;
-			ModelDll.GetParameterUIntMinMax(DataSet, Name, &Min, &Max);
-			int64 M = (int64)Max;
-			if(M < 0) M = INT64_MAX; //Stupid stopgap. We should do this better and actually display uint64's.
-			ParMin = (int64)Min;
-			ParMax = M;
-			
-			ParameterControls.Create<EditInt64NotNull>();
-			CurrentParameterTypes.push_back(ParameterType_UInt);
-			
-			if (CheckDllUserError()) return;
+			ParameterView.AddColumn(String(IterateIndexes[Row]));
 		}
-		else if(strcmp(Type, "bool") == 0)
+		//TODO: Maybe also add min, max, unit, description..
+		
+		ParameterControls.Clear();
+		CurrentParameterTypes.clear();
+		
+		for(int Idx = 0; Idx < ParameterCount; ++Idx)
 		{
-			ParVal = ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetCount);
-			if(CheckDllUserError()) return;
+			const char *Name = ParameterNames[Idx];
 			
-			ParameterControls.Create<Option>();
-			CurrentParameterTypes.push_back(ParameterType_Bool);
-		}
-		else if(strcmp(Type, "time") == 0)
-		{
-			char TimeVal[256];
-			ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
-			Date D;
-			StrToDate(D, TimeVal); //Error handling? But should not be necessary.
-			ParVal = D;
+			ParameterView.Add(String(Name));
 			
-			ParameterControls.Create<EditDateNotNull>();
-			CurrentParameterTypes.push_back(ParameterType_Time);
+			CurrentParameterTypes.push_back(ParameterType_Double); //TODO: Right now we assume all matrix-like parameters are of type double.
+			
+			for(int Col = 0; Col < IterateIndexes.size(); ++Col)
+			{
+				Indexes[Indexes.size() - 1] = (char *)IterateIndexes[Col].data(); //NOTE: Casting away constness, but it is not dangerous here.
+				Value ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), Indexes.size());
+				ParameterView.Set(Idx, Col+1, ParVal);
+				ParameterControls.Create<EditDoubleNotNull>();
+				ParameterView.SetCtrl(Idx, Col+1, ParameterControls.Top());
+				ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Idx, Col); };
+			}
 		}
-		ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
-		ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
-		ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx); };
 	}
+	else
+	{
+		// Otherwise normal editing of just one value
+		ParameterView.AddColumn("Name").HeaderTab();
+		ParameterView.AddColumn("Value").HeaderTab();
+		ParameterView.AddColumn("Min").HeaderTab();
+		ParameterView.AddColumn("Max").HeaderTab();
+		ParameterView.AddColumn("Unit").HeaderTab();
+		ParameterView.AddColumn("Description").HeaderTab();
+		
+		ParameterView.ColumnWidths("20 12 10 10 10 38");
+		
+		ParameterControls.Clear();
+		CurrentParameterTypes.clear();
+		for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
+		{
+			const char *Name = ParameterNames[Idx];
+			const char *Type = ParameterTypes[Idx];
+			
+			Value ParVal;
+			Value ParMin;
+			Value ParMax;
+			Value ParUnit;
+			Value ParDesc;
+			const char *Unit = ModelDll.GetParameterUnit(DataSet, Name);
+			if(Unit) ParUnit = Unit;
+			const char *Description = ModelDll.GetParameterDescription(DataSet, Name);
+			if(Description) ParDesc = Description;
+			
+			if(strcmp(Type, "double") == 0)
+			{
+				ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetCount);
+				double Min, Max;
+				ModelDll.GetParameterDoubleMinMax(DataSet, Name, &Min, &Max);
+				ParMin = Min;
+				ParMax = Max;
+				
+				ParameterControls.Create<EditDoubleNotNull>();
+				CurrentParameterTypes.push_back(ParameterType_Double);
+				
+				if (CheckDllUserError()) return;
+			}
+			else if(strcmp(Type, "uint") == 0)
+			{
+				//TODO: Converting to int potentially loses precision. However Value has no uint64
+				//subtype
+				ParVal = (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetCount);
+				uint64 Min, Max;
+				ModelDll.GetParameterUIntMinMax(DataSet, Name, &Min, &Max);
+				int64 M = (int64)Max;
+				if(M < 0) M = INT64_MAX; //Stupid stopgap. We should do this better and actually display uint64's.
+				ParMin = (int64)Min;
+				ParMax = M;
+				
+				ParameterControls.Create<EditInt64NotNull>();
+				CurrentParameterTypes.push_back(ParameterType_UInt);
+				
+				if (CheckDllUserError()) return;
+			}
+			else if(strcmp(Type, "bool") == 0)
+			{
+				ParVal = ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetCount);
+				if(CheckDllUserError()) return;
+				
+				ParameterControls.Create<Option>();
+				CurrentParameterTypes.push_back(ParameterType_Bool);
+			}
+			else if(strcmp(Type, "time") == 0)
+			{
+				char TimeVal[256];
+				ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
+				Date D;
+				StrToDate(D, TimeVal); //Error handling? But should not be necessary.
+				ParVal = D;
+				
+				ParameterControls.Create<EditDateNotNull>();
+				CurrentParameterTypes.push_back(ParameterType_Time);
+			}
+			ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
+			ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
+			ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx, 0); };
+		}
+	}
+	
 }
 
 
-void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row)
+void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col)
 {
+	
 	if(Level == IndexSetNames.size())
 	{
 		//Do the actual update.
@@ -139,26 +201,26 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 		{
 			case ParameterType_Double:
 			{
-				double V = ParameterView.Get(1);
+				double V = ParameterView.Get(Row, Col + 1);
 				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
 			
 			case ParameterType_UInt:
 			{
-				int64 V = ParameterView.Get(1);
+				int64 V = ParameterView.Get(Row, Col + 1);
 				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
 			} break;
 			
 			case ParameterType_Bool:
 			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
+				Ctrl *ctrl = ParameterView.GetCtrl(Row, Col + 1);
 				bool V = (bool)((Option*)ctrl)->Get();
 				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
 			
 			case ParameterType_Time:
 			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, 1);
+				Ctrl *ctrl = ParameterView.GetCtrl(Row, Col + 1);
 				Date D = ((EditDateNotNull*)ctrl)->GetData();
 				std::string V = Format(D).ToStd();
 				ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
@@ -171,7 +233,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 		const char *IndexSetName = IndexSetNames[Level];
 		size_t Id = IndexSetNameToId[IndexSetName];
 		
-		if(IndexLock[Id]->Get())
+		if(IndexLock[Id]->IsEnabled() && IndexLock[Id]->Get())
 		{
 			size_t IndexCount = ModelDll.GetIndexCount(DataSet, IndexSetName);
 			std::vector<char *> IndexNames(IndexCount);
@@ -179,19 +241,19 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				CurrentIndexes[Level] = IndexNames[Idx];
-				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
+				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col);
 			}
 		}
 		else
 		{
 			CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
-			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row);
+			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col);
 		}
 	}
 }
 
 
-void MobiView::ParameterEditAccepted(int Row)
+void MobiView::ParameterEditAccepted(int Row, int Col)
 {
 	//TODO: High degree of copypaste from above. Factor this out.
 	Value SelectedGroup = ParameterGroupSelecter.Get(0);
@@ -202,12 +264,14 @@ void MobiView::ParameterEditAccepted(int Row)
 	
 	std::vector<char *> IndexSetNames(IndexSetCount);
 	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
+	if (CheckDllUserError()) return;
 	
 	std::vector<std::string> CurrentIndexes(IndexSetCount);
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row);
+	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, Col);
 	
 	ParametersWereChangedSinceLastSave = true;
 }
+
 
 void MobiView::SaveParameters()
 {
