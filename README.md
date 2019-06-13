@@ -9,8 +9,11 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 ![Example of MobiView viewing the PERSiST model](img/MobiView.png)
 
 
+### Needed improvements:
+- Parameters that have double index set dependencies on a single index set (typically matrix parameters) are hard (or impossible) to edit in MobiView and need their own editing view.
+- It should be possible to resize the various subviews (and the resizing should preferably be remembered in the settings file).
 
-Known issues:
+### Known issues:
 Windows 10 may scale the layout of your programs, and for MobiView this can make the window too large for your screen if the screen resolution is not very high.
 If this happens:
 - Right click your desktop, choose 'display settings', then go to 'Change the size of text, apps, and other items' and set it to 100%.
