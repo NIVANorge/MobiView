@@ -163,8 +163,8 @@ public:
 	
 	void RefreshParameterView();
 	
-	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col);
-	void ParameterEditAccepted(int Row, int Col);
+	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditAsRow);
+	void ParameterEditAccepted(int Row, int Col, bool EditAsRow);
 	
 	
 	void NullifyNans(double *Data, size_t Len);

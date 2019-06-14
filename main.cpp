@@ -445,27 +445,6 @@ void MobiView::Load()
 	
 	ParameterGroupSelecter.OpenDeep(0, true);
 	
-	//std::vector<char *> ParameterGroupNames(ParameterGroupCount);
-	//ModelDll.GetAllParameterGroups(DataSet, ParameterGroupNames.data(), nullptr);
-	//if (CheckDllUserError()) return;
-
-/*
-	for(size_t Idx = 0; Idx < ParameterGroupCount; ++Idx)
-	{
-		int GroupId = ParameterGroupSelecter.Add(0, Null, ParameterGroupNames[Idx], true);
-		uint64 ChildCount = ModelDll.GetAllParameterGroupsCount(DataSet, ParameterGroupNames[Idx]);
-		
-		if(ChildCount)
-		{
-			AddParameterGroupsRecursive(GroupId, ParameterGroupNames[Idx], ChildCount);
-		}
-		
-		//NOTE: If we are to do this we have to mark it visualy i.e. by using SetLineColor
-		//uint64 Count = ModelDll.GetAllParametersCount(DataSet, ParameterGroupNames[Idx]);
-		//if(!Count) ParameterGroupSelecter.DisableLine(Idx);
-	}
-	*/
-	
 	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
 	if (CheckDllUserError()) return;
 	std::vector<char *> IndexSets(IndexSetCount);

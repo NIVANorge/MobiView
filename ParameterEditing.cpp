@@ -93,7 +93,7 @@ void MobiView::RefreshParameterView()
 				ParameterView.Set(Idx, Col+1, ParVal);
 				ParameterControls.Create<EditDoubleNotNull>();
 				ParameterView.SetCtrl(Idx, Col+1, ParameterControls.Top());
-				ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Idx, Col); };
+				ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Idx, Col, true); };
 			}
 		}
 	}
@@ -177,15 +177,17 @@ void MobiView::RefreshParameterView()
 			}
 			ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
 			ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
-			ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx, 0); };
+			ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx, 0, false); };
 		}
 	}
 	
 }
 
 
-void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col)
+void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditingAsRow)
 {
+	//bool 
+	
 	
 	if(Level == IndexSetNames.size())
 	{
@@ -244,19 +246,19 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				CurrentIndexes[Level] = IndexNames[Idx];
-				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col);
+				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col, EditingAsRow);
 			}
 		}
 		else
 		{
 			CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
-			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col);
+			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col, EditingAsRow);
 		}
 	}
 }
 
 
-void MobiView::ParameterEditAccepted(int Row, int Col)
+void MobiView::ParameterEditAccepted(int Row, int Col, bool EditingAsRow)
 {
 	//TODO: High degree of copypaste from above. Factor this out.
 	Vector<int> Selected = ParameterGroupSelecter.GetSel();
@@ -273,7 +275,7 @@ void MobiView::ParameterEditAccepted(int Row, int Col)
 	if (CheckDllUserError()) return;
 	
 	std::vector<std::string> CurrentIndexes(IndexSetCount);
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, Col);
+	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, Col, EditAsRow);
 	
 	ParametersWereChangedSinceLastSave = true;
 }
