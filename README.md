@@ -10,9 +10,8 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 
 
 ### Needed improvements (TODO list):
-- Parameters that have double index set dependencies on a single index set (typically matrix parameters) are hard (or impossible) to edit in MobiView and need their own editing view.
 - It should be possible to resize the various subviews (and the resizing should preferably be remembered in the settings file).
-- Organize parameter groups, and possibly equations and inputs in a tree structure to get them more organized.
+- Possibly organize equations and inputs in a way that makes it faster to look up the one you want.
 - More goodness of fit stats.
 
 Optional:
