@@ -186,9 +186,6 @@ void MobiView::RefreshParameterView()
 
 void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditingAsRow)
 {
-	//bool 
-	
-	
 	if(Level == IndexSetNames.size())
 	{
 		//Do the actual update.
@@ -238,7 +235,16 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 		const char *IndexSetName = IndexSetNames[Level];
 		size_t Id = IndexSetNameToId[IndexSetName];
 		
-		if(IndexLock[Id]->IsEnabled() && IndexLock[Id]->Get())
+		if(EditingAsRow && (Level == 0))
+		{
+			//NOTE: This happens for instance for the Percolation Matrix of PERSiST where all
+			//parameters of a row are displayed for editing at the same time. In that case the
+			//last (first) index set is over that row, and is not governed by the other index
+			//set control.
+			CurrentIndexes[Level] = ParameterView.HeaderTab(Col + 1).GetText().ToStd();
+			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col, EditingAsRow);
+		}
+		else if(IndexLock[Id]->IsEnabled() && IndexLock[Id]->Get())
 		{
 			size_t IndexCount = ModelDll.GetIndexCount(DataSet, IndexSetName);
 			std::vector<char *> IndexNames(IndexCount);
@@ -275,7 +281,7 @@ void MobiView::ParameterEditAccepted(int Row, int Col, bool EditingAsRow)
 	if (CheckDllUserError()) return;
 	
 	std::vector<std::string> CurrentIndexes(IndexSetCount);
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, Col, EditAsRow);
+	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, Col, EditingAsRow);
 	
 	ParametersWereChangedSinceLastSave = true;
 }

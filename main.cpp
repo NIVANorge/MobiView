@@ -538,7 +538,7 @@ void MobiView::ClosingChecks()
 {
 	if(ParametersWereChangedSinceLastSave)
 	{
-		int Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to close?");
+		int Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to exit MobiView?");
 		if(Cl)
 		{
 			Close();
