@@ -50,6 +50,8 @@ typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, cha
 typedef uint64 (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
 typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
+typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
+typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
 
 struct model_dll_interface
 {
@@ -98,6 +100,8 @@ struct model_dll_interface
 	GetAllInputsCount_t  GetAllInputsCount;
 	GetAllInputs_t       GetAllInputs;
 	InputWasProvided_t   InputWasProvided;
+	GetBranchInputsCount_t GetBranchInputsCount;
+	GetBranchInputs_t    GetBranchInputs;
 };
 
 void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll);

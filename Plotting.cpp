@@ -20,6 +20,8 @@ void MobiView::RunModel()
 	auto End = std::chrono::high_resolution_clock::now();
 	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
 	
+	CheckDllUserError();
+	
 	EquationSelecter.Enable();
 	
 	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.

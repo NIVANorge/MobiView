@@ -104,6 +104,15 @@ public:
 	void SelectItem();
 };
 
+class VisualizeBranches : public TopWindow {
+	
+public :
+	VisualizeBranches(MobiView *ParentWindow);
+	
+	MobiView *ParentWindow;
+	
+	virtual void Paint(Draw &W);
+};
 
 
 #define MAX_INDEX_SETS 6
@@ -128,6 +137,10 @@ public:
 	
 	void OpenSearch();
 	SearchWindow *Search = nullptr;
+	
+	
+	void OpenVisualizeBranches();
+	VisualizeBranches *Visualize = nullptr;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);

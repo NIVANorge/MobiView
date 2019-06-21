@@ -9,6 +9,7 @@ file
 	MobiView.h,
 	ParameterEditing.cpp,
 	Statistics.cpp,
+	VisualizeBranches.cpp,
 	Plotting.cpp,
 	StarOption.cpp,
 	StarOption.h,

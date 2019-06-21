@@ -82,6 +82,8 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 	bar.Separator();
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_E);
+	bar.Separator();
+	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
 }
 
 MobiView::MobiView()
@@ -229,6 +231,22 @@ void MobiView::OpenSearch()
 		Search = new SearchWindow(this);
 	}
 }
+
+
+void MobiView::OpenVisualizeBranches()
+{
+	if(!hinstModelDll || !DataSet)
+	{
+		Log("Can't visualize branch network before a dataset is loaded in.");
+		return;
+	}
+	
+	if(!Visualize)
+	{
+		Visualize = new VisualizeBranches(this);
+	}
+}
+
 
 
 void MobiView::UpdateEquationSelecter()
