@@ -22,6 +22,7 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Parameter search should select the actual parameter, not just the group.
 - Reload / load different files after the first load.
 - Port to and test on Linux.
+- Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long.
 
 Optional:
 - Have model-specific plot setups similar to the old INCAs, where for instance for INCA-P there is a simple button to open a new window with a bar plot summary of e.g. all the phosphorous processes in land. This would save a few clicks for people who are always going to be looking at very specific plot setups, and it can be useful to look at multiple plots at once.
