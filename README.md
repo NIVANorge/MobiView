@@ -46,7 +46,7 @@ Before we set up a distribution download server, you can email us ([magnus.norli
 If you want to build MobiView yourself (for instance to be guaranteed to always have the latest version or to make your own modifications), you can do the following:
 - Download [Ultimate++](https://www.ultimatepp.org/) . If you are on Windows, choose the win32 portable archive (latest version of upp-mingw).
 - Extract the archive somewhere. You may need to install [7zip](https://www.7-zip.org/) to be able to extract it.
-- Inside the upp folder, create a MyApps folder, and clone this repository to upp/MyApps/MobiView.
+- Inside the upp folder, create a MyApps folder, and clone **this** repository to upp/MyApps/MobiView.
 - Run upp/theide.exe
 - In theide, select the MyApps folder and the MobiView project for loading and click ok.
 - Where it says MingW Debug in the top bar, change it to MingW Release. Then click 'MingW Release' to get the output mode dialog. Change build method to 'MingWx64' and click ok.
