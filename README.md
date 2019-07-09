@@ -16,7 +16,6 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Equation search similar to parameter search?
 - Allow sorting equations by name.
 - More goodness of fit stats.
-- Q-Q plot
 - Better alignment of grid lines in plot (try to lock to whole months or whole years for instance).
 - Fix text alignment issues.
 - Parameter search should select the actual parameter, not just the group.
