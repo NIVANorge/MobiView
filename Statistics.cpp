@@ -61,7 +61,7 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 	//TODO: Guard against FiniteCount==0
 	
 	SortedData.resize(FiniteCount);
-	std::sort(SortedData.begin(), SortedData.end()); //TODO: There exist faster algorithms for this than sorting...
+	std::sort(SortedData.begin(), SortedData.end());
 	
 	double Mean = Sum / (double)FiniteCount;
 	
@@ -75,6 +75,12 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 			double Dev = Mean - Val;
 			Variance += Dev*Dev;
 		}
+	}
+	
+	for(size_t PercentileIdx = 0; PercentileIdx < NUM_PERCENTILES; ++PercentileIdx)
+	{
+		size_t Idx = (size_t)std::ceil(PERCENTILES[PercentileIdx] * (double)FiniteCount); // Should not lose precision since we don't usually have millions of timesteps
+		StatsOut.Percentiles[PercentileIdx] = SortedData[Idx];
 	}
 	
 	

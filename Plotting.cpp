@@ -362,13 +362,38 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 	}
 }
 
-void MobiView::AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
+void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, int PlotIdx, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
 {
-	double Offset = (double)(StartDate - ReferenceDate);
+	AggregateX.push_back({});
+	AggregateY.push_back({});
+		
+	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
+	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
 	
-	double Beta = XYCovar / XVar;
-	double Alpha = YMean - Beta*(XMean + Offset);
+	XValues.resize(NUM_PERCENTILES);
+	YValues.resize(NUM_PERCENTILES);
 	
+	QQLabels.Clear();
+	
+	for(size_t Idx = 0; Idx < NUM_PERCENTILES; ++Idx)
+	{
+		XValues[Idx] = ModeledStats.Percentiles[Idx];
+		YValues[Idx] = ObservedStats.Percentiles[Idx];
+		QQLabels << Format("%g", PERCENTILES[Idx]*100.0);
+	}
+	
+	int ColorIdx = PlotIdx % PlotColors.size();
+	Color &GraphColor = PlotColors[ColorIdx];
+	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
+		.AddLabelSeries(QQLabels, 20, 0, StdFont().Height(15), ALIGN_CENTER);
+		
+	Plot.ShowLegend(false);
+	
+	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
+}
+
+void MobiView::AddLine(String &Legend, int PlotIdx, double X0, double X1, double Y0, double Y1)
+{
 	AggregateX.push_back({});
 	AggregateY.push_back({});
 		
@@ -378,14 +403,29 @@ void MobiView::AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, doubl
 	XValues.resize(2);
 	YValues.resize(2);
 	
-	XValues[0] = Offset;
-	XValues[1] = Offset + (double)Timesteps;
-	YValues[0] = Alpha + XValues[0]*Beta;
-	YValues[1] = Alpha + XValues[1]*Beta;
+	XValues[0] = X0;
+	XValues[1] = X1;
+	YValues[0] = Y0;
+	YValues[1] = Y1;
 	
 	int ColorIdx = PlotIdx % PlotColors.size();
 	Color &GraphColor = PlotColors[ColorIdx];
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Legend(Legend).Stroke(1.5, GraphColor).Dash("6 3");
+}
+
+void MobiView::AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
+{
+	double Offset = (double)(StartDate - ReferenceDate);
+	
+	double Beta = XYCovar / XVar;
+	double Alpha = YMean - Beta*(XMean + Offset);
+	
+	double X0 = Offset;
+	double X1 = Offset + (double)Timesteps;
+	double Y0 = Alpha + X0*Beta;
+	double Y1 = Alpha + X1*Beta;
+	
+	AddLine(Legend, PlotIdx, X0, X1, Y0, Y1);
 }
 
 void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
@@ -477,7 +517,6 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 void MobiView::RePlot()
 {
 	if(!EquationSelecter.IsSelection() && !InputSelecter.IsSelection()) return;
-	
 
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
@@ -493,6 +532,11 @@ void MobiView::RePlot()
 	PlotData.clear();
 	AggregateX.clear();
 	AggregateY.clear();
+	
+	Plot.ShowLegend(true);
+	
+	Plot.SetLabelX(" ");
+	Plot.SetLabelY(" ");
 	
 	PlotInfo.Clear();
 	
@@ -829,7 +873,7 @@ void MobiView::RePlot()
 		
 		
 	}
-	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram)
+	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
 	{
 		
 		if(EquationSelecter.GetSelectCount() != 1 || InputSelecter.GetSelectCount() != 1 || MultiIndex)
@@ -889,11 +933,11 @@ void MobiView::RePlot()
 				++PlotIdx;
 				
 				String TL = "Trend line";
-				AddTrendLine(TL,PlotIdx, Residuals.size(), XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, ResultStartDate);
+				AddTrendLine(TL, PlotIdx, Residuals.size(), XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, ResultStartDate);
 				
 				++PlotIdx;
 			}
-			else //PlotMajorMode == MajorMode_ResidualHistogram
+			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
 				int NBins = AddHistogram(Legend, ModUnit, PlotIdx, Residuals.data(), Residuals.size());
 				++PlotIdx;
@@ -903,6 +947,18 @@ void MobiView::RePlot()
 				ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
 				
 				AddNormalApproximation(NormLegend, PlotIdx, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
+				++PlotIdx;
+			}
+			else if(PlotMajorMode == MajorMode_QQ)
+			{
+				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, PlotIdx, ModeledStats, ObservedStats);
+				++PlotIdx;
+				
+				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
+				double Max = std::max(ModeledStats.Percentiles[NUM_PERCENTILES-1], ObservedStats.Percentiles[NUM_PERCENTILES-1]);
+				
+				String Dum = "";
+				AddLine(Dum, PlotIdx, Min, Max, Min, Max);
 				++PlotIdx;
 			}
 		}
@@ -917,6 +973,29 @@ void MobiView::RePlot()
 			//NOTE: Histograms require completely different zooming.
 			Plot.ZoomToFit(true, true);
 			PlotWasAutoResized = false;
+		}
+		else if(PlotMajorMode == MajorMode_QQ)
+		{
+			Plot.cbModifFormatX.Clear();
+			//NOTE: Histograms require completely different zooming.
+			Plot.ZoomToFit(true, true);
+			PlotWasAutoResized = false;
+			
+			double YRange = Plot.GetYRange();
+			double YMin   = Plot.GetYMin();
+			double XRange = Plot.GetXRange();
+			double XMin   = Plot.GetXMin();
+			
+			//NOTE: Make it so that the extremal points are not on the border
+			double ExtendY = YRange * 0.1;
+			YRange += 2.0 * ExtendY;
+			YMin -= ExtendY;
+			double ExtendX = XRange * 0.1;
+			XRange += 2.0 * ExtendX;
+			XMin -= ExtendX;
+			
+			Plot.SetRange(XRange, YRange);
+			Plot.SetXYMin(XMin, YMin);
 		}
 		else if(PlotMajorMode == MajorMode_Profile)
 		{
@@ -987,9 +1066,6 @@ void MobiView::RePlot()
 			};
 		}
 	}
-	
-	Plot.SetLabelX(" ");
-	Plot.SetLabelY(" ");
 	
 	Size PlotSize = Plot.GetSize();
 	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....

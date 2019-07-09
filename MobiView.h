@@ -54,6 +54,8 @@ ParseParameterType(const char *Name)
 	return Type;
 }
 
+const size_t NUM_PERCENTILES = 7;
+const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
 
 struct timeseries_stats
 {
@@ -61,6 +63,7 @@ struct timeseries_stats
 	double Max;
 	double Sum;
 	double Median;
+	double Percentiles[NUM_PERCENTILES];
 	double Mean;
 	double Variance;
 	double StandardDeviation;
@@ -87,6 +90,7 @@ enum plot_major_mode
 	MajorMode_CompareBaseline,
 	MajorMode_Residuals,
 	MajorMode_ResidualHistogram,
+	MajorMode_QQ,
 };
 
 class MobiView;
@@ -155,6 +159,8 @@ public:
 	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
 	void AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len);
+	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, int PlotIdx, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
+	void AddLine(String &Legend, int PlotIdx, double X0, double X1, double Y0, double Y1);
 	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
 	void AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev);
 	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
@@ -224,6 +230,7 @@ public:
 	String ProfileLegend;
 	String ProfileUnit;
 	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
+	Vector<String> QQLabels;
 	
 	void *DataSet = nullptr;
 	void *BaselineDataSet = nullptr;
