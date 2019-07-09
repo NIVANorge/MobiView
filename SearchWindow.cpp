@@ -68,11 +68,12 @@ void SearchWindow::Find()
 
 void SearchWindow::SelectItem()
 {
+	String SelectedParameterName = ResultField.Get(0);
 	String SelectedGroupName = ResultField.Get(1);
 	
 	TreeCtrl &GroupSelect = ParentWindow->ParameterGroupSelecter;
 	
-	uint64 Count = ParentWindow->ModelDll.GetAllParameterGroupsCount(ParentWindow->DataSet, 0);
+	uint64 Count = GroupSelect.GetLineCount(); //TODO: This is not ideal since it may not work if somebody collapses a branch!!
 	
 	for(int Row = 0; Row < Count; ++Row)
 	{
@@ -85,4 +86,20 @@ void SearchWindow::SelectItem()
 			break;
 		}
 	}
+	
+	ArrayCtrl &ParameterSelect = ParentWindow->ParameterView;
+	
+	Count = ParameterSelect.GetCount();
+	
+	for(int Row = 0; Row < Count; ++Row)
+	{
+		String CurName = ParameterSelect.Get(Row, 0);
+		if(CurName == SelectedParameterName)
+		{
+			ParameterSelect.SetFocus();
+			ParameterSelect.SetCursor(Row);
+			break;
+		}
+	}
+	
 }
