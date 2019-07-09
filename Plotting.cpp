@@ -533,6 +533,8 @@ void MobiView::RePlot()
 	AggregateX.clear();
 	AggregateY.clear();
 	
+	Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
+	
 	Plot.ShowLegend(true);
 	
 	Plot.SetLabelX(" ");
@@ -1055,6 +1057,11 @@ void MobiView::RePlot()
 					s = Format(D2);
 				};
 			}
+		}
+		
+		if(Plot.GetShowLegend())
+		{
+			Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
 		}
 		
 		Plot.cbModifFormatY.Clear();
