@@ -18,7 +18,6 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - More goodness of fit stats.
 - Better alignment of grid lines in plot (try to lock to whole months or whole years for instance).
 - Fix text alignment issues.
-- Parameter search should select the actual parameter, not just the group.
 - Reload / load different files after the first load.
 - Port to and test on Linux.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long.
