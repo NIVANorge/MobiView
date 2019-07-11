@@ -76,14 +76,14 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
+	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Separator();
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 	bar.Separator();
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_E);
-	bar.Separator();
-	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
+	
 }
 
 MobiView::MobiView()

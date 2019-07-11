@@ -385,7 +385,7 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 	int ColorIdx = PlotIdx % PlotColors.size();
 	Color &GraphColor = PlotColors[ColorIdx];
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
-		.AddLabelSeries(QQLabels, 20, 0, StdFont().Height(15), ALIGN_CENTER);
+		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
 		
 	Plot.ShowLegend(false);
 	
