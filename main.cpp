@@ -221,6 +221,9 @@ MobiView::MobiView()
 	YAxisMode.SetData(0);
 	YAxisMode.Disable();
 	YAxisMode.WhenAction << THISBACK(PlotModeChange);
+	
+	Plot.RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
+	Plot.AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
 }
 
 
