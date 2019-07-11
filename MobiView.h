@@ -165,6 +165,7 @@ public:
 	void AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev);
 	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
 	
+	void SetBetterGridLinePositions();
 	
 	void RePlot();
 	

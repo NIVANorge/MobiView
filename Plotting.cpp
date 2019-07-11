@@ -1074,13 +1074,48 @@ void MobiView::RePlot()
 		}
 	}
 	
+	SetBetterGridLinePositions();
+	
 	Size PlotSize = Plot.GetSize();
 	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....
+	
+	
 	
 	Plot.Refresh();
 }
 
-
+void MobiView::SetBetterGridLinePositions()
+{
+	//double XMin = Plot.GetXMin();
+	double YMin = Plot.GetYMin();
+	//double XRange = Plot.GetXRange();    //TODO: For x axis we would prefer to place at e.g. whole months or whole years.
+	double YRange = Plot.GetYRange();
+	
+	double LogYRange = std::log10(YRange);
+	double IntPart;
+	double FracPart = std::modf(LogYRange, &IntPart);
+	if(YRange < 1.0) IntPart -= 1.0;
+	double YOrderOfMagnitude = std::pow(10.0, IntPart);
+	double YStretch = YRange / YOrderOfMagnitude;
+	
+	double Stride = YOrderOfMagnitude * 0.1;
+	if(YStretch >= 2.0) Stride = YOrderOfMagnitude * 0.2;
+	if(YStretch >= 2.5) Stride = YOrderOfMagnitude * 0.25;
+	if(YStretch >= 5.0) Stride = YOrderOfMagnitude * 0.5;
+	
+	double Min = std::floor(YMin / Stride)*Stride;
+	int Count = (int)std::ceil(YRange / Stride);
+	
+	//Plot.SetMinUnits(Null, Min);  //We would prefer to do this, but for some reason it works
+	//poorly when there are negative values...
+	Plot.SetXYMin(Null, Min);
+	
+	Plot.SetMajorUnits(Null, Stride);
+	//Plot.SetMajorUnitsNum(Null, Count);
+	
+	
+	//String Debug = "Range: "; Debug << YRange << " Stretch: " << YStretch << " Min: " << Min << " Stride: " << Stride << " Count: " << Count; PromptOK(Debug);
+}
 
 void MobiView::TimestepSliderEvent()
 {
