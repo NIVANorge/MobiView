@@ -77,6 +77,7 @@ struct residual_stats
 	double RootMeanSquareError;
 	double NashSutcliffe;
 	//double R2;
+	double SpearmansRCC;
 	size_t DataPoints;
 };
 
@@ -192,7 +193,7 @@ public:
 	
 	
 	void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, Date &StartDate);
-	void ComputeResidualStats(residual_stats &StatsOut, double *Residuals, double VarObs, size_t Len, Date &StartDate);
+	void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, double VarObs, size_t Len, Date &StartDate);
 	void ComputeTrendStats(double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 	
 	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit);

@@ -3,6 +3,7 @@
 
 
 #include "MobiView.h"
+#include <numeric>
 
 void MobiView::DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit)
 {
@@ -31,6 +32,7 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 3) << "\n";
 	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 3) << "\n";
 	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 3) << "\n";
+	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 3) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	
@@ -105,16 +107,21 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 }
 
 
-void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Residuals, double VarObs, size_t Len, Date &StartDate)
+void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, double VarObs, size_t Len, Date &StartDate)
 {
 	double Sum = 0.0;
 	double SumAbs = 0.0;
 	double SumSquare = 0.0;
 	size_t FiniteCount = 0;
 	
+	std::vector<double> FiniteObs;
+	std::vector<double> FiniteMod;
+	FiniteObs.reserve(Len);
+	FiniteMod.reserve(Len);
+	
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
-		double Val = Residuals[Idx];
+		double Val = Obs[Idx] - Mod[Idx];
 		if(std::isfinite(Val))
 		{
 			Sum += Val;
@@ -122,6 +129,9 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Residuals,
 			SumSquare += Val*Val;
 			
 			++FiniteCount;
+			
+			FiniteObs.push_back(Obs[Idx]);
+			FiniteMod.push_back(Mod[Idx]);
 		}
 	}
 	
@@ -136,6 +146,40 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Residuals,
 	StatsOut.RootMeanSquareError = std::sqrt(MeanSquareError);
 	StatsOut.NashSutcliffe = NS;
 	StatsOut.DataPoints = FiniteCount;
+	
+	
+	
+	//Determining ranks in order to compute Spearman's rank correlation coefficient
+	std::vector<size_t> OrderObs(FiniteCount);
+	std::vector<size_t> OrderMod(FiniteCount);
+	std::iota(OrderObs.begin(), OrderObs.end(), 0);
+	std::iota(OrderMod.begin(), OrderMod.end(), 0);
+	
+	std::sort(OrderObs.begin(), OrderObs.end(),
+		[&FiniteObs](size_t I1, size_t I2) {return FiniteObs[I1] < FiniteObs[I2];});
+	
+	std::sort(OrderMod.begin(), OrderMod.end(),
+		[&FiniteMod](size_t I1, size_t I2) {return FiniteMod[I1] < FiniteMod[I2];});
+	
+	std::vector<size_t> RankObs(FiniteCount);
+	std::vector<size_t> RankMod(FiniteCount);
+	
+	
+	for(size_t Idx = 0; Idx < FiniteCount; ++Idx)
+	{
+		RankObs[OrderObs[Idx]] = Idx + 1;
+		RankMod[OrderMod[Idx]] = Idx + 1;
+	}
+	
+	double SumSquareRankDiff = 0.0;
+	for(size_t Idx = 0; Idx < FiniteCount; ++Idx)
+	{
+		double RankDiff = (double)RankObs[Idx] - (double)RankMod[Idx];
+		SumSquareRankDiff += RankDiff*RankDiff;
+	}
+	
+	double FC = (double)FiniteCount;
+	StatsOut.SpearmansRCC = 1.0 - 6.0 * SumSquareRankDiff / (FC * (FC*FC - 1.0));
 }
 
 void MobiView::ComputeTrendStats(double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)

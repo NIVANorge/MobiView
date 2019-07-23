@@ -916,7 +916,7 @@ void MobiView::RePlot()
 			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
 			
 			residual_stats ResidualStats = {};
-			ComputeResidualStats(ResidualStats, Residuals.data(), ObservedStats.Variance, Residuals.size(), ResultStartDate);
+			ComputeResidualStats(ResidualStats, ObservedSeries.data(), ModeledSeries.data(), ObservedStats.Variance, ObservedSeries.size(), ResultStartDate);
 			String GOF = "Goodness of fit: ";
 			DisplayResidualStats(ResidualStats, GOF);
 			
