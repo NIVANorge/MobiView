@@ -349,6 +349,8 @@ void MobiView::Load()
 	DllSel.ExecuteOpen();
 	DllFile = DllSel.Get().ToStd();
 	
+	bool ChangedDll = DllFile != PreviouslyLoadedModel;
+	
 	bool Success = DllFile.size() > 0;
 	
 	if(!Success) return;
@@ -371,7 +373,7 @@ void MobiView::Load()
 
 	FileSel InputSel;
 	InputSel.Type("Input dat files", "*.dat");
-	if(!PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
+	if(!ChangedDll && !PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
 	{
 		InputSel.PreSelect(PreviouslyLoadedInputFile);
 	}
@@ -390,7 +392,7 @@ void MobiView::Load()
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
-	if(!PreviouslyLoadedParameterFile.IsEmpty() && FileExists(PreviouslyLoadedParameterFile))
+	if(!ChangedDll && !PreviouslyLoadedParameterFile.IsEmpty() && FileExists(PreviouslyLoadedParameterFile))
 	{
 		ParameterSel.PreSelect(PreviouslyLoadedParameterFile);
 	}

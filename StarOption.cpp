@@ -8,13 +8,9 @@
 void StarOption::Paint(Draw& w) {
 	Size sz = GetSize();
 	
-	//if(!IsTransparent())
-	//	w.DrawRect(0, 0, sz.cx, sz.cy, SColorFace);
-	
 	Size isz = StarImg::InactiveStar().GetSize();
 	Size tsz = GetSmartTextSize(label, font);
 	int ix = 0;
-	int d = tsz.cy >> 1;
 	int ty = (sz.cy - tsz.cy) / 2;
 	int iy = (tsz.cy - isz.cy) / 2 + ty;
 
