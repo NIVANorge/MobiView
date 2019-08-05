@@ -379,7 +379,7 @@ void MobiView::Load()
 	}
 	else
 	{
-		InputSel.PreSelect(GetFileFolder(DllFile.data()));
+		InputSel.ActiveDir(GetFileFolder(DllFile.data()));
 	}
 	InputSel.ExecuteOpen();
 	InputFile = InputSel.Get().ToStd();
@@ -398,7 +398,7 @@ void MobiView::Load()
 	}
 	else
 	{
-		ParameterSel.PreSelect(GetFileFolder(InputFile.data()));
+		ParameterSel.ActiveDir(GetFileFolder(InputFile.data()));
 	}
 	ParameterSel.ExecuteOpen();
 	CurrentParameterFile = ParameterSel.Get().ToStd();
