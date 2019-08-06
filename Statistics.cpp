@@ -32,6 +32,7 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 3) << "\n";
 	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 3) << "\n";
 	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 3) << "\n";
+	Display << "R2: "                 << FormatDouble(Stats.R2, 3) << "\n";
 	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 3) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
@@ -107,12 +108,15 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 }
 
 
-void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, double VarObs, size_t Len, Date &StartDate)
+void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len, Date &StartDate)
 {
 	double Sum = 0.0;
 	double SumAbs = 0.0;
 	double SumSquare = 0.0;
 	size_t FiniteCount = 0;
+	
+	double SumObs = 0.0;
+	double SumMod = 0.0;
 	
 	std::vector<double> FiniteObs;
 	std::vector<double> FiniteMod;
@@ -128,6 +132,9 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 			SumAbs += std::abs(Val);
 			SumSquare += Val*Val;
 			
+			SumObs += Obs[Idx];
+			SumMod += Mod[Idx];
+			
 			++FiniteCount;
 			
 			FiniteObs.push_back(Obs[Idx]);
@@ -135,16 +142,39 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 		}
 	}
 	
+	//NOTE: We can NOT just reuse these from timeseries_stats computation, because here we can
+	//ONLY count in values where both Obs and Mod are not NaN!!
+	double MeanObs = SumObs / (double)FiniteCount;
+	double MeanMod = SumMod / (double)FiniteCount;
+	
+	double SSObs = 0.0;
+	double SSMod = 0.0;
+	double Cov = 0.0;
+	
+	for(size_t Idx = 0; Idx < Len; ++Idx)
+	{
+		if(std::isfinite(Obs[Idx]) && std::isfinite(Mod[Idx]))
+		{
+			SSObs += (Obs[Idx] - MeanObs)*(Obs[Idx] - MeanObs);
+			SSMod += (Mod[Idx] - MeanMod)*(Mod[Idx] - MeanMod);
+			Cov += (Obs[Idx] - MeanObs)*(Mod[Idx] - MeanMod);
+		}
+	}
+	
+	double RR = Cov / (std::sqrt(SSObs) * std::sqrt(SSMod));
+	
+	
 	double MeanError = Sum / (double)FiniteCount;
 	
 	double MeanSquareError = SumSquare / (double)FiniteCount;
 	
-	double NS = 1.0 - MeanSquareError / VarObs;
+	double NS = 1.0 - SumSquare / SSObs;
 	
 	StatsOut.MeanError = MeanError;
 	StatsOut.MeanAbsoluteError = SumAbs / (double)FiniteCount;
 	StatsOut.RootMeanSquareError = std::sqrt(MeanSquareError);
 	StatsOut.NashSutcliffe = NS;
+	StatsOut.R2 = RR*RR;
 	StatsOut.DataPoints = FiniteCount;
 	
 	
