@@ -442,7 +442,6 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		char **IndexData = Indexes.data();
 		if(CurrentIndexes.size() == 0) IndexData = nullptr;
 		
-		
 		//TODO: Better way to do this: ?
 		PlotData.push_back({});
 		PlotData[PlotIdx].resize(Timesteps);
@@ -502,11 +501,14 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		
 		int RowCount = EIndexList[Id]->GetCount();
 		
+		//PromptOK(Format("Name: %s, Id: %d, RowCount: %d", IndexSetName, (int)Id, RowCount));
+		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
+			//PromptOK(EIndexList[Id]->Get(Row, 0).ToString());
+			
 			if(EIndexList[Id]->IsSelected(Row))
 			{
-				//PromptOK(EIndexList[Id]->Get(Row, 0).ToString());
 				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
 				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, PlotIdx, Timesteps, ReferenceDate, StartDate);
 			}
@@ -577,10 +579,12 @@ void MobiView::RePlot()
 				
 				std::vector<std::string> CurrentIndexes(IndexSets.size());
 				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, PlotIdx, InputTimesteps, InputStartDate, InputStartDate);
+				
+				if(CheckDllUserError()) return;
 			}
 		}
 		
-		if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. TODO: Maybe print a warning that the model has not been run but EquationSelecter.IsSelection()?
+		if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. In this case it should not be possible to select the equation though
 		{
 			int RowCount = EquationSelecter.GetCount();
 			
@@ -597,6 +601,8 @@ void MobiView::RePlot()
 					
 					std::vector<std::string> CurrentIndexes(IndexSets.size());
 					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, PlotIdx, ResultTimesteps, InputStartDate, ResultStartDate);
+					
+					if(CheckDllUserError()) return;
 				}
 			}
 		}

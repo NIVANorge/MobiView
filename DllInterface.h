@@ -9,6 +9,7 @@ typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfil
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
 typedef void * (__cdecl *CopyDataSet_t)(void *DataSetPtr, bool CopyResults);
 typedef void * (__cdecl *DeleteDataSet_t)(void *DataSetPtr);
+typedef void * (__cdecl *DeleteModelAndDataSet_t)(void *DataSetPtr);
 typedef int    (__cdecl *EncounteredError_t)(char *Errmsgout);
 typedef uint64 (__cdecl *GetTimesteps_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetStartDate_t)(void *DataSetPtr, char *DateOut);
@@ -59,6 +60,7 @@ struct model_dll_interface
 	RunModel_t           RunModel;
 	CopyDataSet_t        CopyDataSet;
 	DeleteDataSet_t      DeleteDataSet;
+	DeleteModelAndDataSet_t DeleteModelAndDataSet;
 	EncounteredError_t   EncounteredError;
 	GetTimesteps_t       GetTimesteps;
 	GetStartDate_t       GetStartDate;

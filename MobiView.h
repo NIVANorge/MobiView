@@ -216,9 +216,9 @@ public:
 	model_dll_interface ModelDll;
 	
 	
-	Label    *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
-	DropList *IndexList[MAX_INDEX_SETS];
-	Option   *IndexLock[MAX_INDEX_SETS];
+	Label     *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
+	DropList  *IndexList[MAX_INDEX_SETS];
+	Option    *IndexLock[MAX_INDEX_SETS];
 	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	
 	std::map<std::string, size_t> IndexSetNameToId;

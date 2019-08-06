@@ -177,6 +177,8 @@ MobiView::MobiView()
 		EIndexList[Idx]->WhenAction = THISBACK(RePlot);
 		EIndexList[Idx]->MultiSelect();
 		//EIndexList1.NoHeader().NoVertGrid().AutoHideSb().NoGrid();
+		
+		EIndexList[Idx]->AddColumn("(no name)");
 	}
 	
 	SetDateFormat("%d-%02d-%02d");
@@ -326,8 +328,57 @@ void MobiView::Load()
 {
 	if(hinstModelDll)
 	{
-		Log("Sorry! Can't currently reload when you have already loaded. Complain to Magnus!");
-		return;
+		//PromptOK("Tried to do this");
+		
+		if(DataSet && ParametersWereChangedSinceLastSave)
+		{
+			//TODO: Query if we really want to reload before saving changes to parameters
+		}
+		
+		if(BaselineDataSet)
+		{
+			ModelDll.DeleteDataSet(BaselineDataSet);
+			BaselineDataSet = 0;
+		}
+		
+		if(DataSet)
+		{
+			ModelDll.DeleteModelAndDataSet(DataSet);
+			DataSet = 0;
+		}
+		
+		FreeLibrary(hinstModelDll);
+		hinstModelDll = 0;
+		
+		ParametersWereChangedSinceLastSave = false;
+		
+		EquationSelecter.Clear();
+		EquationSelecter.Disable();
+		EquationSelecterFavControls.Clear();
+		InputSelecter.Clear();
+		
+		ParameterGroupSelecter.Clear();
+		ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
+		
+		ParameterView.Clear();
+		
+		for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
+		{
+			IndexList[Idx]->Clear();
+			IndexList[Idx]->Hide();
+			EIndexList[Idx]->Clear();
+			EIndexList[Idx]->Hide();
+			//EIndexList[Idx]->Reset();
+			IndexLock[Idx]->Hide();
+			IndexSetName[Idx]->Hide();
+		}
+		
+		IndexSetNameToId.clear();
+		
+		Plot.RemoveAllSeries();
+		PlotData.clear();
+		AggregateX.clear();
+		AggregateY.clear();
 	}
 	
 	
@@ -469,12 +520,18 @@ void MobiView::Load()
 	ParameterGroupSelecter.OpenDeep(0, true);
 	
 	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
-	if (CheckDllUserError()) return;
+	
+	if(IndexSetCount > MAX_INDEX_SETS)
+	{
+		PromptOK(String("MobiView does not currently support models with more than ") + MAX_INDEX_SETS + " index sets. The model you tried to load has " + IndexSetCount + ".");
+		return;
+	}
+	
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetIndexSets(DataSet, IndexSets.data());
 	if (CheckDllUserError()) return;
 	
-	size_t MaxIndexCount = 0;
+	//size_t MaxIndexCount = 0;
 	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
 	{
 		IndexLock[IndexSet]->Show();
@@ -493,7 +550,8 @@ void MobiView::Load()
 		if (CheckDllUserError()) return;
 		
 		
-		EIndexList[IndexSet]->AddColumn(Name);
+		//EIndexList[IndexSet]->AddColumn(Name);
+		EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
 		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 		{
 			IndexList[IndexSet]->Add(IndexNames[Idx]);
@@ -506,7 +564,7 @@ void MobiView::Load()
 		EIndexList[IndexSet]->GoBegin();
 		EIndexList[IndexSet]->Show();
 		
-		MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
+		//MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
 	}
 	
 	PlotModeChange();

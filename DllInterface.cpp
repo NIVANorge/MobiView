@@ -7,6 +7,7 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->RunModel =           (RunModel_t)          GetProcAddress(hinstanceDll, "DllRunModel");
 	Model->CopyDataSet =        (CopyDataSet_t)       GetProcAddress(hinstanceDll, "DllCopyDataSet");
 	Model->DeleteDataSet =      (DeleteDataSet_t)     GetProcAddress(hinstanceDll, "DllDeleteDataSet");
+	Model->DeleteModelAndDataSet = (DeleteModelAndDataSet_t) GetProcAddress(hinstanceDll, "DllDeleteModelAndDataSet");
 	Model->GetTimesteps =       (GetTimesteps_t)      GetProcAddress(hinstanceDll, "DllGetTimesteps");
 	Model->GetStartDate =       (GetStartDate_t)      GetProcAddress(hinstanceDll, "DllGetStartDate");
 	Model->GetInputTimesteps =  (GetInputTimesteps_t) GetProcAddress(hinstanceDll, "DllGetInputTimesteps");
