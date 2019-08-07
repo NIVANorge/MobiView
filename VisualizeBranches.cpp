@@ -103,10 +103,16 @@ void RecursiveDrawReach(std::vector<reach_node> &Reaches, std::vector<int> &Spen
 
 void VisualizeBranches::Paint(Draw &W)
 {
+	DrawPainter P(W, GetSize());
+	P.Clear(White());
+	
 	//TODO: Instead select from a list of branched index sets detected by the model.
 	const char *IndexSetName = "Reaches";
 	
 	uint64 IndexCount = ParentWindow->ModelDll.GetIndexCount(ParentWindow->DataSet, IndexSetName);
+	
+	if(ParentWindow->CheckDllUserError()) return;
+	
 	std::vector<char *> Indexes(IndexCount);
 	ParentWindow->ModelDll.GetIndexes(ParentWindow->DataSet, IndexSetName, Indexes.data());
 	
@@ -147,10 +153,6 @@ void VisualizeBranches::Paint(Draw &W)
 	{
 		CountAtLevel[Reach.Level]++;
 	}
-	
-	
-	DrawPainter P(W, GetSize());
-	P.Clear(White());
 	
 	double Width = GetSize().cx;
 	double Height = GetSize().cy;

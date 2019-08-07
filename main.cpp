@@ -190,6 +190,8 @@ MobiView::MobiView()
 	Plot.SetMouseHandling(true, false);
 	
 	Plot.SetPlotAreaLeftMargin(50);
+	Plot.SetGridDash("");
+	Plot.SetGridColor(Color(180, 180, 180));
 	
 	PlotColors = {{0, 130, 200}, {230, 25, 75}, {60, 180, 75}, {245, 130, 48}, {145, 30, 180},
                   {70, 240, 240}, {240, 50, 230}, {210, 245, 60}, {250, 190, 190}, {0, 128, 128}, {230, 190, 255},
