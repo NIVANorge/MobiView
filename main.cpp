@@ -378,9 +378,9 @@ void MobiView::Load()
 		IndexSetNameToId.clear();
 		
 		Plot.RemoveAllSeries();
-		PlotData.clear();
-		AggregateX.clear();
-		AggregateY.clear();
+		PlotData.Clear();
+		//AggregateX.clear();
+		//AggregateY.clear();
 	}
 	
 	

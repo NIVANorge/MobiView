@@ -147,11 +147,8 @@ void MobiView::PlotModeChange()
 
 int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len)
 {
-	AggregateX.push_back({});
-	AggregateY.push_back({});
-	
-	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
+	std::vector<double> &XValues = PlotData.Allocate(0);
+	std::vector<double> &YValues = PlotData.Allocate(0);
 	
 	double Min = DBL_MAX;
 	double Max = DBL_MIN;
@@ -213,11 +210,8 @@ int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Da
 
 void MobiView::AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev)
 {
-	AggregateX.push_back({});
-	AggregateY.push_back({});
-	
-	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
+	std::vector<double> &XValues = PlotData.Allocate(0);
+	std::vector<double> &YValues = PlotData.Allocate(0);
 	
 	XValues.resize(SampleCount);
 	YValues.resize(SampleCount);
@@ -334,12 +328,9 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 	}
 	else //Monthly values or yearly values
 	{
-		AggregateX.push_back({});
-		AggregateY.push_back({});
-		
 		//Would it help to reserve some size for these?
-		std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-		std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
+		std::vector<double> &XValues = PlotData.Allocate(0);
+		std::vector<double> &YValues = PlotData.Allocate(0);
 		
 		AggregateData(ReferenceDate, StartDate, Timesteps, Data, IntervalType, AggregationType, XValues, YValues);
 		
@@ -364,14 +355,8 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 
 void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, int PlotIdx, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
 {
-	AggregateX.push_back({});
-	AggregateY.push_back({});
-		
-	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
-	
-	XValues.resize(NUM_PERCENTILES);
-	YValues.resize(NUM_PERCENTILES);
+	std::vector<double> &XValues = PlotData.Allocate(NUM_PERCENTILES);
+	std::vector<double> &YValues = PlotData.Allocate(NUM_PERCENTILES);
 	
 	QQLabels.Clear();
 	
@@ -394,14 +379,8 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 
 void MobiView::AddLine(String &Legend, int PlotIdx, double X0, double X1, double Y0, double Y1)
 {
-	AggregateX.push_back({});
-	AggregateY.push_back({});
-		
-	std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-	std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
-	
-	XValues.resize(2);
-	YValues.resize(2);
+	std::vector<double> &XValues = PlotData.Allocate(2);
+	std::vector<double> &YValues = PlotData.Allocate(2);
 	
 	XValues[0] = X0;
 	XValues[1] = X1;
@@ -443,20 +422,19 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		if(CurrentIndexes.size() == 0) IndexData = nullptr;
 		
 		//TODO: Better way to do this: ?
-		PlotData.push_back({});
-		PlotData[PlotIdx].resize(Timesteps);
+		std::vector<double> &Data = PlotData.Allocate(Timesteps);
 		
 		String Unit;
 		String Provided = "";
 		
 		if(Mode == 0)
 		{
-			ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data());
+			ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
 			Unit = ModelDll.GetResultUnit(DataSet, Name.data());
 		}
 		else if(Mode == 1)
 		{
-			ModelDll.GetInputSeries(DataSet, Name.data(), IndexData, Indexes.size(), PlotData[PlotIdx].data(), false);
+			ModelDll.GetInputSeries(DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
 			Unit = ModelDll.GetInputUnit(DataSet, Name.data());
 			if(!ModelDll.InputWasProvided(DataSet, Name.data(), IndexData, Indexes.size()))
 			{
@@ -465,8 +443,8 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		}
 		if(CheckDllUserError()) return;
 		
-		double *Data = PlotData[PlotIdx].data();
-		size_t Len = PlotData[PlotIdx].size();
+		double *Dat = Data.data();
+		size_t Len = Data.size();
 		
 		String Legend = Name.data();
 		if(CurrentIndexes.size() > 0)
@@ -482,15 +460,15 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		ComputeTimeseriesStats(Stats, Data, Len, StartDate);
+		ComputeTimeseriesStats(Stats, Dat, Len, StartDate);
 		DisplayTimeseriesStats(Stats, Legend, Unit);
 		
 		bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get() && Mode == 1);
 		bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
 		bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
-		AddPlot(Legend, Unit, PlotIdx, Data, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
+		AddPlot(Legend, Unit, PlotIdx, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
 		
-		NullifyNans(Data, Len);
+		NullifyNans(Dat, Len);
 		
 		++PlotIdx;
 	}
@@ -531,9 +509,9 @@ void MobiView::RePlot()
 	}
 
 	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series and not re-extract everything every time.
-	PlotData.clear();
-	AggregateX.clear();
-	AggregateY.clear();
+	PlotData.Clear();
+	//AggregateX.clear();
+	//AggregateY.clear();
 	
 	Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 	
@@ -619,8 +597,7 @@ void MobiView::RePlot()
 		}
 		else
 		{
-			PlotData.push_back({});
-			std::vector<double> &Data = PlotData[PlotIdx];
+			std::vector<double> &Data = PlotData.Allocate(0);
 			String Legend;
 			String Unit;
 		
@@ -669,9 +646,7 @@ void MobiView::RePlot()
 		}
 		else
 		{
-			
 			size_t IndexCount = EIndexList[ProfileIndexSet]->GetSelectCount();
-			PlotData.resize(IndexCount);
 			
 			ProfileLabels.resize(IndexCount);
 			
@@ -700,30 +675,29 @@ void MobiView::RePlot()
 			{
 				if(EIndexList[ProfileIndexSet]->IsSelected(Row))
 				{
-					std::vector<double> RawData(Timesteps);
+					std::vector<double> &Data = PlotData.Allocate(Timesteps);
 					
 					if(Mode == 0)
 					{
-						GetSingleResultSeries(DataSet, RawData.data(), ProfileIndexSet, Row);
+						GetSingleResultSeries(DataSet, Data.data(), ProfileIndexSet, Row);
 					}
 					else
 					{
-						GetSingleInputSeries(DataSet, RawData.data(), ProfileIndexSet, Row);
+						GetSingleInputSeries(DataSet, Data.data(), ProfileIndexSet, Row);
 					}
 					
-					NullifyNans(RawData.data(), RawData.size());
+					NullifyNans(Data.data(), Data.size());
 					
 					ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
 					
-					if(IntervalType == 0)
-					{
-						PlotData[IdxIdx] = RawData; //NOTE: vector copy. We should maybe have avoided this.
-					}
 					if(IntervalType == 1 || IntervalType == 2) //Monthly or yearly aggregation
 					{
 						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
+						std::vector<double> YValues;
 						
-						AggregateData(CurrentStartDate, CurrentStartDate, Timesteps, RawData.data(), IntervalType, AggregationType, XValues, PlotData[IdxIdx]);
+						AggregateData(CurrentStartDate, CurrentStartDate, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
+						
+						Data = YValues; //Note: vector copy
 					}
 					
 					++IdxIdx;
@@ -742,7 +716,7 @@ void MobiView::RePlot()
 			}
 			ProfileLegend << " profile";
 			
-			size_t DataLength = PlotData[0].size();
+			size_t DataLength = PlotData.Data[0].size();
 			
 			TimestepSlider.Range((int)DataLength - 1);
 			
@@ -756,26 +730,21 @@ void MobiView::RePlot()
 			}
 			TimestepEdit.SetData(ProfileDisplayDate);
 			
-			//TODO: This is a reuse of AggregateX and AggregateY outside the original
-			//intention. Maybe refactor the whole plot data storage system?
-			AggregateX.push_back({});
-			AggregateY.push_back({});
+			ProfileIndexesCount = IndexCount;
+			//std::assert(IndexCount == PlotData.Data.size());
 			
-			std::vector<double> &XValues = AggregateX[AggregateX.size()-1];
-			std::vector<double> &YValues = AggregateY[AggregateY.size()-1];
-			
-			XValues.resize(IndexCount);
-			YValues.resize(IndexCount);
+			std::vector<double> &XValues = PlotData.Allocate(IndexCount);
+			std::vector<double> &YValues = PlotData.Allocate(IndexCount);
 			
 			double YMax = DBL_MIN;
-			for(size_t Idx = 0; Idx < PlotData.size(); ++Idx)
+			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				for(size_t Ts = 0; Ts < DataLength; ++Ts)
 				{
-					double Value = PlotData[Idx][Ts];
+					double Value = PlotData.Data[Idx][Ts];
 					if(std::isfinite(Value) && !IsNull(Value))
 					{
-						YMax = std::max(YMax, PlotData[Idx][Ts]);
+						YMax = std::max(YMax, Value);
 					}
 				}
 				
@@ -820,9 +789,7 @@ void MobiView::RePlot()
 			Date BaselineStartDate;
 			StrToDate(BaselineStartDate, DateStr);
 			
-			PlotData.push_back({});
-			std::vector<double> &Baseline = PlotData[PlotIdx];
-			Baseline.resize(BaselineTimesteps);
+			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
 			String Unit;
 			GetSingleSelectedResultSeries(BaselineDataSet, BS, Unit, Baseline.data());
@@ -837,10 +804,7 @@ void MobiView::RePlot()
 			++PlotIdx;
 			
 			
-			
-			PlotData.push_back({});
-			std::vector<double> &Current = PlotData[PlotIdx];
-			Current.resize(ResultTimesteps);
+			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
 			GetSingleSelectedResultSeries(DataSet, CurrentLegend, Unit, Current.data());
 			NullifyNans(Current.data(), Current.size());
@@ -862,9 +826,7 @@ void MobiView::RePlot()
 				
 				bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
 				
-				PlotData.push_back({});
-				std::vector<double> &Obs = PlotData[PlotIdx];
-				Obs.resize(InputTimesteps);
+				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
 				String InputLegend;
 				String Unit;
 				GetSingleSelectedInputSeries(DataSet, InputLegend, Unit, Obs.data(), false);
@@ -891,9 +853,7 @@ void MobiView::RePlot()
 		}
 		else
 		{
-			PlotData.push_back({});
-			std::vector<double> &Residuals = PlotData[PlotIdx];
-			Residuals.resize(ResultTimesteps);
+			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
 			std::vector<double> ModeledSeries(ResultTimesteps);
 			std::vector<double> ObservedSeries(ResultTimesteps);
 			String ModeledLegend;
@@ -1170,12 +1130,12 @@ void MobiView::ReplotProfile()
 	
 	int Timestep = TimestepSlider.GetData();
 	
-	std::vector<double> &XValues = AggregateX[0];
-	std::vector<double> &YValues = AggregateY[0];
+	std::vector<double> &XValues = PlotData.Data[ProfileIndexesCount];
+	std::vector<double> &YValues = PlotData.Data[ProfileIndexesCount+1];
 	
-	for(size_t Idx = 0; Idx < PlotData.size(); ++Idx)
+	for(size_t Idx = 0; Idx < ProfileIndexesCount; ++Idx)
 	{
-		YValues[Idx] = PlotData[Idx][Timestep];
+		YValues[Idx] = PlotData.Data[Idx][Timestep];
 	}
 	
 	Color &GraphColor = PlotColors[0];

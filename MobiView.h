@@ -19,7 +19,7 @@ using namespace Upp;
 
 #include "DllInterface.h"
 
-
+#include "PlotDataStorage.h"
 /*
 Major TODO's:
 	- Check what is up with slowness of scatter input series if it is the third one.
@@ -223,15 +223,18 @@ public:
 	
 	std::map<std::string, size_t> IndexSetNameToId;
 	
-	std::vector<std::vector<double>> PlotData; //TODO: Better caching system
-	std::vector<std::vector<double>> AggregateX;
-	std::vector<std::vector<double>> AggregateY;
+	//std::vector<std::vector<double>> PlotData; //TODO: Better caching system
+	//std::vector<std::vector<double>> AggregateX;
+	//std::vector<std::vector<double>> AggregateY;
+	plot_data_storage PlotData;
 	bool PlotWasAutoResized = false;
 	
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
 	String ProfileUnit;
 	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
+	size_t ProfileIndexesCount;
+	
 	Vector<String> QQLabels;
 	
 	void *DataSet = nullptr;

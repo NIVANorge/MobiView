@@ -25,6 +25,8 @@ void MobiView::RefreshParameterView()
 	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
 	
 	
+	//PromptOK("OK!");
+	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		IndexList[Idx]->Disable();

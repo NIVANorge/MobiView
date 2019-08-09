@@ -15,6 +15,7 @@ file
 	StarOption.h,
 	MobiView.iml,
 	main.cpp,
+	PlotDataStorage.h,
 	MobiView.lay,
 	Info.rc,
 	star.iml,
