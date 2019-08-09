@@ -223,9 +223,6 @@ public:
 	
 	std::map<std::string, size_t> IndexSetNameToId;
 	
-	//std::vector<std::vector<double>> PlotData; //TODO: Better caching system
-	//std::vector<std::vector<double>> AggregateX;
-	//std::vector<std::vector<double>> AggregateY;
 	plot_data_storage PlotData;
 	bool PlotWasAutoResized = false;
 	

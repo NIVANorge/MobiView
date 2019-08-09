@@ -370,7 +370,6 @@ void MobiView::Load()
 			IndexList[Idx]->Hide();
 			EIndexList[Idx]->Clear();
 			EIndexList[Idx]->Hide();
-			//EIndexList[Idx]->Reset();
 			IndexLock[Idx]->Hide();
 			IndexSetName[Idx]->Hide();
 		}
@@ -379,8 +378,6 @@ void MobiView::Load()
 		
 		Plot.RemoveAllSeries();
 		PlotData.Clear();
-		//AggregateX.clear();
-		//AggregateY.clear();
 	}
 	
 	

@@ -510,9 +510,7 @@ void MobiView::RePlot()
 
 	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series and not re-extract everything every time.
 	PlotData.Clear();
-	//AggregateX.clear();
-	//AggregateY.clear();
-	
+
 	Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 	
 	Plot.ShowLegend(true);
