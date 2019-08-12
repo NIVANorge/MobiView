@@ -78,7 +78,7 @@ void RecursiveDrawReach(std::vector<reach_node> &Reaches, std::vector<int> &Spen
 	P.Circle(0, 0, 3).Stroke(1, Blue()).Fill(Blue());
 	P.Translate(-ToX, -ToY);
 	
-	Font Fnt(Roman(12));
+	Font Fnt(Roman(14));
 	double FontX = GetTextSize(Reach.Name, Fnt).cx;
 	
 	double TextAngle = std::atan2(ToY - FromY, ToX - FromX);

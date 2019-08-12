@@ -224,10 +224,13 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			
 			case ParameterType_Time:
 			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, Col + 1);
-				Date D = ((EditDateNotNull*)ctrl)->GetData();
-				std::string V = Format(D).ToStd();
-				ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
+				EditDateNotNull* ctrl = (EditDateNotNull*)ParameterView.GetCtrl(Row, Col + 1);
+				Date D = ctrl->GetData();
+				if(D.IsValid())
+				{
+					std::string V = Format(D).ToStd();
+					ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
+				}
 			} break;
 		}
 		CheckDllUserError();
