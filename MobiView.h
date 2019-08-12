@@ -19,13 +19,7 @@ using namespace Upp;
 
 #include "DllInterface.h"
 
-#include "PlotDataStorage.h"
-/*
-Major TODO's:
-	- Check what is up with slowness of scatter input series if it is the third one.
-	- Don't allow to run with null parameter values
-*/
-
+#include "Plotting.h"
 
 
 
@@ -158,13 +152,13 @@ public:
 	void PlotModeChange();
 	
 	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
-	void AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
-	int  AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len);
-	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, int PlotIdx, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
-	void AddLine(String &Legend, int PlotIdx, double X0, double X1, double Y0, double Y1);
-	void AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
-	void AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev);
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
+	void AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
+	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
+	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
+	void AddLine(String &Legend, double X0, double X1, double Y0, double Y1);
+	void AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
+	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
 	
 	void SetBetterGridLinePositions();
 	
@@ -241,7 +235,7 @@ public:
 	bool ParametersWereChangedSinceLastSave = false;
 	
 	
-	std::vector<Color> PlotColors;
+	plot_colors PlotColors;
 	
 	
 	std::string DllFile;

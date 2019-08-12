@@ -11,7 +11,7 @@ void MobiView::RefreshParameterView()
 	ParameterView.Reset();
 	
 	Vector<int> Selected = ParameterGroupSelecter.GetSel();
-	if(Selected.size() == 0) return;
+	if(Selected.size() == 0 || Selected[0] == 0) return;
 	
 	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();

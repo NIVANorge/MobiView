@@ -145,7 +145,7 @@ void MobiView::PlotModeChange()
 }
 
 
-int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len)
+int MobiView::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
 {
 	std::vector<double> &XValues = PlotData.Allocate(0);
 	std::vector<double> &YValues = PlotData.Allocate(0);
@@ -192,8 +192,7 @@ int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Da
 			}
 		}
 		
-		int ColorIdx = PlotIdx % PlotColors.size();
-		Color &GraphColor = PlotColors[ColorIdx];
+		Color GraphColor = PlotColors.Next();
 		double Darken = 0.4;
 		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
@@ -208,13 +207,10 @@ int MobiView::AddHistogram(String &Legend, String &Unit, int PlotIdx, double *Da
 }
 
 
-void MobiView::AddNormalApproximation(String &Legend, int PlotIdx, int SampleCount, double Min, double Max, double Mean, double StdDev)
+void MobiView::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
 {
-	std::vector<double> &XValues = PlotData.Allocate(0);
-	std::vector<double> &YValues = PlotData.Allocate(0);
-	
-	XValues.resize(SampleCount);
-	YValues.resize(SampleCount);
+	std::vector<double> &XValues = PlotData.Allocate(SampleCount);
+	std::vector<double> &YValues = PlotData.Allocate(SampleCount);
 	
 	double Stride = (Max - Min) / (double)SampleCount;
 	
@@ -227,9 +223,7 @@ void MobiView::AddNormalApproximation(String &Legend, int PlotIdx, int SampleCou
 		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
 	}
 	
-	
-	int ColorIdx = PlotIdx % PlotColors.size();
-	Color &GraphColor = PlotColors[ColorIdx];
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
@@ -289,15 +283,14 @@ void MobiView::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 }
 
 
-void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
+void MobiView::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
 {
 	int Timesteps = (int)Len;
 	
 	int IntervalType = TimeIntervals.GetData();
 	int AggregationType = Aggregation.GetData();
 	
-	int ColorIdx = PlotIdx % PlotColors.size();
-	Color &GraphColor = PlotColors[ColorIdx];
+	Color GraphColor = PlotColors.Next();
 	
 	//TODO: Do some initial trimming to get rid of NaNs at the head and tail of the data.
 	ScatterDraw *Graph = nullptr;
@@ -353,7 +346,7 @@ void MobiView::AddPlot(String &Legend, String &Unit, int PlotIdx, double *Data, 
 	}
 }
 
-void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, int PlotIdx, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
+void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
 {
 	std::vector<double> &XValues = PlotData.Allocate(NUM_PERCENTILES);
 	std::vector<double> &YValues = PlotData.Allocate(NUM_PERCENTILES);
@@ -367,8 +360,7 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 		QQLabels << Format("%g", PERCENTILES[Idx]*100.0);
 	}
 	
-	int ColorIdx = PlotIdx % PlotColors.size();
-	Color &GraphColor = PlotColors[ColorIdx];
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
 		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
 		
@@ -377,7 +369,7 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
 }
 
-void MobiView::AddLine(String &Legend, int PlotIdx, double X0, double X1, double Y0, double Y1)
+void MobiView::AddLine(String &Legend, double X0, double X1, double Y0, double Y1)
 {
 	std::vector<double> &XValues = PlotData.Allocate(2);
 	std::vector<double> &YValues = PlotData.Allocate(2);
@@ -387,12 +379,11 @@ void MobiView::AddLine(String &Legend, int PlotIdx, double X0, double X1, double
 	YValues[0] = Y0;
 	YValues[1] = Y1;
 	
-	int ColorIdx = PlotIdx % PlotColors.size();
-	Color &GraphColor = PlotColors[ColorIdx];
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Legend(Legend).Stroke(1.5, GraphColor).Dash("6 3");
 }
 
-void MobiView::AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
+void MobiView::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
 {
 	double Offset = (double)(StartDate - ReferenceDate);
 	
@@ -404,11 +395,11 @@ void MobiView::AddTrendLine(String &Legend, int PlotIdx, size_t Timesteps, doubl
 	double Y0 = Alpha + X0*Beta;
 	double Y1 = Alpha + X1*Beta;
 	
-	AddLine(Legend, PlotIdx, X0, X1, Y0, Y1);
+	AddLine(Legend, X0, X1, Y0, Y1);
 }
 
 void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
-	std::vector<std::string> &CurrentIndexes, int Level, int &PlotIdx, uint64 Timesteps,
+	std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps,
 	Date &ReferenceDate, Date &StartDate)
 {
 	if(Level == IndexSets.size())
@@ -466,11 +457,9 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get() && Mode == 1);
 		bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
 		bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
-		AddPlot(Legend, Unit, PlotIdx, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
+		AddPlot(Legend, Unit, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
 		
 		NullifyNans(Dat, Len);
-		
-		++PlotIdx;
 	}
 	else
 	{
@@ -488,7 +477,7 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 			if(EIndexList[Id]->IsSelected(Row))
 			{
 				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
-				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, PlotIdx, Timesteps, ReferenceDate, StartDate);
+				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, Timesteps, ReferenceDate, StartDate);
 			}
 		}
 	}
@@ -510,6 +499,7 @@ void MobiView::RePlot()
 
 	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series and not re-extract everything every time.
 	PlotData.Clear();
+	PlotColors.Reset();
 
 	Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 	
@@ -533,8 +523,6 @@ void MobiView::RePlot()
 	Date InputStartDate;
 	StrToDate(InputStartDate, DateStr);
 	
-	int PlotIdx = 0;
-	
 	uint64 InputTimesteps = ModelDll.GetInputTimesteps(DataSet);
 	uint64 ResultTimesteps = ModelDll.GetTimesteps(DataSet);
 	
@@ -554,7 +542,7 @@ void MobiView::RePlot()
 				if(CheckDllUserError()) return;
 				
 				std::vector<std::string> CurrentIndexes(IndexSets.size());
-				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, PlotIdx, InputTimesteps, InputStartDate, InputStartDate);
+				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartDate, InputStartDate);
 				
 				if(CheckDllUserError()) return;
 			}
@@ -576,7 +564,7 @@ void MobiView::RePlot()
 					if(CheckDllUserError()) return;
 					
 					std::vector<std::string> CurrentIndexes(IndexSets.size());
-					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, PlotIdx, ResultTimesteps, InputStartDate, ResultStartDate);
+					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartDate, ResultStartDate);
 					
 					if(CheckDllUserError()) return;
 				}
@@ -613,13 +601,11 @@ void MobiView::RePlot()
 				StartDate = InputStartDate;
 			}
 			
-			AddHistogram(Legend, Unit, PlotIdx, Data.data(), Data.size());
+			AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
 			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), StartDate);
 			DisplayTimeseriesStats(Stats, Legend, Unit);
-			
-			++PlotIdx;
 		}
 	}
 	else if(PlotMajorMode == MajorMode_Profile)
@@ -764,8 +750,6 @@ void MobiView::RePlot()
 			
 			TimestepSlider.Enable();
 			ReplotProfile();
-			
-			++PlotIdx;
 		}
 	}
 	else if(PlotMajorMode == MajorMode_CompareBaseline)
@@ -798,8 +782,8 @@ void MobiView::RePlot()
 			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), BaselineStartDate);
 			DisplayTimeseriesStats(Stats, BS, Unit);
 			
-			AddPlot(BS, Unit, PlotIdx, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartDate, BaselineStartDate, Stats.Min, Stats.Max);
-			++PlotIdx;
+			AddPlot(BS, Unit, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartDate, BaselineStartDate, Stats.Min, Stats.Max);
+
 			
 			
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
@@ -811,8 +795,8 @@ void MobiView::RePlot()
 			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), ResultStartDate);
 			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
 			
-			AddPlot(CurrentLegend, Unit, PlotIdx, Current.data(), Current.size(), false, LogY, NormY, InputStartDate, ResultStartDate, Stats2.Min, Stats2.Max);
-			++PlotIdx;
+			AddPlot(CurrentLegend, Unit, Current.data(), Current.size(), false, LogY, NormY, InputStartDate, ResultStartDate, Stats2.Min, Stats2.Max);
+
 			
 			
 			//TODO: Should we compute any residual statistics here?
@@ -834,8 +818,7 @@ void MobiView::RePlot()
 				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), InputStartDate);
 				DisplayTimeseriesStats(Stats3, InputLegend, Unit);
 				
-				AddPlot(InputLegend, Unit, PlotIdx, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartDate, InputStartDate, Stats3.Min, Stats3.Max);
-				++PlotIdx;
+				AddPlot(InputLegend, Unit, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartDate, InputStartDate, Stats3.Min, Stats3.Max);
 			}
 		}
 		
@@ -892,150 +875,140 @@ void MobiView::RePlot()
 				ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
 				
 				//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
-				AddPlot(Legend, ModUnit, PlotIdx, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
+				AddPlot(Legend, ModUnit, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
 				
 				NullifyNans(Residuals.data(), Residuals.size());
 				
-				++PlotIdx;
-				
 				String TL = "Trend line";
-				AddTrendLine(TL, PlotIdx, Residuals.size(), XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, ResultStartDate);
+				AddTrendLine(TL, Residuals.size(), XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, ResultStartDate);
 				
-				++PlotIdx;
 			}
 			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
-				int NBins = AddHistogram(Legend, ModUnit, PlotIdx, Residuals.data(), Residuals.size());
-				++PlotIdx;
+				int NBins = AddHistogram(Legend, ModUnit, Residuals.data(), Residuals.size());
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
 				ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
 				
-				AddNormalApproximation(NormLegend, PlotIdx, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
-				++PlotIdx;
+				AddNormalApproximation(NormLegend, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}
 			else if(PlotMajorMode == MajorMode_QQ)
 			{
-				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, PlotIdx, ModeledStats, ObservedStats);
-				++PlotIdx;
+				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats);
 				
 				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
 				double Max = std::max(ModeledStats.Percentiles[NUM_PERCENTILES-1], ObservedStats.Percentiles[NUM_PERCENTILES-1]);
 				
 				String Dum = "";
-				AddLine(Dum, PlotIdx, Min, Max, Min, Max);
-				++PlotIdx;
+				AddLine(Dum, Min, Max, Min, Max);
 			}
 		}
 	}
 	
 	
-	if(PlotIdx > 0)
+	if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 	{
-		if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
+		Plot.cbModifFormatX.Clear();
+		//NOTE: Histograms require completely different zooming.
+		Plot.ZoomToFit(true, true);
+		PlotWasAutoResized = false;
+	}
+	else if(PlotMajorMode == MajorMode_QQ)
+	{
+		Plot.cbModifFormatX.Clear();
+		//NOTE: Histograms require completely different zooming.
+		Plot.ZoomToFit(true, true);
+		PlotWasAutoResized = false;
+		
+		double YRange = Plot.GetYRange();
+		double YMin   = Plot.GetYMin();
+		double XRange = Plot.GetXRange();
+		double XMin   = Plot.GetXMin();
+		
+		//NOTE: Make it so that the extremal points are not on the border
+		double ExtendY = YRange * 0.1;
+		YRange += 2.0 * ExtendY;
+		YMin -= ExtendY;
+		double ExtendX = XRange * 0.1;
+		XRange += 2.0 * ExtendX;
+		XMin -= ExtendX;
+		
+		Plot.SetRange(XRange, YRange);
+		Plot.SetXYMin(XMin, YMin);
+	}
+	else if(PlotMajorMode == MajorMode_Profile)
+	{
+		PlotWasAutoResized = false;
+	}
+	else
+	{
+		Plot.cbModifFormatX.Clear();
+		Plot.ZoomToFit(false, true);
+		
+		double YRange = Plot.GetYRange();
+		double YMin   = Plot.GetYMin();
+		if(YMin > 0.0)
 		{
-			Plot.cbModifFormatX.Clear();
-			//NOTE: Histograms require completely different zooming.
-			Plot.ZoomToFit(true, true);
-			PlotWasAutoResized = false;
+			double NewRange = YRange + YMin;
+			Plot.SetRange(Plot.GetXRange(), NewRange);
+			Plot.SetXYMin(Plot.GetXMin(), 0.0);
 		}
-		else if(PlotMajorMode == MajorMode_QQ)
+		
+		if(!PlotWasAutoResized)
 		{
-			Plot.cbModifFormatX.Clear();
-			//NOTE: Histograms require completely different zooming.
-			Plot.ZoomToFit(true, true);
-			PlotWasAutoResized = false;
-			
-			double YRange = Plot.GetYRange();
-			double YMin   = Plot.GetYMin();
-			double XRange = Plot.GetXRange();
-			double XMin   = Plot.GetXMin();
-			
-			//NOTE: Make it so that the extremal points are not on the border
-			double ExtendY = YRange * 0.1;
-			YRange += 2.0 * ExtendY;
-			YMin -= ExtendY;
-			double ExtendX = XRange * 0.1;
-			XRange += 2.0 * ExtendX;
-			XMin -= ExtendX;
-			
-			Plot.SetRange(XRange, YRange);
-			Plot.SetXYMin(XMin, YMin);
+			Plot.ZoomToFit(true, false);
+			PlotWasAutoResized = true;
 		}
-		else if(PlotMajorMode == MajorMode_Profile)
+		
+		bool MonthlyOrYearly = false;
+		if(TimeIntervals.IsEnabled())
 		{
-			PlotWasAutoResized = false;
-		}
-		else
-		{
-			Plot.cbModifFormatX.Clear();
-			Plot.ZoomToFit(false, true);
-			
-			double YRange = Plot.GetYRange();
-			double YMin   = Plot.GetYMin();
-			if(YMin > 0.0)
+			int IntervalType = TimeIntervals.GetData();
+			if(IntervalType == 1)
 			{
-				double NewRange = YRange + YMin;
-				Plot.SetRange(Plot.GetXRange(), NewRange);
-				Plot.SetXYMin(Plot.GetXMin(), 0.0);
-			}
-			
-			if(!PlotWasAutoResized)
-			{
-				Plot.ZoomToFit(true, false);
-				PlotWasAutoResized = true;
-			}
-			
-			bool MonthlyOrYearly = false;
-			if(TimeIntervals.IsEnabled())
-			{
-				int IntervalType = TimeIntervals.GetData();
-				if(IntervalType == 1)
-				{
-					MonthlyOrYearly = true;
-					
-					Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
-					{
-						Date D2 = InputStartDate + (int)d;
-						s << Format("%d-%02d", D2.year, D2.month);
-					};
-				}
-				else if(IntervalType == 2)
-				{
-					MonthlyOrYearly = true;
-					
-					Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
-					{
-						Date D2 = InputStartDate + (int)d;
-						s = Format("%d", D2.year);
-					};
-				}
-			}
-			
-			if(!MonthlyOrYearly)
-			{
+				MonthlyOrYearly = true;
+				
 				Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
 				{
 					Date D2 = InputStartDate + (int)d;
-					s = Format(D2);
+					s << Format("%d-%02d", D2.year, D2.month);
+				};
+			}
+			else if(IntervalType == 2)
+			{
+				MonthlyOrYearly = true;
+				
+				Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+				{
+					Date D2 = InputStartDate + (int)d;
+					s = Format("%d", D2.year);
 				};
 			}
 		}
 		
-		if(Plot.GetShowLegend())
+		if(!MonthlyOrYearly)
 		{
-			Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
-		}
-		
-		Plot.cbModifFormatY.Clear();
-		if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
-		{
-			Plot.cbModifFormatY << [](String &s, int i, double d)
+			Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
 			{
-				s = FormatDoubleExp(pow(10., d), 2);
+				Date D2 = InputStartDate + (int)d;
+				s = Format(D2);
 			};
 		}
+	}
+	
+	if(Plot.GetShowLegend())
+	{
+		Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
+	}
+	
+	Plot.cbModifFormatY.Clear();
+	if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
+	{
+		Plot.cbModifFormatY << [](String &s, int i, double d)
+		{
+			s = FormatDoubleExp(pow(10., d), 2);
+		};
 	}
 	
 	SetBetterGridLinePositions();
@@ -1136,7 +1109,7 @@ void MobiView::ReplotProfile()
 		YValues[Idx] = PlotData.Data[Idx][Timestep];
 	}
 	
-	Color &GraphColor = PlotColors[0];
+	Color &GraphColor = PlotColors.PlotColors[0];
 	double Darken = 0.4;
 	Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
