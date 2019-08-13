@@ -79,6 +79,7 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
+	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
 	bar.Separator();
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
 	bar.Separator();
@@ -250,7 +251,19 @@ void MobiView::OpenVisualizeBranches()
 	}
 }
 
-
+void MobiView::OpenStructureView()
+{
+	if(!hinstModelDll || !DataSet)
+	{
+		Log("Can't visualize the model before a dataset is loaded in.");
+		return;
+	}
+	
+	if(!StructureView)
+	{
+		StructureView = new StructureViewWindow(this);
+	}
+}
 
 void MobiView::UpdateEquationSelecter()
 {

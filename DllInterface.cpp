@@ -50,6 +50,7 @@ void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll)
 	Model->InputWasProvided   = (InputWasProvided_t)  GetProcAddress(hinstanceDll, "DllInputWasProvided");
 	Model->GetBranchInputsCount = (GetBranchInputsCount_t) GetProcAddress(hinstanceDll, "DllGetBranchInputsCount");
 	Model->GetBranchInputs    = (GetBranchInputs_t)   GetProcAddress(hinstanceDll, "DllGetBranchInputs");
+	Model->PrintResultStructure = (PrintResultStructure_t) GetProcAddress(hinstanceDll, "DllPrintResultStructure");
 	
 	//TODO: Handle errors if GetProcAddress fails (can happen if e.g. somebody uses an old dll version)!
 	

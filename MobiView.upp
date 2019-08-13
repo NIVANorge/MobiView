@@ -14,6 +14,7 @@ file
 	StarOption.cpp,
 	StarOption.h,
 	MobiView.iml,
+	StructureViewWindow.cpp,
 	main.cpp,
 	Plotting.h,
 	MobiView.lay,

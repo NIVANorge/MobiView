@@ -45,3 +45,8 @@ LAYOUT(SearchLayout, 388, 248)
 	ITEM(LineEdit, SearchField, HSizePosZ(4, 4).TopPosZ(4, 24))
 END_LAYOUT
 
+LAYOUT(StructureViewLayout, 316, 484)
+	ITEM(DocEdit, StructureViewBox, SetEditable(false).HSizePosZ(4, 4).VSizePosZ(32, 4))
+	ITEM(Label, dv___1, SetLabel(t_("Index set dependencies and order of evaluation for equations")).LeftPosZ(8, 304).TopPosZ(8, 19))
+END_LAYOUT
+

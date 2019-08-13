@@ -103,6 +103,13 @@ public:
 	void SelectItem();
 };
 
+class StructureViewWindow : public WithStructureViewLayout<TopWindow> {
+public:
+	typedef StructureViewWindow CLASSNAME;
+	
+	StructureViewWindow(MobiView *ParentWindow);
+};
+
 class VisualizeBranches : public TopWindow {
 	
 public :
@@ -140,6 +147,10 @@ public:
 	
 	void OpenVisualizeBranches();
 	VisualizeBranches *Visualize = nullptr;
+	
+	
+	void OpenStructureView();
+	StructureViewWindow *StructureView = nullptr;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);

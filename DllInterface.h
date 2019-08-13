@@ -53,6 +53,7 @@ typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char
 typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
 typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
 typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
+typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64 BufLen);
 
 struct model_dll_interface
 {
@@ -104,6 +105,7 @@ struct model_dll_interface
 	InputWasProvided_t   InputWasProvided;
 	GetBranchInputsCount_t GetBranchInputsCount;
 	GetBranchInputs_t    GetBranchInputs;
+	PrintResultStructure_t PrintResultStructure;
 };
 
 void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll);
