@@ -10,7 +10,6 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 
 
 ### Needed improvements (TODO list):
-- Settings should remember sizing of window and subview.
 - Allow opening separate windows with multiple plots side by side (with locked x-axises)
 - Possibly organize equations and inputs in a way that makes it faster to look up the one you want.
 - Equation search similar to parameter search?
