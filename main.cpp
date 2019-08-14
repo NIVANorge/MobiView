@@ -87,8 +87,35 @@ void MobiView::SubBar(Bar &bar)
 	
 }
 
-MobiView::MobiView()
+MobiView::MobiView() : Plotter(this)
 {
+	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
+	
+	UpperHorizontal.Horz();
+	UpperHorizontal.Add(ParameterGroupSelecter);
+	UpperHorizontal.Add(Params);
+	UpperHorizontal.Add(PlotInfo);
+	UpperHorizontal.Add(LogBox);
+	
+	UpperHorizontal.SetPos(1500, 0).SetPos(7000, 1).SetPos(8500, 2);
+	
+	EquationSelecterRect.Add(EquationSelecter.HSizePos().VSizePos(0, 30));
+	EquationSelecterRect.Add(ShowFavorites.SetLabel("Show favorites only").HSizePos(5).BottomPos(5));
+	
+	LowerHorizontal.Horz();
+	LowerHorizontal.Add(Plotter);
+	LowerHorizontal.Add(EquationSelecterRect);
+	LowerHorizontal.Add(InputSelecter);
+	
+	LowerHorizontal.SetPos(7000, 0).SetPos(8500, 1);
+
+	MainVertical.Vert(UpperHorizontal, LowerHorizontal);
+	
+	MainVertical.SetPos(3000, 0);
+
+	Add(MainVertical);
+	
+	
 	WhenClose = THISBACK(ClosingChecks);
 	
 	AddFrame(Tool);
@@ -98,70 +125,45 @@ MobiView::MobiView()
 	ModelDll = {};
 	DataSet = nullptr;
 	
-	CtrlLayout(*this, "MobiView");
-	Sizeable().Zoomable().Icon(MainIconImg::i4());
-	
-	EquationSelecter.NoGrid();
-	EquationSelecter.Disable();
-	EquationSelecter.AddColumn("Equation").HeaderTab();
-	EquationSelecter.AddColumn("F.").HeaderTab();
-	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
-	EquationSelecter.MultiSelect();
-	EquationSelecter.ColumnWidths("85 15");
-	
-	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
-	
 	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
 	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
-	
-	InputSelecter.AddColumn("Input");
-	InputSelecter.WhenAction = THISBACK(PlotModeChange);
-	InputSelecter.MultiSelect();
-	InputSelecter.NoGrid();
 	
 	//ParameterGroupSelecter.AddColumn("Parameter group");
 	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 	
-	ParameterView.AddColumn("Name").HeaderTab();
-	ParameterView.AddColumn("Value").HeaderTab();
-	ParameterView.AddColumn("Min").HeaderTab();
-	ParameterView.AddColumn("Max").HeaderTab();
-	ParameterView.AddColumn("Unit").HeaderTab();
-	ParameterView.AddColumn("Description").HeaderTab();
+	Params.ParameterView.AddColumn("Name").HeaderTab();
+	Params.ParameterView.AddColumn("Value").HeaderTab();
+	Params.ParameterView.AddColumn("Min").HeaderTab();
+	Params.ParameterView.AddColumn("Max").HeaderTab();
+	Params.ParameterView.AddColumn("Unit").HeaderTab();
+	Params.ParameterView.AddColumn("Description").HeaderTab();
 	
-	ParameterView.ColumnWidths("20 12 10 10 10 38");
+	Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
 	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
 	//ParameterGroupSelecter.HorzGrid(false);
 	//ParameterGroupSelecter.VertGrid(false);
 	
-	IndexSetName[0] = &IndexSetName1;
-	IndexSetName[1] = &IndexSetName2;
-	IndexSetName[2] = &IndexSetName3;
-	IndexSetName[3] = &IndexSetName4;
-	IndexSetName[4] = &IndexSetName5;
-	IndexSetName[5] = &IndexSetName6;
+	IndexSetName[0] = &Params.IndexSetName1;
+	IndexSetName[1] = &Params.IndexSetName2;
+	IndexSetName[2] = &Params.IndexSetName3;
+	IndexSetName[3] = &Params.IndexSetName4;
+	IndexSetName[4] = &Params.IndexSetName5;
+	IndexSetName[5] = &Params.IndexSetName6;
 	
-	IndexList[0]    = &IndexList1;
-	IndexList[1]    = &IndexList2;
-	IndexList[2]    = &IndexList3;
-	IndexList[3]    = &IndexList4;
-	IndexList[4]    = &IndexList5;
-	IndexList[5]    = &IndexList6;
+	IndexList[0]    = &Params.IndexList1;
+	IndexList[1]    = &Params.IndexList2;
+	IndexList[2]    = &Params.IndexList3;
+	IndexList[3]    = &Params.IndexList4;
+	IndexList[4]    = &Params.IndexList5;
+	IndexList[5]    = &Params.IndexList6;
 	
-	IndexLock[0]    = &IndexLock1;
-	IndexLock[1]    = &IndexLock2;
-	IndexLock[2]    = &IndexLock3;
-	IndexLock[3]    = &IndexLock4;
-	IndexLock[4]    = &IndexLock5;
-	IndexLock[5]    = &IndexLock6;
-	
-	EIndexList[0]   = &EIndexList1;
-	EIndexList[1]   = &EIndexList2;
-	EIndexList[2]   = &EIndexList3;
-	EIndexList[3]   = &EIndexList4;
-	EIndexList[4]   = &EIndexList5;
-	EIndexList[5]   = &EIndexList6;
+	IndexLock[0]    = &Params.IndexLock1;
+	IndexLock[1]    = &Params.IndexLock2;
+	IndexLock[2]    = &Params.IndexLock3;
+	IndexLock[3]    = &Params.IndexLock4;
+	IndexLock[4]    = &Params.IndexLock5;
+	IndexLock[5]    = &Params.IndexLock6;
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
@@ -171,62 +173,32 @@ MobiView::MobiView()
 		IndexList[Idx]->WhenAction = THISBACK(RefreshParameterView);
 		
 		IndexLock[Idx]->Hide();
-		//IndexLock[Idx]->WhenAction = THISBACK(RefreshParameterView);
-		
-		EIndexList[Idx]->Hide();
-		EIndexList[Idx]->Disable();
-		EIndexList[Idx]->WhenAction = THISBACK(RePlot);
-		EIndexList[Idx]->MultiSelect();
-		//EIndexList1.NoHeader().NoVertGrid().AutoHideSb().NoGrid();
-		
-		EIndexList[Idx]->AddColumn("(no name)");
 	}
 	
 	SetDateFormat("%d-%02d-%02d");
 	SetDateScan("ymd");
 	
+	EquationSelecter.NoGrid();
+	EquationSelecter.Disable();
+	EquationSelecter.AddColumn("Equation").HeaderTab();
+	EquationSelecter.AddColumn("F.").HeaderTab();
+	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
+	EquationSelecter.MultiSelect();
+	EquationSelecter.ColumnWidths("85 15");
 	
-	Plot.SetFastViewX(true);
-	Plot.SetSequentialXAll(true);
-	Plot.SetMouseHandling(true, false);
+	InputSelecter.AddColumn("Input");
+	InputSelecter.WhenAction = THISBACK(PlotModeChange);
+	InputSelecter.MultiSelect();
+	InputSelecter.NoGrid();
 	
-	Plot.SetPlotAreaLeftMargin(50);
-	Plot.SetGridDash("");
-	Plot.SetGridColor(Color(180, 180, 180));
-
-
-
-	//Plot mode buttons and controls:
-	TimestepSlider.Range(10); //To be overwritten later.
-	TimestepSlider.SetData(0);
-	TimestepSlider.Hide();
-	TimestepEdit.Hide();
-	TimestepSlider.WhenAction << THISBACK(TimestepSliderEvent);
-	TimestepEdit.WhenAction << THISBACK(TimestepEditEvent);
-	
-	PlotMajorMode.SetData(0);
-	PlotMajorMode.Disable();
-	PlotMajorMode.WhenAction << THISBACK(PlotModeChange);
-	
-	TimeIntervals.SetData(0);
-	TimeIntervals.Disable();
-	TimeIntervals.WhenAction << THISBACK(PlotModeChange);
-	
-	Aggregation.SetData(0);
-	Aggregation.Disable();
-	Aggregation.WhenAction << THISBACK(PlotModeChange);
-	
-	ScatterInputs.Disable();
-	ScatterInputs.WhenAction << THISBACK(PlotModeChange);
-	
-	YAxisMode.SetData(0);
-	YAxisMode.Disable();
-	YAxisMode.WhenAction << THISBACK(PlotModeChange);
-	
-	Plot.RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
-	Plot.AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
+	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 }
 
+
+void MobiView::PlotModeChange()
+{
+	Plotter.PlotModeChange();
+}
 
 void MobiView::OpenSearch()
 {
@@ -371,22 +343,24 @@ void MobiView::Load()
 		ParameterGroupSelecter.Clear();
 		ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 		
-		ParameterView.Clear();
+		Params.ParameterView.Clear();
 		
 		for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 		{
 			IndexList[Idx]->Clear();
 			IndexList[Idx]->Hide();
-			EIndexList[Idx]->Clear();
-			EIndexList[Idx]->Hide();
+			Plotter.EIndexList[Idx]->Clear();
+			Plotter.EIndexList[Idx]->Hide();
 			IndexLock[Idx]->Hide();
 			IndexSetName[Idx]->Hide();
 		}
 		
 		IndexSetNameToId.clear();
 		
-		Plot.RemoveAllSeries();
-		PlotData.Clear();
+		Plotter.Plot.RemoveAllSeries();
+		Plotter.PlotData.Clear();
+		
+		Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 	}
 	
 	
@@ -516,8 +490,8 @@ void MobiView::Load()
 		InputSelecter.Add(InputNames[Idx]);
 	}
 
-	PlotMajorMode.Enable();
-	PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+	Plotter.PlotMajorMode.Enable();
+	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 	
 	
 	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
@@ -559,18 +533,18 @@ void MobiView::Load()
 		
 		
 		//EIndexList[IndexSet]->AddColumn(Name);
-		EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
+		Plotter.EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
 		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 		{
 			IndexList[IndexSet]->Add(IndexNames[Idx]);
 			
-			EIndexList[IndexSet]->Add(IndexNames[Idx]);
+			Plotter.EIndexList[IndexSet]->Add(IndexNames[Idx]);
 		}
 		IndexList[IndexSet]->GoBegin();
 		IndexList[IndexSet]->Show();
 		
-		EIndexList[IndexSet]->GoBegin();
-		EIndexList[IndexSet]->Show();
+		Plotter.EIndexList[IndexSet]->GoBegin();
+		Plotter.EIndexList[IndexSet]->Show();
 		
 		//MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
 	}
@@ -599,6 +573,28 @@ void MobiView::AddParameterGroupsRecursive(int ParentId, const char *ParentName,
 }
 
 
+void MobiView::RunModel()
+{
+	if(!hinstModelDll || !ModelDll.RunModel)
+	{
+		Log("Model can only be run once a model has been loaded along with a parameter and input file!");
+		return;
+	}
+	
+	auto Begin = std::chrono::high_resolution_clock::now();
+	ModelDll.RunModel(DataSet);
+	auto End = std::chrono::high_resolution_clock::now();
+	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
+	
+	CheckDllUserError();
+	
+	EquationSelecter.Enable();
+	
+	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
+	
+	Log(String("Model was run.\nDuration: ") << Ms << " ms.");
+}
+
 void MobiView::SaveBaseline()
 {
 	if(hinstModelDll && DataSet && ModelDll.GetTimesteps && ModelDll.GetTimesteps(DataSet) != 0)
@@ -610,11 +606,11 @@ void MobiView::SaveBaseline()
 		}
 		
 		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
-		PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
+		Plotter.PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
 		
 		Log("Baseline saved");
 		
-		RePlot(); //In case we had selected baseline already, and now the baseline changed.
+		Plotter.RePlot(); //In case we had selected baseline already, and now the baseline changed.
 	}
 	else
 	{

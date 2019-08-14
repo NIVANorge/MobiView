@@ -1,6 +1,44 @@
 #ifndef _MobiView_PlotDataStorage_h_
 #define _MobiView_PlotDataStorage_h_
 
+//NOTE: This has to match up to the major mode selecter.
+enum plot_major_mode
+{
+	MajorMode_Regular = 0,
+	MajorMode_Histogram,
+	MajorMode_Profile,
+	MajorMode_CompareBaseline,
+	MajorMode_Residuals,
+	MajorMode_ResidualHistogram,
+	MajorMode_QQ,
+};
+
+const size_t NUM_PERCENTILES = 7;
+const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
+
+struct timeseries_stats
+{
+	double Min;
+	double Max;
+	double Sum;
+	double Median;
+	double Percentiles[NUM_PERCENTILES];
+	double Mean;
+	double Variance;
+	double StandardDeviation;
+	size_t DataPoints;
+};
+
+struct residual_stats
+{
+	double MeanError;
+	double MeanAbsoluteError;
+	double RootMeanSquareError;
+	double NashSutcliffe;
+	double R2;
+	double SpearmansRCC;
+	size_t DataPoints;
+};
 
 struct plot_data_storage
 {
@@ -48,6 +86,59 @@ struct plot_colors
 	{
 		NextAvailable = 0;
 	}
+};
+
+
+class MobiView;
+
+class PlotCtrl : public WithPlotCtrlLayout<StaticRect> {
+public:
+	typedef PlotCtrl CLASSNAME;
+	
+	PlotCtrl(MobiView* Parent);
+	
+	void PlotModeChange();
+	
+	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
+	void AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
+	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
+	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
+	void AddLine(String &Legend, double X0, double X1, double Y0, double Y1);
+	void AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
+	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
+	
+	void SetBetterGridLinePositions();
+	
+	void RePlot();
+	
+	void TimestepSliderEvent();
+	void TimestepEditEvent();
+	void ReplotProfile();
+	
+	void NullifyNans(double *Data, size_t Len);
+	
+	
+	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
+	
+	plot_data_storage PlotData;
+	
+private:
+	
+	MobiView *Parent;
+	
+	
+	bool PlotWasAutoResized = false;
+	
+	std::vector<String> ProfileLabels;
+	String ProfileLegend;
+	String ProfileUnit;
+	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
+	size_t ProfileIndexesCount;
+	
+	Vector<String> QQLabels;
+	
+	plot_colors PlotColors;
 };
 
 

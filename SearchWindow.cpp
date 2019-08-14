@@ -87,7 +87,7 @@ void SearchWindow::SelectItem()
 		}
 	}
 	
-	ArrayCtrl &ParameterSelect = ParentWindow->ParameterView;
+	ArrayCtrl &ParameterSelect = ParentWindow->Params.ParameterView;
 	
 	Count = ParameterSelect.GetCount();
 	

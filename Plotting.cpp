@@ -7,31 +7,81 @@
 #include <chrono>
 
 
-void MobiView::RunModel()
+
+
+
+
+
+
+PlotCtrl::PlotCtrl(MobiView *Parent)
 {
-	if(!hinstModelDll || !ModelDll.RunModel)
+	this->Parent = Parent;
+	CtrlLayout(*this);
+	
+	
+	EIndexList[0]   = &EIndexList1;
+	EIndexList[1]   = &EIndexList2;
+	EIndexList[2]   = &EIndexList3;
+	EIndexList[3]   = &EIndexList4;
+	EIndexList[4]   = &EIndexList5;
+	EIndexList[5]   = &EIndexList6;
+	
+	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
-		Log("Model can only be run once a model has been loaded along with a parameter and input file!");
-		return;
+		EIndexList[Idx]->Hide();
+		EIndexList[Idx]->Disable();
+		EIndexList[Idx]->WhenAction = THISBACK(RePlot);
+		EIndexList[Idx]->MultiSelect();
+
+		EIndexList[Idx]->AddColumn("(no name)");
 	}
 	
-	auto Begin = std::chrono::high_resolution_clock::now();
-	ModelDll.RunModel(DataSet);
-	auto End = std::chrono::high_resolution_clock::now();
-	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
+	Plot.SetFastViewX(true);
+	Plot.SetSequentialXAll(true);
+	Plot.SetMouseHandling(true, false);
 	
-	CheckDllUserError();
+	Plot.SetPlotAreaLeftMargin(50);
+	Plot.SetGridDash("");
+	class Color Grey(180, 180, 180);
+	Plot.SetGridColor(Grey);
+
+
+
+	//Plot mode buttons and controls:
+	TimestepSlider.Range(10); //To be overwritten later.
+	TimestepSlider.SetData(0);
+	TimestepSlider.Hide();
+	TimestepEdit.Hide();
+	TimestepSlider.WhenAction << THISBACK(TimestepSliderEvent);
+	TimestepEdit.WhenAction << THISBACK(TimestepEditEvent);
 	
-	EquationSelecter.Enable();
+	PlotMajorMode.SetData(0);
+	PlotMajorMode.Disable();
+	PlotMajorMode.WhenAction << THISBACK(PlotModeChange);
 	
-	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
+	TimeIntervals.SetData(0);
+	TimeIntervals.Disable();
+	TimeIntervals.WhenAction << THISBACK(PlotModeChange);
 	
-	Log(String("Model was run.\nDuration: ") << Ms << " ms.");
+	Aggregation.SetData(0);
+	Aggregation.Disable();
+	Aggregation.WhenAction << THISBACK(PlotModeChange);
+	
+	ScatterInputs.Disable();
+	ScatterInputs.WhenAction << THISBACK(PlotModeChange);
+	
+	YAxisMode.SetData(0);
+	YAxisMode.Disable();
+	YAxisMode.WhenAction << THISBACK(PlotModeChange);
+	
+	Plot.RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
+	Plot.AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
 }
 
 
 
-void MobiView::PlotModeChange()
+
+void PlotCtrl::PlotModeChange()
 {
 	
 	//TODO: This is called twice on every selection of an input or equation. We should maybe find a way to guard
@@ -92,46 +142,46 @@ void MobiView::PlotModeChange()
 		EIndexList[Idx]->Disable();
 	}
 	
-	int RowCount = InputSelecter.GetCount();
+	int RowCount = Parent->InputSelecter.GetCount();
 	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		if(InputSelecter.IsSelected(Row))
+		if(Parent->InputSelecter.IsSelected(Row))
 		{
-			std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
+			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
 			
-			uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
+			uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
 			std::vector<char *> IndexSets(IndexSetCount);
-			ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
+			Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
 			
 			for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
 			{
 				const char *IndexSet = IndexSets[Idx];
-				size_t Id = IndexSetNameToId[IndexSet];
+				size_t Id = Parent->IndexSetNameToId[IndexSet];
 				EIndexList[Id]->Enable();
 			}
 		}
 	}
 	
-	uint64 Timesteps = ModelDll.GetTimesteps(DataSet);
+	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	if(Timesteps != 0)
 	{
-		int RowCount = EquationSelecter.GetCount();
+		int RowCount = Parent->EquationSelecter.GetCount();
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(EquationSelecter.IsSelected(Row))
+			if(Parent->EquationSelecter.IsSelected(Row))
 			{
-				std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
+				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
 				
-				uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
+				uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
 				std::vector<char *> IndexSets(IndexSetCount);
-				ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+				Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
 				
 				for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
 				{
 					const char *IndexSet = IndexSets[Idx];
-					size_t Id = IndexSetNameToId[IndexSet];
+					size_t Id = Parent->IndexSetNameToId[IndexSet];
 					EIndexList[Id]->Enable();
 				}
 			}
@@ -145,7 +195,7 @@ void MobiView::PlotModeChange()
 }
 
 
-int MobiView::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
+int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
 {
 	std::vector<double> &XValues = PlotData.Allocate(0);
 	std::vector<double> &YValues = PlotData.Allocate(0);
@@ -192,9 +242,9 @@ int MobiView::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 			}
 		}
 		
-		Color GraphColor = PlotColors.Next();
+		class Color GraphColor = PlotColors.Next();
 		double Darken = 0.4;
-		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
+		class Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
 		
 		return (int)NBins;
@@ -207,7 +257,7 @@ int MobiView::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 }
 
 
-void MobiView::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
+void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
 {
 	std::vector<double> &XValues = PlotData.Allocate(SampleCount);
 	std::vector<double> &YValues = PlotData.Allocate(SampleCount);
@@ -223,12 +273,12 @@ void MobiView::AddNormalApproximation(String &Legend, int SampleCount, double Mi
 		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
 	}
 	
-	Color GraphColor = PlotColors.Next();
+	class Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
 
-void MobiView::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
+void PlotCtrl::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
 {
 	double CurrentAggregate = 0.0;
 	int    CurrentCount = 0;
@@ -283,14 +333,14 @@ void MobiView::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 }
 
 
-void MobiView::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
+void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
 {
 	int Timesteps = (int)Len;
 	
 	int IntervalType = TimeIntervals.GetData();
 	int AggregationType = Aggregation.GetData();
 	
-	Color GraphColor = PlotColors.Next();
+	class Color GraphColor = PlotColors.Next();
 	
 	//TODO: Do some initial trimming to get rid of NaNs at the head and tail of the data.
 	ScatterDraw *Graph = nullptr;
@@ -336,7 +386,8 @@ void MobiView::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 		Graph->Units(Unit);
 		if(Scatter)
 		{
-			Graph->MarkColor(Color(255,255,255)).MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
+			class Color White(255, 255, 255);
+			Graph->MarkColor(White).MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
 			Graph->MarkStyle<CircleMarkPlot>();
 		}
 		else
@@ -346,7 +397,7 @@ void MobiView::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 	}
 }
 
-void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
+void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
 {
 	std::vector<double> &XValues = PlotData.Allocate(NUM_PERCENTILES);
 	std::vector<double> &YValues = PlotData.Allocate(NUM_PERCENTILES);
@@ -360,7 +411,7 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 		QQLabels << Format("%g", PERCENTILES[Idx]*100.0);
 	}
 	
-	Color GraphColor = PlotColors.Next();
+	class Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
 		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
 		
@@ -369,7 +420,7 @@ void MobiView::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
 }
 
-void MobiView::AddLine(String &Legend, double X0, double X1, double Y0, double Y1)
+void PlotCtrl::AddLine(String &Legend, double X0, double X1, double Y0, double Y1)
 {
 	std::vector<double> &XValues = PlotData.Allocate(2);
 	std::vector<double> &YValues = PlotData.Allocate(2);
@@ -379,11 +430,11 @@ void MobiView::AddLine(String &Legend, double X0, double X1, double Y0, double Y
 	YValues[0] = Y0;
 	YValues[1] = Y1;
 	
-	Color GraphColor = PlotColors.Next();
+	class Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Legend(Legend).Stroke(1.5, GraphColor).Dash("6 3");
 }
 
-void MobiView::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
+void PlotCtrl::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
 {
 	double Offset = (double)(StartDate - ReferenceDate);
 	
@@ -398,7 +449,7 @@ void MobiView::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, do
 	AddLine(Legend, X0, X1, Y0, Y1);
 }
 
-void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
+void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
 	std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps,
 	Date &ReferenceDate, Date &StartDate)
 {
@@ -420,19 +471,19 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		
 		if(Mode == 0)
 		{
-			ModelDll.GetResultSeries(DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
-			Unit = ModelDll.GetResultUnit(DataSet, Name.data());
+			Parent->ModelDll.GetResultSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
+			Unit = Parent->ModelDll.GetResultUnit(Parent->DataSet, Name.data());
 		}
 		else if(Mode == 1)
 		{
-			ModelDll.GetInputSeries(DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
-			Unit = ModelDll.GetInputUnit(DataSet, Name.data());
-			if(!ModelDll.InputWasProvided(DataSet, Name.data(), IndexData, Indexes.size()))
+			Parent->ModelDll.GetInputSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
+			Unit = Parent->ModelDll.GetInputUnit(Parent->DataSet, Name.data());
+			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
 			{
 				Provided = " (timeseries not provided)";
 			}
 		}
-		if(CheckDllUserError()) return;
+		if(Parent->CheckDllUserError()) return;
 		
 		double *Dat = Data.data();
 		size_t Len = Data.size();
@@ -451,8 +502,8 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		ComputeTimeseriesStats(Stats, Dat, Len, StartDate);
-		DisplayTimeseriesStats(Stats, Legend, Unit);
+		Parent->ComputeTimeseriesStats(Stats, Dat, Len, StartDate);
+		Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
 		
 		bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get() && Mode == 1);
 		bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
@@ -464,7 +515,7 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 	else
 	{
 		char *IndexSetName = IndexSets[Level];
-		size_t Id = IndexSetNameToId[IndexSetName];
+		size_t Id = Parent->IndexSetNameToId[IndexSetName];
 		
 		int RowCount = EIndexList[Id]->GetCount();
 		
@@ -483,9 +534,9 @@ void MobiView::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 	}
 }
 
-void MobiView::RePlot()
+void PlotCtrl::RePlot()
 {
-	if(!EquationSelecter.IsSelection() && !InputSelecter.IsSelection()) return;
+	if(!Parent->EquationSelecter.IsSelection() && !Parent->InputSelecter.IsSelection()) return;
 
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
@@ -508,72 +559,72 @@ void MobiView::RePlot()
 	Plot.SetLabelX(" ");
 	Plot.SetLabelY(" ");
 	
-	PlotInfo.Clear();
+	Parent->PlotInfo.Clear();
 	
 	int MajorMode = PlotMajorMode.GetData();
 	
 	Plot.SetTitle(String(""));
 	
 	char DateStr[256];
-	ModelDll.GetStartDate(DataSet, DateStr);
+	Parent->ModelDll.GetStartDate(Parent->DataSet, DateStr);
 	Date ResultStartDate;
 	StrToDate(ResultStartDate, DateStr);
 
-	ModelDll.GetInputStartDate(DataSet, DateStr);
+	Parent->ModelDll.GetInputStartDate(Parent->DataSet, DateStr);
 	Date InputStartDate;
 	StrToDate(InputStartDate, DateStr);
 	
-	uint64 InputTimesteps = ModelDll.GetInputTimesteps(DataSet);
-	uint64 ResultTimesteps = ModelDll.GetTimesteps(DataSet);
+	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
+	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	
 	if(PlotMajorMode == MajorMode_Regular)
 	{
-		int RowCount = InputSelecter.GetCount();
+		int RowCount = Parent->InputSelecter.GetCount();
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(InputSelecter.IsSelected(Row))
+			if(Parent->InputSelecter.IsSelected(Row))
 			{
-				std::string Name = InputSelecter.Get(Row, 0).ToString().ToStd();
+				std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
 				
-				uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
+				uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
 				std::vector<char *> IndexSets(IndexSetCount);
-				ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
-				if(CheckDllUserError()) return;
+				Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+				if(Parent->CheckDllUserError()) return;
 				
 				std::vector<std::string> CurrentIndexes(IndexSets.size());
 				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartDate, InputStartDate);
 				
-				if(CheckDllUserError()) return;
+				if(Parent->CheckDllUserError()) return;
 			}
 		}
 		
 		if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. In this case it should not be possible to select the equation though
 		{
-			int RowCount = EquationSelecter.GetCount();
+			int RowCount = Parent->EquationSelecter.GetCount();
 			
 			for(int Row = 0; Row < RowCount; ++Row)
 			{
-				if(EquationSelecter.IsSelected(Row))
+				if(Parent->EquationSelecter.IsSelected(Row))
 				{
-					std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
+					std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
 					
-					uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
+					uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data());
 					std::vector<char *> IndexSets(IndexSetCount);
-					ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
-					if(CheckDllUserError()) return;
+					Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+					if(Parent->CheckDllUserError()) return;
 					
 					std::vector<std::string> CurrentIndexes(IndexSets.size());
 					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartDate, ResultStartDate);
 					
-					if(CheckDllUserError()) return;
+					if(Parent->CheckDllUserError()) return;
 				}
 			}
 		}
 	}
 	else if(PlotMajorMode == MajorMode_Histogram)
 	{
-		int TimeseriesCount = EquationSelecter.GetSelectCount() + InputSelecter.GetSelectCount();
+		int TimeseriesCount = Parent->EquationSelecter.GetSelectCount() + Parent->InputSelecter.GetSelectCount();
 		
 		
 		if(TimeseriesCount > 1 || MultiIndex)
@@ -588,29 +639,29 @@ void MobiView::RePlot()
 			String Unit;
 		
 			Date StartDate = ResultStartDate;
-			if(EquationSelecter.IsSelection() && ResultTimesteps != 0)
+			if(Parent->EquationSelecter.IsSelection() && ResultTimesteps != 0)
 			{
 				Data.resize(ResultTimesteps);
 				
-				GetSingleSelectedResultSeries(DataSet, Legend, Unit, Data.data());
+				Parent->GetSingleSelectedResultSeries(Parent->DataSet, Legend, Unit, Data.data());
 			}
-			else if(InputSelecter.IsSelection())
+			else if(Parent->InputSelecter.IsSelection())
 			{
 				Data.resize(InputTimesteps);
-				GetSingleSelectedInputSeries(DataSet, Legend, Unit, Data.data(), false);
+				Parent->GetSingleSelectedInputSeries(Parent->DataSet, Legend, Unit, Data.data(), false);
 				StartDate = InputStartDate;
 			}
 			
 			AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), StartDate);
-			DisplayTimeseriesStats(Stats, Legend, Unit);
+			Parent->ComputeTimeseriesStats(Stats, Data.data(), Data.size(), StartDate);
+			Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
 		}
 	}
 	else if(PlotMajorMode == MajorMode_Profile)
 	{
-		int TimeseriesCount = EquationSelecter.GetSelectCount() + InputSelecter.GetSelectCount();
+		int TimeseriesCount = Parent->EquationSelecter.GetSelectCount() + Parent->InputSelecter.GetSelectCount();
 		
 		size_t ProfileIndexSet;
 		int NumberOfIndexSetsWithMultipleIndexesSelected = 0;
@@ -634,7 +685,7 @@ void MobiView::RePlot()
 			
 			ProfileLabels.resize(IndexCount);
 			
-			int Mode = EquationSelecter.GetSelectCount() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
+			int Mode = Parent->EquationSelecter.GetSelectCount() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
 			
 			Date CurrentStartDate;
 			size_t Timesteps;
@@ -663,11 +714,11 @@ void MobiView::RePlot()
 					
 					if(Mode == 0)
 					{
-						GetSingleResultSeries(DataSet, Data.data(), ProfileIndexSet, Row);
+						Parent->GetSingleResultSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
 					}
 					else
 					{
-						GetSingleInputSeries(DataSet, Data.data(), ProfileIndexSet, Row);
+						Parent->GetSingleInputSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
 					}
 					
 					NullifyNans(Data.data(), Data.size());
@@ -690,13 +741,13 @@ void MobiView::RePlot()
 			
 			if(Mode == 0)
 			{
-				ProfileLegend = EquationSelecter.Get(0).ToString();
-				ProfileUnit = ModelDll.GetResultUnit(DataSet, ProfileLegend);
+				ProfileLegend = Parent->EquationSelecter.Get(0).ToString();
+				ProfileUnit = Parent->ModelDll.GetResultUnit(Parent->DataSet, ProfileLegend);
 			}
 			else
 			{
-				ProfileLegend = InputSelecter.Get(0).ToString();
-				ProfileUnit = ModelDll.GetInputUnit(DataSet, ProfileLegend);
+				ProfileLegend = Parent->InputSelecter.Get(0).ToString();
+				ProfileUnit = Parent->ModelDll.GetInputUnit(Parent->DataSet, ProfileLegend);
 			}
 			ProfileLegend << " profile";
 			
@@ -756,7 +807,7 @@ void MobiView::RePlot()
 	{
 		//TODO: Limit to one selected result series. Maybe also allow plotting a observation
 		//comparison.
-		if(EquationSelecter.GetSelectCount() > 1 || MultiIndex)
+		if(Parent->EquationSelecter.GetSelectCount() > 1 || MultiIndex)
 		{
 			Plot.SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
 		}
@@ -766,21 +817,21 @@ void MobiView::RePlot()
 			bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
 			
 			
-			uint64 BaselineTimesteps = ModelDll.GetTimesteps(BaselineDataSet);
-			ModelDll.GetStartDate(BaselineDataSet, DateStr);
+			uint64 BaselineTimesteps = Parent->ModelDll.GetTimesteps(Parent->BaselineDataSet);
+			Parent->ModelDll.GetStartDate(Parent->BaselineDataSet, DateStr);
 			Date BaselineStartDate;
 			StrToDate(BaselineStartDate, DateStr);
 			
 			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
 			String Unit;
-			GetSingleSelectedResultSeries(BaselineDataSet, BS, Unit, Baseline.data());
+			Parent->GetSingleSelectedResultSeries(Parent->BaselineDataSet, BS, Unit, Baseline.data());
 			NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), BaselineStartDate);
-			DisplayTimeseriesStats(Stats, BS, Unit);
+			Parent->ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), BaselineStartDate);
+			Parent->DisplayTimeseriesStats(Stats, BS, Unit);
 			
 			AddPlot(BS, Unit, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartDate, BaselineStartDate, Stats.Min, Stats.Max);
 
@@ -788,12 +839,12 @@ void MobiView::RePlot()
 			
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
-			GetSingleSelectedResultSeries(DataSet, CurrentLegend, Unit, Current.data());
+			Parent->GetSingleSelectedResultSeries(Parent->DataSet, CurrentLegend, Unit, Current.data());
 			NullifyNans(Current.data(), Current.size());
 			
 			timeseries_stats Stats2 = {};
-			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), ResultStartDate);
-			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
+			Parent->ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), ResultStartDate);
+			Parent->DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
 			
 			AddPlot(CurrentLegend, Unit, Current.data(), Current.size(), false, LogY, NormY, InputStartDate, ResultStartDate, Stats2.Min, Stats2.Max);
 
@@ -801,7 +852,7 @@ void MobiView::RePlot()
 			
 			//TODO: Should we compute any residual statistics here?
 			
-			if(InputSelecter.GetSelectCount() == 1)
+			if(Parent->InputSelecter.GetSelectCount() == 1)
 			{
 				//TODO: Should we allow displaying multiple input series here? Probably no
 				//reason to
@@ -811,12 +862,12 @@ void MobiView::RePlot()
 				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
 				String InputLegend;
 				String Unit;
-				GetSingleSelectedInputSeries(DataSet, InputLegend, Unit, Obs.data(), false);
+				Parent->GetSingleSelectedInputSeries(Parent->DataSet, InputLegend, Unit, Obs.data(), false);
 				NullifyNans(Obs.data(), Obs.size());
 				
 				timeseries_stats Stats3 = {};
-				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), InputStartDate);
-				DisplayTimeseriesStats(Stats3, InputLegend, Unit);
+				Parent->ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), InputStartDate);
+				Parent->DisplayTimeseriesStats(Stats3, InputLegend, Unit);
 				
 				AddPlot(InputLegend, Unit, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartDate, InputStartDate, Stats3.Min, Stats3.Max);
 			}
@@ -827,7 +878,7 @@ void MobiView::RePlot()
 	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
 	{
 		
-		if(EquationSelecter.GetSelectCount() != 1 || InputSelecter.GetSelectCount() != 1 || MultiIndex)
+		if(Parent->EquationSelecter.GetSelectCount() != 1 || Parent->InputSelecter.GetSelectCount() != 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
 			Plot.SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
@@ -844,8 +895,8 @@ void MobiView::RePlot()
 			String ModUnit;
 			String ObsUnit;
 			
-			GetSingleSelectedResultSeries(DataSet, ModeledLegend, ModUnit, ModeledSeries.data());
-			GetSingleSelectedInputSeries(DataSet, ObservedLegend, ObsUnit, ObservedSeries.data(), true);
+			Parent->GetSingleSelectedResultSeries(Parent->DataSet, ModeledLegend, ModUnit, ModeledSeries.data());
+			Parent->GetSingleSelectedInputSeries(Parent->DataSet, ObservedLegend, ObsUnit, ObservedSeries.data(), true);
 			
 			for(size_t Idx = 0; Idx < ResultTimesteps; ++Idx)
 			{
@@ -855,24 +906,24 @@ void MobiView::RePlot()
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ModeledStats = {};
-			ComputeTimeseriesStats(ModeledStats, ModeledSeries.data(), ModeledSeries.size(), ResultStartDate);
-			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit);
+			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data(), ModeledSeries.size(), ResultStartDate);
+			Parent->DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit);
 			
 			timeseries_stats ObservedStats = {};
-			ComputeTimeseriesStats(ObservedStats, ObservedSeries.data(), ObservedSeries.size(), ResultStartDate);
-			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
+			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data(), ObservedSeries.size(), ResultStartDate);
+			Parent->DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
 			
 			residual_stats ResidualStats = {};
-			ComputeResidualStats(ResidualStats, ObservedSeries.data(), ModeledSeries.data(), ObservedSeries.size(), ResultStartDate);
+			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data(), ModeledSeries.data(), ObservedSeries.size(), ResultStartDate);
 			String GOF = "Goodness of fit: ";
-			DisplayResidualStats(ResidualStats, GOF);
+			Parent->DisplayResidualStats(ResidualStats, GOF);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{
 				bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
 				
 				double XMean, XVar, XYCovar;
-				ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
+				Parent->ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
 				
 				//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
 				AddPlot(Legend, ModUnit, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
@@ -889,7 +940,7 @@ void MobiView::RePlot()
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
+				Parent->ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
 				
 				AddNormalApproximation(NormLegend, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}
@@ -1021,7 +1072,7 @@ void MobiView::RePlot()
 	Plot.Refresh();
 }
 
-void MobiView::SetBetterGridLinePositions()
+void PlotCtrl::SetBetterGridLinePositions()
 {
 	//double XMin = Plot.GetXMin();
 	double YMin = Plot.GetYMin();
@@ -1054,7 +1105,7 @@ void MobiView::SetBetterGridLinePositions()
 	//String Debug = "Range: "; Debug << YRange << " Stretch: " << YStretch << " Min: " << Min << " Stride: " << Stride << " Count: " << Count; PromptOK(Debug);
 }
 
-void MobiView::TimestepSliderEvent()
+void PlotCtrl::TimestepSliderEvent()
 {
 	int Timestep = TimestepSlider.GetData();
 	Date NewDate = ProfileDisplayDate;
@@ -1083,7 +1134,7 @@ void MobiView::TimestepSliderEvent()
 	ReplotProfile();
 }
 
-void MobiView::TimestepEditEvent()
+void PlotCtrl::TimestepEditEvent()
 {
 	//NOTE: This can only happen if we are in daily mode since the edit is disabled otherwise.
 	//If this changes, this code has to be rethought.
@@ -1095,7 +1146,7 @@ void MobiView::TimestepEditEvent()
 }
 
 
-void MobiView::ReplotProfile()
+void PlotCtrl::ReplotProfile()
 {
 	Plot.RemoveAllSeries();
 	
@@ -1109,9 +1160,9 @@ void MobiView::ReplotProfile()
 		YValues[Idx] = PlotData.Data[Idx][Timestep];
 	}
 	
-	Color &GraphColor = PlotColors.PlotColors[0];
+	class Color &GraphColor = PlotColors.PlotColors[0];
 	double Darken = 0.4;
-	Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
+	class Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
 	
 	Plot.SetLabelX(" ");
@@ -1119,6 +1170,21 @@ void MobiView::ReplotProfile()
 	
 	Plot.Refresh();
 }
+
+void PlotCtrl::NullifyNans(double *Data, size_t Len)
+{
+	//NOTE: We do this because the ScatterDraw does not draw gaps in the line at NaNs, only at
+	//Null.
+	for(size_t Idx = 0; Idx < Len; ++Idx)
+	{
+		if(std::isnan(Data[Idx])) Data[Idx] = Null;
+	}
+}
+
+
+
+
+
 
 void MobiView::GetSingleResultSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row)
 {
@@ -1138,11 +1204,11 @@ void MobiView::GetSingleResultSeries(void *DataSet, double *WriteTo, size_t Sele
 		
 		if(Id == SelectRowFor)
 		{
-			Indexes_String[Idx] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(Row, 0).ToString().ToStd();
 		}
 		else
 		{
-			Indexes_String[Idx] = EIndexList[Id]->Get(0).ToString().ToStd();
+			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
 		}
 		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
@@ -1170,11 +1236,11 @@ void MobiView::GetSingleInputSeries(void *DataSet, double *WriteTo, size_t Selec
 		
 		if(Id == SelectRowFor)
 		{
-			Indexes_String[Idx] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(Row, 0).ToString().ToStd();
 		}
 		else
 		{
-			Indexes_String[Idx] = EIndexList[Id]->Get(0).ToString().ToStd();
+			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
 		}
 		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
@@ -1201,7 +1267,7 @@ void MobiView::GetSingleSelectedResultSeries(void *DataSet, String &Legend, Stri
 		const char *IndexSet = IndexSets[Idx];
 		size_t Id = IndexSetNameToId[IndexSet];
 		
-		Indexes_String[Idx] = EIndexList[Id]->Get(0).ToString().ToStd();
+		Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
 		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
 	
@@ -1238,7 +1304,7 @@ void MobiView::GetSingleSelectedInputSeries(void *DataSet, String &Legend, Strin
 		const char *IndexSet = IndexSets[Idx];
 		size_t Id = IndexSetNameToId[IndexSet];
 		
-		Indexes_String[Idx] = EIndexList[Id]->Get(0).ToString().ToStd();
+		Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
 		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
 	
@@ -1257,22 +1323,6 @@ void MobiView::GetSingleSelectedInputSeries(void *DataSet, String &Legend, Strin
 		Legend << ")";
 	}
 }
-
-
-void MobiView::NullifyNans(double *Data, size_t Len)
-{
-	//NOTE: We do this because the ScatterDraw does not draw gaps in the line at NaNs, only at
-	//Null.
-	for(size_t Idx = 0; Idx < Len; ++Idx)
-	{
-		if(std::isnan(Data[Idx])) Data[Idx] = Null;
-	}
-}
-
-
-
-
-
 
 
 
@@ -1323,13 +1373,13 @@ void MobiView::GetResultDataRecursive(std::string &Name, std::vector<char *> &In
 		char *IndexSetName = IndexSets[Level];
 		size_t Id = IndexSetNameToId[IndexSetName];
 		
-		int RowCount = EIndexList[Id]->GetCount();
+		int RowCount = Plotter.EIndexList[Id]->GetCount();
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(EIndexList[Id]->IsSelected(Row))
+			if(Plotter.EIndexList[Id]->IsSelected(Row))
 			{
-				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+				CurrentIndexes[Level] = Plotter.EIndexList[Id]->Get(Row, 0).ToString().ToStd();
 				GetResultDataRecursive(Name, IndexSets, CurrentIndexes, Level+1, Timesteps, PushTo, PushNamesTo);
 			}
 		}

@@ -4,11 +4,20 @@
 #include "MobiView.h"
 
 
+
+
+ParameterCtrl::ParameterCtrl()
+{
+	CtrlLayout(*this);
+};
+
+
+
 void MobiView::RefreshParameterView()
 {
 
-	ParameterView.Clear();
-	ParameterView.Reset();
+	Params.ParameterView.Clear();
+	Params.ParameterView.Reset();
 	
 	Vector<int> Selected = ParameterGroupSelecter.GetSel();
 	if(Selected.size() == 0 || Selected[0] == 0) return;
@@ -58,7 +67,7 @@ void MobiView::RefreshParameterView()
 	{
 		//NOTE: The last (not first since this list is reversed, sigh..) two index set
 		//dependencies are the same, and so we edit this as a row..
-		ParameterView.AddColumn("Name");
+		Params.ParameterView.AddColumn("Name");
 		
 		size_t Id = IndexSetNameToId[IndexSetNames[0]];
 		
@@ -73,7 +82,7 @@ void MobiView::RefreshParameterView()
 		
 		for(int Row = 0; Row < IterateIndexes.size(); ++Row)
 		{
-			ParameterView.AddColumn(String(IterateIndexes[Row]));
+			Params.ParameterView.AddColumn(String(IterateIndexes[Row]));
 		}
 		//TODO: Maybe also add min, max, unit, description..
 		
@@ -84,7 +93,7 @@ void MobiView::RefreshParameterView()
 		{
 			const char *Name = ParameterNames[Idx];
 			
-			ParameterView.Add(String(Name));
+			Params.ParameterView.Add(String(Name));
 			
 			CurrentParameterTypes.push_back(ParameterType_Double); //TODO: Right now we assume all matrix-like parameters are of type double.
 			
@@ -92,9 +101,9 @@ void MobiView::RefreshParameterView()
 			{
 				Indexes[Indexes.size() - 1] = (char *)IterateIndexes[Col].data(); //NOTE: Casting away constness, but it is not dangerous here.
 				Value ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), Indexes.size());
-				ParameterView.Set(Idx, Col+1, ParVal);
+				Params.ParameterView.Set(Idx, Col+1, ParVal);
 				ParameterControls.Create<EditDoubleNotNull>();
-				ParameterView.SetCtrl(Idx, Col+1, ParameterControls.Top());
+				Params.ParameterView.SetCtrl(Idx, Col+1, ParameterControls.Top());
 				ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Idx, Col, true); };
 			}
 		}
@@ -102,14 +111,14 @@ void MobiView::RefreshParameterView()
 	else
 	{
 		// Otherwise normal editing of just one value
-		ParameterView.AddColumn("Name").HeaderTab();
-		ParameterView.AddColumn("Value").HeaderTab();
-		ParameterView.AddColumn("Min").HeaderTab();
-		ParameterView.AddColumn("Max").HeaderTab();
-		ParameterView.AddColumn("Unit").HeaderTab();
-		ParameterView.AddColumn("Description").HeaderTab();
+		Params.ParameterView.AddColumn("Name").HeaderTab();
+		Params.ParameterView.AddColumn("Value").HeaderTab();
+		Params.ParameterView.AddColumn("Min").HeaderTab();
+		Params.ParameterView.AddColumn("Max").HeaderTab();
+		Params.ParameterView.AddColumn("Unit").HeaderTab();
+		Params.ParameterView.AddColumn("Description").HeaderTab();
 		
-		ParameterView.ColumnWidths("20 12 10 10 10 38");
+		Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 		
 		ParameterControls.Clear();
 		CurrentParameterTypes.clear();
@@ -177,8 +186,8 @@ void MobiView::RefreshParameterView()
 				ParameterControls.Create<EditDateNotNull>();
 				CurrentParameterTypes.push_back(ParameterType_Time);
 			}
-			ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
-			ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
+			Params.ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
+			Params.ParameterView.SetCtrl((int)Idx, 1, ParameterControls.Top());
 			ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted((int)Idx, 0, false); };
 		}
 	}
@@ -198,33 +207,33 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			Indexes[IndexCount - Idx - 1] = (char *)CurrentIndexes[Idx].data(); //NOTE: Have to do the reversing since the GetParameterGroupIndexSets returns them in "reverse order". We may want to fix that..
 		}
 		
-		std::string Name = ParameterView.Get(Row, 0).ToString().ToStd();
+		std::string Name = Params.ParameterView.Get(Row, 0).ToString().ToStd();
 		parameter_type Type = CurrentParameterTypes[Row];
 		
 		switch(Type)
 		{
 			case ParameterType_Double:
 			{
-				double V = ParameterView.Get(Row, Col + 1);
+				double V = Params.ParameterView.Get(Row, Col + 1);
 				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
 			
 			case ParameterType_UInt:
 			{
-				int64 V = ParameterView.Get(Row, Col + 1);
+				int64 V = Params.ParameterView.Get(Row, Col + 1);
 				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
 			} break;
 			
 			case ParameterType_Bool:
 			{
-				Ctrl *ctrl = ParameterView.GetCtrl(Row, Col + 1);
+				Ctrl *ctrl = Params.ParameterView.GetCtrl(Row, Col + 1);
 				bool V = (bool)((Option*)ctrl)->Get();
 				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
 			
 			case ParameterType_Time:
 			{
-				EditDateNotNull* ctrl = (EditDateNotNull*)ParameterView.GetCtrl(Row, Col + 1);
+				EditDateNotNull* ctrl = (EditDateNotNull*)Params.ParameterView.GetCtrl(Row, Col + 1);
 				Date D = ctrl->GetData();
 				if(D.IsValid())
 				{
@@ -246,7 +255,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			//parameters of a row are displayed for editing at the same time. In that case the
 			//last (first) index set is over that row, and is not governed by the other index
 			//set control.
-			CurrentIndexes[Level] = ParameterView.HeaderTab(Col + 1).GetText().ToStd();
+			CurrentIndexes[Level] = Params.ParameterView.HeaderTab(Col + 1).GetText().ToStd();
 			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, Col, EditingAsRow);
 		}
 		else if(IndexLock[Id]->IsEnabled() && IndexLock[Id]->Get())

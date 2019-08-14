@@ -19,6 +19,11 @@ using namespace Upp;
 
 #include "DllInterface.h"
 
+
+
+
+#define MAX_INDEX_SETS 6
+
 #include "Plotting.h"
 
 
@@ -48,47 +53,18 @@ ParseParameterType(const char *Name)
 	return Type;
 }
 
-const size_t NUM_PERCENTILES = 7;
-const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
-
-struct timeseries_stats
-{
-	double Min;
-	double Max;
-	double Sum;
-	double Median;
-	double Percentiles[NUM_PERCENTILES];
-	double Mean;
-	double Variance;
-	double StandardDeviation;
-	size_t DataPoints;
-};
-
-struct residual_stats
-{
-	double MeanError;
-	double MeanAbsoluteError;
-	double RootMeanSquareError;
-	double NashSutcliffe;
-	double R2;
-	double SpearmansRCC;
-	size_t DataPoints;
-};
 
 
-//NOTE: This has to match up to the major mode selecter.
-enum plot_major_mode
-{
-	MajorMode_Regular = 0,
-	MajorMode_Histogram,
-	MajorMode_Profile,
-	MajorMode_CompareBaseline,
-	MajorMode_Residuals,
-	MajorMode_ResidualHistogram,
-	MajorMode_QQ,
-};
 
 class MobiView;
+
+
+class ParameterCtrl : public WithParameterCtrlLayout<StaticRect> {
+public:
+	typedef ParameterCtrl CLASSNAME;
+	
+	ParameterCtrl();
+};
 
 
 class SearchWindow : public WithSearchLayout<TopWindow> {
@@ -111,7 +87,6 @@ public:
 };
 
 class VisualizeBranches : public TopWindow {
-	
 public :
 	VisualizeBranches(MobiView *ParentWindow);
 	
@@ -121,12 +96,30 @@ public :
 };
 
 
-#define MAX_INDEX_SETS 6
-
-class MobiView : public WithMobiViewLayout<TopWindow> {
+class MobiView : public TopWindow {
+	
 public:
 	typedef MobiView CLASSNAME;
 	MobiView();
+	
+	
+	
+	Splitter MainVertical;
+	Splitter UpperHorizontal;
+	Splitter LowerHorizontal;
+	
+	TreeCtrl ParameterGroupSelecter;
+	ParameterCtrl Params;
+	DocEdit PlotInfo;
+	DocEdit LogBox;
+
+	StaticRect EquationSelecterRect;
+	ArrayCtrl  EquationSelecter;
+	Option     ShowFavorites;
+	ArrayCtrl  InputSelecter;
+	
+	PlotCtrl Plotter;
+	
 	
 	void SubBar(Bar &bar);
 	
@@ -158,26 +151,9 @@ public:
 	void ClosingChecks();
 	
 	
-	void UpdateEquationSelecter();
 	
 	void PlotModeChange();
-	
-	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
-	void AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
-	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
-	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
-	void AddLine(String &Legend, double X0, double X1, double Y0, double Y1);
-	void AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
-	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
-	
-	void SetBetterGridLinePositions();
-	
-	void RePlot();
-	
-	void TimestepSliderEvent();
-	void TimestepEditEvent();
-	void ReplotProfile();
+	void UpdateEquationSelecter();
 	
 	
 	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo);
@@ -193,7 +169,8 @@ public:
 	void ParameterEditAccepted(int Row, int Col, bool EditAsRow);
 	
 	
-	void NullifyNans(double *Data, size_t Len);
+	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
+	void SaveToCsv();
 	
 	
 	
@@ -205,8 +182,8 @@ public:
 	void DisplayResidualStats(residual_stats &Stats, String &Name);
 	
 	
-	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
-	void SaveToCsv();
+	
+	
 	
 
 	ToolBar Tool;
@@ -224,20 +201,9 @@ public:
 	Label     *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
 	DropList  *IndexList[MAX_INDEX_SETS];
 	Option    *IndexLock[MAX_INDEX_SETS];
-	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	
 	std::map<std::string, size_t> IndexSetNameToId;
 	
-	plot_data_storage PlotData;
-	bool PlotWasAutoResized = false;
-	
-	std::vector<String> ProfileLabels;
-	String ProfileLegend;
-	String ProfileUnit;
-	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
-	size_t ProfileIndexesCount;
-	
-	Vector<String> QQLabels;
 	
 	void *DataSet = nullptr;
 	void *BaselineDataSet = nullptr;
@@ -246,7 +212,6 @@ public:
 	bool ParametersWereChangedSinceLastSave = false;
 	
 	
-	plot_colors PlotColors;
 	
 	
 	std::string DllFile;
