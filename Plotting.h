@@ -91,7 +91,7 @@ struct plot_colors
 
 class MobiView;
 
-class PlotCtrl : public WithPlotCtrlLayout<StaticRect> {
+class PlotCtrl : public WithPlotCtrlLayout<ParentCtrl> {
 public:
 	typedef PlotCtrl CLASSNAME;
 	

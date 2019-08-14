@@ -7,12 +7,6 @@
 #include <chrono>
 
 
-
-
-
-
-
-
 PlotCtrl::PlotCtrl(MobiView *Parent)
 {
 	this->Parent = Parent;
@@ -42,7 +36,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	
 	Plot.SetPlotAreaLeftMargin(50);
 	Plot.SetGridDash("");
-	class Color Grey(180, 180, 180);
+	Color Grey(180, 180, 180);
 	Plot.SetGridColor(Grey);
 
 
@@ -242,9 +236,9 @@ int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 			}
 		}
 		
-		class Color GraphColor = PlotColors.Next();
+		Color GraphColor = PlotColors.Next();
 		double Darken = 0.4;
-		class Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
+		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
 		
 		return (int)NBins;
@@ -273,7 +267,7 @@ void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Mi
 		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
 	}
 	
-	class Color GraphColor = PlotColors.Next();
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
@@ -340,7 +334,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 	int IntervalType = TimeIntervals.GetData();
 	int AggregationType = Aggregation.GetData();
 	
-	class Color GraphColor = PlotColors.Next();
+	Color GraphColor = PlotColors.Next();
 	
 	//TODO: Do some initial trimming to get rid of NaNs at the head and tail of the data.
 	ScatterDraw *Graph = nullptr;
@@ -386,7 +380,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 		Graph->Units(Unit);
 		if(Scatter)
 		{
-			class Color White(255, 255, 255);
+			Color White(255, 255, 255);
 			Graph->MarkColor(White).MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
 			Graph->MarkStyle<CircleMarkPlot>();
 		}
@@ -411,7 +405,7 @@ void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 		QQLabels << Format("%g", PERCENTILES[Idx]*100.0);
 	}
 	
-	class Color GraphColor = PlotColors.Next();
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
 		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
 		
@@ -430,7 +424,7 @@ void PlotCtrl::AddLine(String &Legend, double X0, double X1, double Y0, double Y
 	YValues[0] = Y0;
 	YValues[1] = Y1;
 	
-	class Color GraphColor = PlotColors.Next();
+	Color GraphColor = PlotColors.Next();
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Legend(Legend).Stroke(1.5, GraphColor).Dash("6 3");
 }
 
@@ -1160,9 +1154,9 @@ void PlotCtrl::ReplotProfile()
 		YValues[Idx] = PlotData.Data[Idx][Timestep];
 	}
 	
-	class Color &GraphColor = PlotColors.PlotColors[0];
+	Color &GraphColor = PlotColors.PlotColors[0];
 	double Darken = 0.4;
-	class Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
+	Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
 	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
 	
 	Plot.SetLabelX(" ");

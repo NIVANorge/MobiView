@@ -192,6 +192,53 @@ MobiView::MobiView() : Plotter(this)
 	InputSelecter.NoGrid();
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
+	
+	
+	
+	
+	
+	//Load in some settings
+	String SettingsFile = LoadFile(GetDataFile("settings.json"));
+	Value SettingsJson = ParseJSON(SettingsFile);
+	
+	//NOTE: We have to load in this info here already, otherwise it is lost when exiting the
+	//application before loading in files.
+	String PreviouslyLoadedDll         = SettingsJson["Model dll path"];
+	String PreviouslyLoadedParameterFile = SettingsJson["Parameter file path"];
+	String PreviouslyLoadedInputFile     = SettingsJson["Input file path"];
+	DllFile       = PreviouslyLoadedDll.ToStd();
+	ParameterFile = PreviouslyLoadedParameterFile.ToStd();
+	InputFile     = PreviouslyLoadedInputFile.ToStd();
+	
+	Value WindowDim = SettingsJson["Window dimensions"];
+	if(WindowDim.GetCount() == 2 && (int)WindowDim[0] > 0 && (int)WindowDim[1] > 0)
+	{
+		SetRect(0, 0, (int)WindowDim[0], (int)WindowDim[1]);
+	}
+	
+	Value MainVertPos = SettingsJson["Main vertical splitter"];
+	if((int)MainVertPos > 0)
+	{
+		MainVertical.SetPos((int)MainVertPos, 0);
+	}
+	
+	Value UpperHorzPos = SettingsJson["Upper horizontal splitter"];
+	if(UpperHorzPos.GetCount() == UpperHorizontal.GetCount())
+	{
+		for(int Idx = 0; Idx < UpperHorzPos.GetCount(); ++Idx)
+		{
+			UpperHorizontal.SetPos((int)UpperHorzPos[Idx], Idx);
+		}
+	}
+	
+	Value LowerHorzPos = SettingsJson["Lower horizontal splitter"];
+	if(LowerHorzPos.GetCount() == LowerHorizontal.GetCount())
+	{
+		for(int Idx = 0; Idx < LowerHorzPos.GetCount(); ++Idx)
+		{
+			LowerHorizontal.SetPos((int)LowerHorzPos[Idx], Idx);
+		}
+	}
 }
 
 
@@ -275,7 +322,7 @@ void MobiView::StoreSettings()
 	
 	SettingsJson
 		("Model dll path", String(DllFile))
-		("Parameter file path", String(CurrentParameterFile))
+		("Parameter file path", String(ParameterFile))
 		("Input file path", String(InputFile));
 	
 	Json Favorites;
@@ -301,6 +348,27 @@ void MobiView::StoreSettings()
 	Favorites(DllFileName, FavForCurrent);
 	
 	SettingsJson("Favorite equations", Favorites);
+	
+	JsonArray WindowDim;
+	WindowDim << GetSize().cx << GetSize().cy;
+	SettingsJson("Window dimensions", WindowDim);
+	
+	SettingsJson("Main vertical splitter", MainVertical.GetPos(0));
+	
+	JsonArray UpperHorzPos;
+	for(int Idx = 0; Idx < UpperHorizontal.GetCount(); ++Idx)
+	{
+		UpperHorzPos << UpperHorizontal.GetPos(Idx);
+	}
+	SettingsJson("Upper horizontal splitter", UpperHorzPos);
+	
+	JsonArray LowerHorzPos;
+	for(int Idx = 0; Idx < LowerHorizontal.GetCount(); ++Idx)
+	{
+		LowerHorzPos << LowerHorizontal.GetPos(Idx);
+	}
+	SettingsJson("Lower horizontal splitter", LowerHorzPos);
+	
 	
 	SaveFile("settings.json", SettingsJson.ToString());
 	
@@ -434,15 +502,15 @@ void MobiView::Load()
 		ParameterSel.ActiveDir(GetFileFolder(InputFile.data()));
 	}
 	ParameterSel.ExecuteOpen();
-	CurrentParameterFile = ParameterSel.Get().ToStd();
+	ParameterFile = ParameterSel.Get().ToStd();
 	
-	Success = CurrentParameterFile.size() > 0;
+	Success = ParameterFile.size() > 0;
 	
 	if(!Success) return;
 	
-	Log(String("Loading parameter file: ") + CurrentParameterFile.data());
+	Log(String("Loading parameter file: ") + ParameterFile.data());
 	
-	DataSet = ModelDll.SetupModel(CurrentParameterFile.data(), InputFile.data());
+	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
 	
 	
@@ -626,11 +694,13 @@ void MobiView::ClosingChecks()
 		int Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to exit MobiView?");
 		if(Cl)
 		{
+			StoreSettings();
 			Close();
 		}
 	}
 	else
 	{
+		StoreSettings();
 		Close();
 	}
 }

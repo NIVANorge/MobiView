@@ -59,7 +59,7 @@ ParseParameterType(const char *Name)
 class MobiView;
 
 
-class ParameterCtrl : public WithParameterCtrlLayout<StaticRect> {
+class ParameterCtrl : public WithParameterCtrlLayout<ParentCtrl> {
 public:
 	typedef ParameterCtrl CLASSNAME;
 	
@@ -216,7 +216,7 @@ public:
 	
 	std::string DllFile;
 	std::string InputFile;
-	std::string CurrentParameterFile;
+	std::string ParameterFile;
 	
 };
 
