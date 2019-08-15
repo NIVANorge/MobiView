@@ -13,10 +13,9 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Allow opening separate windows with multiple plots side by side (with locked x-axises)
 - Possibly organize equations and inputs in a way that makes it faster to look up the one you want.
 - Equation search similar to parameter search?
-- Allow sorting equations by name.
 - More goodness of fit stats.
 - Better alignment of vertical grid lines in plot (try to lock to whole months or whole years for instance).
-- Fix text alignment issues.
+- Fix text overflowing the legend box in the plot.
 - Port to and test on Linux.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long.
 
