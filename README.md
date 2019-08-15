@@ -17,7 +17,7 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Better alignment of vertical grid lines in plot (try to lock to whole months or whole years for instance).
 - Fix text overflowing the legend box in the plot.
 - Port to and test on Linux.
-- Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long.
+- Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long. But this is tricky as it would require locking down the dataset (or running a copy of it and then writing back the results to the original one when it is done).
 
 Optional:
 - Have model-specific plot setups similar to the old INCAs, where for instance for INCA-P there is a simple button to open a new window with a bar plot summary of e.g. all the phosphorous processes in land. This would save a few clicks for people who are always going to be looking at very specific plot setups, and it can be useful to look at multiple plots at once.
