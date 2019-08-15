@@ -1392,16 +1392,6 @@ void MobiView::SaveToCsv()
 		return;
 	}
 	
-	FileSel Sel;
-	Sel.Type("Csv files", "*.csv");
-	//TODO: Remember the last folder..
-	Sel.ExecuteSaveAs();
-	std::string FileName = Sel.Get().ToStd();
-	if(FileName.empty())
-	{
-		return;
-	}
-	
 	std::vector<std::string> Names;
 	std::vector<std::vector<double>> Data;
 	
@@ -1430,8 +1420,32 @@ void MobiView::SaveToCsv()
 		}
 	}
 	
+	if(Names.empty())
+	{
+		Log("You must select some equations to export the result series of.");
+		return;
+	}
+	
+	FileSel Sel;
+	Sel.Type("Csv files", "*.csv");
+	//TODO: Remember the last folder..
+	Sel.ExecuteSaveAs();
+	std::string FileName = Sel.Get().ToStd();
+	if(FileName.empty())
+	{
+		return;
+	}
+	
+	
+	
 	std::ofstream File;
 	File.open(FileName.data());
+	
+	if(!File.is_open())
+	{
+		Log(String("Unable to open file") + FileName);
+		return;
+	}
 	
 	for(int Idx = 0; Idx < Names.size(); ++Idx)
 	{

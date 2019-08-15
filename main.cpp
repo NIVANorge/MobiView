@@ -128,7 +128,6 @@ MobiView::MobiView() : Plotter(this)
 	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
 	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	
-	//ParameterGroupSelecter.AddColumn("Parameter group");
 	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 	
 	Params.ParameterView.AddColumn("Name").HeaderTab();
@@ -141,8 +140,6 @@ MobiView::MobiView() : Plotter(this)
 	Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
 	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
-	//ParameterGroupSelecter.HorzGrid(false);
-	//ParameterGroupSelecter.VertGrid(false);
 	
 	IndexSetName[0] = &Params.IndexSetName1;
 	IndexSetName[1] = &Params.IndexSetName2;
@@ -185,6 +182,8 @@ MobiView::MobiView() : Plotter(this)
 	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
 	EquationSelecter.MultiSelect();
 	EquationSelecter.ColumnWidths("85 15");
+	
+	EquationSelecter.HeaderTab(0).WhenAction = [this](){this->EquationSelecter.Sort(0);};
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
@@ -239,6 +238,8 @@ MobiView::MobiView() : Plotter(this)
 			LowerHorizontal.SetPos((int)LowerHorzPos[Idx], Idx);
 		}
 	}
+	
+	if((bool)SettingsJson["Maximize"]) Maximize();
 }
 
 
@@ -309,8 +310,6 @@ void MobiView::UpdateEquationSelecter()
 	StoreSettings();
 }
 
-
-
 void MobiView::StoreSettings()
 {
 	String SettingsFile = LoadFile(GetDataFile("settings.json"));
@@ -369,6 +368,7 @@ void MobiView::StoreSettings()
 	}
 	SettingsJson("Lower horizontal splitter", LowerHorzPos);
 	
+	SettingsJson("Maximize", IsMaximized());
 	
 	SaveFile("settings.json", SettingsJson.ToString());
 	
@@ -581,7 +581,6 @@ void MobiView::Load()
 	ModelDll.GetIndexSets(DataSet, IndexSets.data());
 	if (CheckDllUserError()) return;
 	
-	//size_t MaxIndexCount = 0;
 	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
 	{
 		IndexLock[IndexSet]->Show();
@@ -599,8 +598,6 @@ void MobiView::Load()
 		ModelDll.GetIndexes(DataSet, Name, IndexNames.data());
 		if (CheckDllUserError()) return;
 		
-		
-		//EIndexList[IndexSet]->AddColumn(Name);
 		Plotter.EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
 		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 		{
@@ -613,8 +610,6 @@ void MobiView::Load()
 		
 		Plotter.EIndexList[IndexSet]->GoBegin();
 		Plotter.EIndexList[IndexSet]->Show();
-		
-		//MaxIndexCount = MaxIndexCount > IndexCount ? MaxIndexCount : IndexCount;
 	}
 	
 	PlotModeChange();

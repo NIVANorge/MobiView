@@ -113,7 +113,7 @@ public:
 	DocEdit PlotInfo;
 	DocEdit LogBox;
 
-	StaticRect EquationSelecterRect;
+	ParentCtrl EquationSelecterRect;
 	ArrayCtrl  EquationSelecter;
 	Option     ShowFavorites;
 	ArrayCtrl  InputSelecter;
@@ -212,8 +212,8 @@ public:
 	bool ParametersWereChangedSinceLastSave = false;
 	
 	
-	
-	
+	//NOTE: These should hold the names of what files were last opened (in an earlier
+	//session or this session), regardless of whether or not files are currently open.)
 	std::string DllFile;
 	std::string InputFile;
 	std::string ParameterFile;
