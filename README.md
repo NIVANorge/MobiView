@@ -15,9 +15,9 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Equation search similar to parameter search?
 - More goodness of fit stats.
 - Better alignment of vertical grid lines in plot (try to lock to whole months or whole years for instance).
-- Fix text overflowing the legend box in the plot.
 - Port to and test on Linux.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long. But this is tricky as it would require locking down the dataset (or running a copy of it and then writing back the results to the original one when it is done).
+- Always ensure that the left margin of the plot is wide enough so that y axis numbers don't overwrite the y axis unit.
 
 Optional:
 - Have model-specific plot setups similar to the old INCAs, where for instance for INCA-P there is a simple button to open a new window with a bar plot summary of e.g. all the phosphorous processes in land. This would save a few clicks for people who are always going to be looking at very specific plot setups, and it can be useful to look at multiple plots at once.
@@ -32,6 +32,9 @@ If this does not work right away, you could
 - or right click MobiView.exe, then go to Settings->Compatibility, click 'Change high DPI settings', then check the first box under 'Program DPI', then change 'Use the DPI that's set for my main display when' to 'I open this program'.
 
 This is not an ideal solution since it also changes the scaling of all your other programs and may make text hard to read. We will try to see if there is a better solution.
+
+
+Text overflowing the legend box in the plot: This is fixed on my local version of upp, and so is fine in precompiled distributions. People who want to compile MobiView for themselves may have to wait for future versions of upp for this to be fixed.
 
 
 ### Getting MobiView
