@@ -183,12 +183,14 @@ MobiView::MobiView() : Plotter(this)
 	EquationSelecter.MultiSelect();
 	EquationSelecter.ColumnWidths("85 15");
 	
-	EquationSelecter.HeaderTab(0).WhenAction = [this](){this->EquationSelecter.Sort(0);};
+	EquationSelecter.HeaderTab(0).WhenAction = [this](){this->EquationSelecter.Sort(0);}; //TODO: Clicking again should restore original order.
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
 	InputSelecter.NoGrid();
+	
+	InputSelecter.HeaderTab(0).WhenAction = [this](){this->InputSelecter.Sort(0);}; //TODO: Clicking again should restore original order.
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	

@@ -39,6 +39,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	Color Grey(180, 180, 180);
 	Plot.SetGridColor(Grey);
 
+	//Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 
 
 	//Plot mode buttons and controls:
@@ -545,8 +546,6 @@ void PlotCtrl::RePlot()
 	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series and not re-extract everything every time.
 	PlotData.Clear();
 	PlotColors.Reset();
-
-	Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 	
 	Plot.ShowLegend(true);
 	
