@@ -34,7 +34,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	Plot.SetSequentialXAll(true);
 	Plot.SetMouseHandling(true, false);
 	
-	Plot.SetPlotAreaLeftMargin(50);
+	Plot.SetPlotAreaLeftMargin(70);
 	Plot.SetGridDash("");
 	Color Grey(180, 180, 180);
 	Plot.SetGridColor(Grey);
@@ -381,9 +381,11 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 		Graph->Units(Unit);
 		if(Scatter)
 		{
-			Color White(255, 255, 255);
-			Graph->MarkColor(White).MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
+			Graph->MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
 			Graph->MarkStyle<CircleMarkPlot>();
+			
+			int Index = Plot.GetCount()-1;
+			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not work as intended.
 		}
 		else
 		{

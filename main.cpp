@@ -332,21 +332,24 @@ void MobiView::StoreSettings()
 	
 	for(const auto &K : Eq.GetKeys())
 	{
-		if(K != DllFileName)
+		if(K != DllFileName || !hinstModelDll)
 		{
 			Favorites(K.ToString(), Eq[K]);
 		}
 	}
 	
-	JsonArray FavForCurrent;
-	for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
+	if(hinstModelDll) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
 	{
-		if(EquationSelecter.Get(Row, 1)) //I.e. if it was favorited
+		JsonArray FavForCurrent;
+		for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
 		{
-			FavForCurrent << EquationSelecter.Get(Row, 0);
+			if(EquationSelecter.Get(Row, 1)) //I.e. if it was favorited
+			{
+				FavForCurrent << EquationSelecter.Get(Row, 0);
+			}
 		}
+		Favorites(DllFileName, FavForCurrent);
 	}
-	Favorites(DllFileName, FavForCurrent);
 	
 	SettingsJson("Favorite equations", Favorites);
 	
@@ -429,6 +432,7 @@ void MobiView::Load()
 		
 		Plotter.Plot.RemoveAllSeries();
 		Plotter.PlotData.Clear();
+		Plotter.PlotWasAutoResized = false;
 		
 		Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 	}
@@ -636,7 +640,6 @@ void MobiView::AddParameterGroupsRecursive(int ParentId, const char *ParentName,
 		}
 	}
 }
-
 
 void MobiView::RunModel()
 {

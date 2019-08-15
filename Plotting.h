@@ -123,12 +123,11 @@ public:
 	
 	plot_data_storage PlotData;
 	
+	bool PlotWasAutoResized = false;
+	
 private:
 	
 	MobiView *Parent;
-	
-	
-	bool PlotWasAutoResized = false;
 	
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
