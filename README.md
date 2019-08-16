@@ -34,15 +34,12 @@ If this does not work right away, you could
 This is not an ideal solution since it also changes the scaling of all your other programs and may make text hard to read. We will try to see if there is a better solution.
 
 
-Text overflowing the legend box in the plot: This is fixed on my local version of upp, and so is fine in precompiled distributions. People who want to compile MobiView for themselves may have to wait for future versions of upp for this to be fixed.
-
-
 ### Getting MobiView
 Before we set up a distribution download server, you can email us ([magnus.norling@niva.no]) to get a pre-compiled version of MobiView.
 
 ### Building MobiView yourself
 If you want to build MobiView yourself (for instance to be guaranteed to always have the latest version or to make your own modifications), you can do the following:
-- Download [Ultimate++](https://www.ultimatepp.org/) . If you are on Windows, choose the win32 portable archive (latest version of upp-mingw).
+- Download [Ultimate++](https://www.ultimatepp.org/) . If you are on Windows, choose the win32 portable archive (latest version of upp-mingw). **NOTE** You may have to download the nightly build, not the latest stable version, for everything to work. This is because we use some features that were recently implemented.
 - Extract the archive somewhere. You may need to install [7zip](https://www.7-zip.org/) to be able to extract it.
 - Inside the upp folder, create a MyApps folder, and clone **this** repository to upp/MyApps/MobiView.
 - Run upp/theide.exe
