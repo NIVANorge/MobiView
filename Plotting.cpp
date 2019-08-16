@@ -962,6 +962,8 @@ void PlotCtrl::RePlot()
 		//NOTE: Histograms require completely different zooming.
 		Plot.ZoomToFit(true, true);
 		PlotWasAutoResized = false;
+		
+		//TODO: Here we want to position the x grid lines at the bars.
 	}
 	else if(PlotMajorMode == MajorMode_QQ)
 	{
@@ -1062,50 +1064,59 @@ void PlotCtrl::RePlot()
 		};
 	}
 	
-	SetBetterGridLinePositions();
+	SetBetterGridLinePositions(1);
+	if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
 	
 	Size PlotSize = Plot.GetSize();
 	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....
-	
-	
 	
 	Plot.Refresh();
 }
 
 
-void PlotCtrl::SetBetterGridLinePositions()
+void PlotCtrl::SetBetterGridLinePositions(int Dim)
 {
-	//TODO: For Q-Q plot we actually want to do this same thing for the X axis.
+	double Min;
+	double Range;
 	
-	//double XMin = Plot.GetXMin();
-	double YMin = Plot.GetYMin();
-	//double XRange = Plot.GetXRange();
-	double YRange = Plot.GetYRange();
+	if(Dim == 0)
+	{
+		Min = Plot.GetXMin();
+		Range = Plot.GetXRange();
+	}
+	else
+	{
+		Min = Plot.GetYMin();
+		Range = Plot.GetYRange();
+	}
 	
-	double LogYRange = std::log10(YRange);
+	double LogRange = std::log10(Range);
 	double IntPart;
-	double FracPart = std::modf(LogYRange, &IntPart);
-	if(YRange < 1.0) IntPart -= 1.0;
-	double YOrderOfMagnitude = std::pow(10.0, IntPart);
-	double YStretch = YRange / YOrderOfMagnitude;
+	double FracPart = std::modf(LogRange, &IntPart);
+	if(Range < 1.0) IntPart -= 1.0;
+	double OrderOfMagnitude = std::pow(10.0, IntPart);
+	double Stretch = Range / OrderOfMagnitude;
 	
-	double Stride = YOrderOfMagnitude * 0.1;
-	if(YStretch >= 2.0) Stride = YOrderOfMagnitude * 0.2;
-	if(YStretch >= 2.5) Stride = YOrderOfMagnitude * 0.25;
-	if(YStretch >= 5.0) Stride = YOrderOfMagnitude * 0.5;
+	double Stride = OrderOfMagnitude * 0.1;
+	if(Stretch >= 2.0) Stride = OrderOfMagnitude * 0.2;
+	if(Stretch >= 2.5) Stride = OrderOfMagnitude * 0.25;
+	if(Stretch >= 5.0) Stride = OrderOfMagnitude * 0.5;
 	
-	double Min = std::floor(YMin / Stride)*Stride;
-	int Count = (int)std::ceil(YRange / Stride);
+	Min = std::floor(Min / Stride)*Stride;
+	int Count = (int)std::ceil(Range / Stride);
 	
 	//Plot.SetMinUnits(Null, Min);  //We would prefer to do this, but for some reason it works
 	//poorly when there are negative values...
-	Plot.SetXYMin(Null, Min);
-	
-	Plot.SetMajorUnits(Null, Stride);
-	//Plot.SetMajorUnitsNum(Null, Count);
-	
-	
-	//String Debug = "Range: "; Debug << YRange << " Stretch: " << YStretch << " Min: " << Min << " Stride: " << Stride << " Count: " << Count; PromptOK(Debug);
+	if(Dim == 0)
+	{
+		Plot.SetXYMin(Min, Null);
+		Plot.SetMajorUnits(Stride, Null);
+	}
+	else
+	{
+		Plot.SetXYMin(Null, Min);
+		Plot.SetMajorUnits(Null, Stride);
+	}
 }
 
 
@@ -1127,7 +1138,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 {
 	//InputStartDate is X=0. X resolution is daily
 	
-	int DesiredGridLineNum = 10;  //TODO: Make it sensitive to plot pixel size
+	int DesiredGridLineNum = 10;  //TODO: Make it sensitive to plot size
 	
 	double XMin = Plot.GetXMin();
 	double XRange = Plot.GetXRange();
