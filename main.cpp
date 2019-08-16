@@ -382,7 +382,7 @@ void MobiView::StoreSettings()
 
 void MobiView::Load()
 {
-	if(hinstModelDll)
+	if(hinstModelDll)  //NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new Load().
 	{
 		//PromptOK("Tried to do this");
 		
@@ -518,8 +518,6 @@ void MobiView::Load()
 	
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
-	
-	
 	
 	
 	String DllFileName = GetFileName(DllFile.data());
