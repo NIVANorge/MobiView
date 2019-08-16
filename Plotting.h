@@ -119,6 +119,12 @@ public:
 	void NullifyNans(double *Data, size_t Len);
 	
 	
+	
+	void UpdateDateGridLinesX(Vector<double> &LinesOut);
+	
+	
+	
+	
 	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	
 	plot_data_storage PlotData;
@@ -138,6 +144,8 @@ private:
 	Vector<String> QQLabels;
 	
 	plot_colors PlotColors;
+	
+	Date InputStartDate;
 };
 
 

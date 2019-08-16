@@ -314,8 +314,11 @@ void PlotCtrl::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 			
 			//NOTE put the X position roughly in the middle of the respective month or year. This
 			//increases clarity in the plot.
-			if(IntervalType == 1) XVal += 15.5;
-			else if(IntervalType == 2) XVal += 182.5;
+			
+			//Edit: No, it is not that good to do this actually...
+			
+			//if(IntervalType == 1) XVal += 15.5;
+			//else if(IntervalType == 2) XVal += 182.5;
 			
 			XValues.push_back(XVal);
 			
@@ -566,7 +569,6 @@ void PlotCtrl::RePlot()
 	StrToDate(ResultStartDate, DateStr);
 
 	Parent->ModelDll.GetInputStartDate(Parent->DataSet, DateStr);
-	Date InputStartDate;
 	StrToDate(InputStartDate, DateStr);
 	
 	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
@@ -952,6 +954,7 @@ void PlotCtrl::RePlot()
 		}
 	}
 	
+	Plot.SetGridLinesX.Clear();
 	
 	if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 	{
@@ -992,6 +995,8 @@ void PlotCtrl::RePlot()
 		Plot.cbModifFormatX.Clear();
 		Plot.ZoomToFit(false, true);
 		
+		Plot.SetGridLinesX = THISBACK(UpdateDateGridLinesX);
+		
 		double YRange = Plot.GetYRange();
 		double YMin   = Plot.GetYMin();
 		if(YMin > 0.0)
@@ -1015,9 +1020,9 @@ void PlotCtrl::RePlot()
 			{
 				MonthlyOrYearly = true;
 				
-				Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
 				{
-					Date D2 = InputStartDate + (int)d;
+					Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s << Format("%d-%02d", D2.year, D2.month);
 				};
 			}
@@ -1025,9 +1030,9 @@ void PlotCtrl::RePlot()
 			{
 				MonthlyOrYearly = true;
 				
-				Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
 				{
-					Date D2 = InputStartDate + (int)d;
+					Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s = Format("%d", D2.year);
 				};
 			}
@@ -1035,9 +1040,9 @@ void PlotCtrl::RePlot()
 		
 		if(!MonthlyOrYearly)
 		{
-			Plot.cbModifFormatX << [InputStartDate](String &s, int i, double d)
+			Plot.cbModifFormatX << [this](String &s, int i, double d)
 			{
-				Date D2 = InputStartDate + (int)d;
+				Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 				s = Format(D2);
 			};
 		}
@@ -1067,11 +1072,14 @@ void PlotCtrl::RePlot()
 	Plot.Refresh();
 }
 
+
 void PlotCtrl::SetBetterGridLinePositions()
 {
+	//TODO: For Q-Q plot we actually want to do this same thing for the X axis.
+	
 	//double XMin = Plot.GetXMin();
 	double YMin = Plot.GetYMin();
-	//double XRange = Plot.GetXRange();    //TODO: For x axis we would prefer to place at e.g. whole months or whole years.
+	//double XRange = Plot.GetXRange();
 	double YRange = Plot.GetYRange();
 	
 	double LogYRange = std::log10(YRange);
@@ -1099,6 +1107,139 @@ void PlotCtrl::SetBetterGridLinePositions()
 	
 	//String Debug = "Range: "; Debug << YRange << " Stretch: " << YStretch << " Min: " << Min << " Stride: " << Stride << " Count: " << Count; PromptOK(Debug);
 }
+
+
+int RoundStep(int Step)
+{
+	int Log10Step = (int)std::log10((double)Step);
+	
+	int OrderOfMagnitude = 1;
+	for(int Idx = 0; Idx < Log10Step; ++Idx) OrderOfMagnitude*=10;   //NOTE: Not efficient, but will not be a problem in practice
+	int Stretch = Step / OrderOfMagnitude;
+	if(Stretch == 1) return OrderOfMagnitude;
+	if(Stretch == 2) return OrderOfMagnitude*2;
+	if(Stretch <= 5) return OrderOfMagnitude*5;
+	return OrderOfMagnitude*10;
+}
+
+
+void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
+{
+	//InputStartDate is X=0. X resolution is daily
+	
+	int DesiredGridLineNum = 10;  //TODO: Make it sensitive to plot pixel size
+	
+	double XMin = Plot.GetXMin();
+	double XRange = Plot.GetXRange();
+	
+	Date FirstDate = InputStartDate + (int)XMin;
+	Date LastDate = FirstDate + (int)XRange;
+	
+	int DoStep = 0;
+	
+	int IntervalType = TimeIntervals.GetData();
+	if(!TimeIntervals.IsEnabled() || IntervalType == 0)
+	{
+		int DayRange = LastDate - FirstDate;
+		int DayStep = DayRange / DesiredGridLineNum + 1;
+		
+		if(DayStep >= 20) DoStep = 1; //Monthly;
+		else
+		{
+			DoStep = 0;
+			
+			if(DayStep == 3) DayStep = 2;
+			else if(DayStep == 4) DayStep = 5;
+			else if(DayStep == 6 || DayStep == 7) DayStep = 5;
+			else if(DayStep == 8 || DayStep == 9) DayStep = 10;
+			else if(DayStep > 2 && DayStep < 20) DayStep = 15;
+			
+			Date IterDate = FirstDate;
+			IterDate.day -= (((int)IterDate.day-1) % DayStep);
+			while(IterDate.Compare(LastDate) != 1)
+			{
+				int DaysOfMonth = GetDaysOfMonth(IterDate.month, IterDate.year);
+				IterDate.day += DayStep;
+				bool Advance = false;
+				if(IterDate.day > DaysOfMonth) Advance = true;
+				else if((DayStep != 1 && (DaysOfMonth - (int)IterDate.day < DayStep/2))) Advance = true; //This is kind of arbitrary.
+				
+				if(Advance)
+				{
+					IterDate.day = 1;
+					IterDate.month++;
+					if(IterDate.month > 12)
+					{
+						IterDate.month = 1;
+						IterDate.year++;
+					}
+				}
+				double XVal = (double)((IterDate - InputStartDate)) - XMin;
+				if(XVal > 0 && XVal < XRange)
+					LinesOut << XVal;
+			}
+			
+			return;
+		}
+	}
+	
+	if(DoStep == 1 || IntervalType == 1)
+	{
+		int MonthRange = (int)LastDate.month - (int)FirstDate.month + 12*(LastDate.year - FirstDate.year);
+		int MonthStep = MonthRange / DesiredGridLineNum + 1;
+		
+		if(MonthStep >= 10) DoStep = 2; //Yearly
+		else
+		{
+			DoStep = 1; //Monthly
+			
+			if(MonthStep == 4) MonthStep = 3;
+			else if(MonthStep == 5 || (MonthStep > 6 && MonthStep <= 9)) MonthStep = 6;
+			
+			int FirstMonth = (int)FirstDate.month;
+			int Surp = ((FirstMonth-1) % MonthStep);
+			MonthRange += Surp;
+			FirstMonth -= Surp; //NOTE: This should not result in FirstMonth being negative.
+			Date IterDate(FirstDate.year, (byte)FirstMonth, 1);
+			for(int Month = 0; Month <= MonthRange; Month += MonthStep)
+			{
+				IterDate.month += MonthStep;
+				if(IterDate.month > 12)
+				{
+					IterDate.month -= 12;
+					IterDate.year++;
+				}
+				double XVal = (double)((IterDate - InputStartDate)) - XMin;
+				if(XVal > 0 && XVal < XRange)
+					LinesOut << XVal;
+			}
+			return;
+		}
+		
+	}
+	
+	if(DoStep == 2 || IntervalType == 2) //Yearly
+	{
+		int FirstYear = FirstDate.year;
+		int LastYear = LastDate.year;
+		
+		int YearCount = LastYear - FirstYear;
+		int YearStep = YearCount / DesiredGridLineNum + 1;
+		YearStep = RoundStep(YearStep);
+		
+		FirstYear -= (FirstYear % YearStep);
+		
+		Date IterDate(FirstYear, 1, 1);
+		for(int Year = FirstYear; Year <= LastYear; Year += YearStep)
+		{
+			IterDate.year = Year;
+			double XVal = (double)((IterDate - InputStartDate)) - XMin;
+			if(XVal > 0 && XVal < XRange)
+				LinesOut << XVal;
+		}
+	}
+}
+
 
 void PlotCtrl::TimestepSliderEvent()
 {
