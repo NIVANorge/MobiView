@@ -1065,7 +1065,9 @@ void PlotCtrl::RePlot()
 	}
 	
 	SetBetterGridLinePositions(1);
-	if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
+	//TODO: For histogram and residual histogram, we should really let tick marks be at each
+	//bar instead..
+	if(PlotMajorMode == MajorMode_QQ || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram) SetBetterGridLinePositions(0);
 	
 	Size PlotSize = Plot.GetSize();
 	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....

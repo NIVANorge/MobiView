@@ -28,12 +28,12 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	String Display = Name;
 	
 	Display << "\n";
-	Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 3) << "\n";
-	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 3) << "\n";
-	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 3) << "\n";
-	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 3) << "\n";
-	Display << "R2: "                 << FormatDouble(Stats.R2, 3) << "\n";
-	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 3) << "\n";
+	Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 5) << "\n";
+	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 5) << "\n";
+	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 5) << "\n";
+	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 5) << "\n";
+	Display << "R2: "                 << FormatDouble(Stats.R2, 5) << "\n";
+	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	

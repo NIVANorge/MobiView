@@ -179,18 +179,36 @@ MobiView::MobiView() : Plotter(this)
 	EquationSelecter.Disable();
 	EquationSelecter.AddColumn("Equation").HeaderTab();
 	EquationSelecter.AddColumn("F.").HeaderTab();
+	EquationSelecter.AddColumn();
 	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
 	EquationSelecter.MultiSelect();
-	EquationSelecter.ColumnWidths("85 15");
+	EquationSelecter.ColumnWidths("85 15 0");
+	EquationSelecter.HeaderObject().HideTab(2);
 	
-	EquationSelecter.HeaderTab(0).WhenAction = [this](){this->EquationSelecter.Sort(0);}; //TODO: Clicking again should restore original order.
+	EquationSelecter.HeaderTab(0).WhenAction = [this]()
+	{
+		if(!this->EquationSelecterIsSorted)
+			this->EquationSelecter.Sort(0);
+		else
+			this->EquationSelecter.Sort(2);
+		this->EquationSelecterIsSorted = !this->EquationSelecterIsSorted;
+	};
 	
 	InputSelecter.AddColumn("Input");
+	InputSelecter.AddColumn();
 	InputSelecter.WhenAction = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
 	InputSelecter.NoGrid();
+	InputSelecter.HeaderObject().HideTab(1);
 	
-	InputSelecter.HeaderTab(0).WhenAction = [this](){this->InputSelecter.Sort(0);}; //TODO: Clicking again should restore original order.
+	InputSelecter.HeaderTab(0).WhenAction = [this]()
+	{
+		if(!this->InputSelecterIsSorted)
+			this->InputSelecter.Sort(0);
+		else
+			this->InputSelecter.Sort(1);
+		this->InputSelecterIsSorted = !this->InputSelecterIsSorted;
+	};
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
@@ -539,7 +557,7 @@ void MobiView::Load()
 			
 			int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
 			
-			EquationSelecter.Add(ResultNames[Idx], IsFavorite);
+			EquationSelecter.Add(ResultNames[Idx], IsFavorite, Row);
 			EquationSelecterFavControls.Create<StarOption>();
 			Ctrl &Favorite = EquationSelecterFavControls.Top();
 			
@@ -559,7 +577,7 @@ void MobiView::Load()
 	
 	for(size_t Idx = 0; Idx < InputCount; ++Idx)
 	{
-		InputSelecter.Add(InputNames[Idx]);
+		InputSelecter.Add(InputNames[Idx], (int)Idx);
 	}
 
 	Plotter.PlotMajorMode.Enable();

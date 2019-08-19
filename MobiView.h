@@ -6,6 +6,10 @@
 #include <CtrlLib/CtrlLib.h>
 #include <ScatterCtrl/ScatterCtrl.h>
 
+
+
+
+
 #include "StarOption.h"
 
 using namespace Upp;
@@ -25,11 +29,6 @@ using namespace Upp;
 #define MAX_INDEX_SETS 6
 
 #include "Plotting.h"
-
-
-
-
-
 
 
 //TODO: This stuff should really be in a common file with the main Mobius code.
@@ -119,6 +118,10 @@ public:
 	ArrayCtrl  InputSelecter;
 	
 	PlotCtrl Plotter;
+	
+	bool EquationSelecterIsSorted = false;
+	bool InputSelecterIsSorted = false;
+	
 	
 	
 	void SubBar(Bar &bar);
