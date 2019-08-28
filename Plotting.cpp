@@ -1070,7 +1070,7 @@ void PlotCtrl::RePlot()
 	if(PlotMajorMode == MajorMode_QQ || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram) SetBetterGridLinePositions(0);
 	
 	Size PlotSize = Plot.GetSize();
-	Plot.SetSaveSize(PlotSize); //TODO: This then breaks if somebody resizes the window in between....
+	Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	
 	Plot.Refresh();
 }

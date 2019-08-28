@@ -34,29 +34,12 @@ void MobiView::Log(String Msg)
 
 void MobiView::HandleDllError()
 {
-	LPVOID lpMsgBuf;
-    LPVOID lpDisplayBuf;
-	DWORD dw = GetLastError();
-
-    FormatMessage(
-        FORMAT_MESSAGE_ALLOCATE_BUFFER |
-        FORMAT_MESSAGE_FROM_SYSTEM |
-        FORMAT_MESSAGE_IGNORE_INSERTS,
-        NULL,
-        dw,
-        MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT),
-        (LPTSTR) &lpMsgBuf,
-        0, NULL );
-
-	
-	Log(String((char *)lpMsgBuf));
-
-    LocalFree(lpMsgBuf);
+	Log(ModelDll.GetDllError());
 }
 
 bool MobiView::CheckDllUserError()
 {
-	if(hinstModelDll && ModelDll.EncounteredError)
+	if(ModelDll.IsLoaded())
 	{
 		char ErrMsgBuf[1024];
 		int ErrCode = ModelDll.EncounteredError(ErrMsgBuf);
@@ -121,7 +104,6 @@ MobiView::MobiView() : Plotter(this)
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
-	hinstModelDll = NULL;
 	ModelDll = {};
 	DataSet = nullptr;
 	
@@ -279,7 +261,7 @@ void MobiView::OpenSearch()
 
 void MobiView::OpenVisualizeBranches()
 {
-	if(!hinstModelDll || !DataSet)
+	if(!ModelDll.IsLoaded() || !DataSet)
 	{
 		Log("Can't visualize branch network before a dataset is loaded in.");
 		return;
@@ -293,7 +275,7 @@ void MobiView::OpenVisualizeBranches()
 
 void MobiView::OpenStructureView()
 {
-	if(!hinstModelDll || !DataSet)
+	if(!ModelDll.IsLoaded() || !DataSet)
 	{
 		Log("Can't visualize the model before a dataset is loaded in.");
 		return;
@@ -350,13 +332,13 @@ void MobiView::StoreSettings()
 	
 	for(const auto &K : Eq.GetKeys())
 	{
-		if(K != DllFileName || !hinstModelDll)
+		if(K != DllFileName || !ModelDll.IsLoaded())
 		{
 			Favorites(K.ToString(), Eq[K]);
 		}
 	}
 	
-	if(hinstModelDll) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
+	if(ModelDll.IsLoaded()) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
 	{
 		JsonArray FavForCurrent;
 		for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
@@ -400,7 +382,7 @@ void MobiView::StoreSettings()
 
 void MobiView::Load()
 {
-	if(hinstModelDll)  //NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new Load().
+	if(ModelDll.IsLoaded())  //NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new Load().
 	{
 		//PromptOK("Tried to do this");
 		
@@ -420,9 +402,6 @@ void MobiView::Load()
 			ModelDll.DeleteModelAndDataSet(DataSet);
 			DataSet = 0;
 		}
-		
-		FreeLibrary(hinstModelDll);
-		hinstModelDll = 0;
 		
 		ParametersWereChangedSinceLastSave = false;
 		
@@ -480,21 +459,15 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	//TODO: If a dll is already loaded, unload it first.
+	Log(String("Loading model dll: ") + DllFile.data());
 	
-	hinstModelDll = LoadLibraryA(DllFile.data());
-	
-	Success = hinstModelDll != NULL;
+	Success = ModelDll.Load(DllFile.data());
 	
 	if(!Success)
 	{
 		HandleDllError();
 		return;
 	}
-	
-	Log(String("Loading model dll: ") + DllFile.data());
-
-	SetupModelDllInterface(&ModelDll, hinstModelDll);
 
 	FileSel InputSel;
 	InputSel.Type("Input dat files", "*.dat");
@@ -659,7 +632,7 @@ void MobiView::AddParameterGroupsRecursive(int ParentId, const char *ParentName,
 
 void MobiView::RunModel()
 {
-	if(!hinstModelDll || !ModelDll.RunModel)
+	if(!ModelDll.IsLoaded() || !ModelDll.RunModel)
 	{
 		Log("Model can only be run once a model has been loaded along with a parameter and input file!");
 		return;
@@ -681,7 +654,7 @@ void MobiView::RunModel()
 
 void MobiView::SaveBaseline()
 {
-	if(hinstModelDll && DataSet && ModelDll.GetTimesteps && ModelDll.GetTimesteps(DataSet) != 0)
+	if(ModelDll.IsLoaded() && DataSet && ModelDll.GetTimesteps && ModelDll.GetTimesteps(DataSet) != 0)
 	{
 		//TODO: Ask if we really want to overwrite existing baseline?
 		if(BaselineDataSet)

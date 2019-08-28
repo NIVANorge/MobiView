@@ -303,7 +303,7 @@ void MobiView::ParameterEditAccepted(int Row, int Col, bool EditingAsRow)
 
 void MobiView::SaveParameters()
 {
-	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !ParameterFile.size())
+	if(!ModelDll.IsLoaded() || !ModelDll.WriteParametersToFile || !ParameterFile.size())
 	{
 		Log("Parameters can only be saved once a model and parameter file is loaded");
 		return;
@@ -324,7 +324,7 @@ void MobiView::SaveParameters()
 
 void MobiView::SaveParametersAs()
 {
-	if(!hinstModelDll || !ModelDll.WriteParametersToFile || !ParameterFile.size())
+	if(!ModelDll.IsLoaded() || !ModelDll.WriteParametersToFile || !ParameterFile.size())
 	{
 		Log("Parameters can only be saved once a model and parameter file is loaded");
 		return;
