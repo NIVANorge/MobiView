@@ -382,15 +382,14 @@ void MobiView::StoreSettings()
 
 void MobiView::Load()
 {
+	if(ParametersWereChangedSinceLastSave)
+	{
+		int Cl = PromptYesNo("Parameters have been edited since last save. If you load a new dataset now, you will lose them. Continue?");
+		if(!Cl) return;
+	}
+	
 	if(ModelDll.IsLoaded())  //NOTE: If a model was previously loaded, we have to do cleanup to prepare for a new Load().
 	{
-		//PromptOK("Tried to do this");
-		
-		if(DataSet && ParametersWereChangedSinceLastSave)
-		{
-			//TODO: Query if we really want to reload before saving changes to parameters
-		}
-		
 		if(BaselineDataSet)
 		{
 			ModelDll.DeleteDataSet(BaselineDataSet);
