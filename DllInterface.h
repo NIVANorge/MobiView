@@ -106,9 +106,19 @@ struct model_dll_interface
 	GetBranchInputsCount_t GetBranchInputsCount;
 	GetBranchInputs_t    GetBranchInputs;
 	PrintResultStructure_t PrintResultStructure;
+	
+#ifdef PLATFORM_WIN32
+	HINSTANCE hinstModelDll;
+#else
+	void     *hinstModelDll;
+#endif
+	
+	bool Load(const char *DllName);
+	
+	bool IsLoaded() { return hinstModelDll != 0; }
+	
+	std::string GetDllError();
 };
-
-void SetupModelDllInterface(model_dll_interface *Model, HINSTANCE hinstanceDll);
 
 
 #endif

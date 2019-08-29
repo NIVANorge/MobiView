@@ -26,7 +26,7 @@ void SearchWindow::Find()
 	void *DataSet = ParentWindow->DataSet;
 	model_dll_interface &ModelDll = ParentWindow->ModelDll;
 	
-	if(ParentWindow->hinstModelDll && DataSet)
+	if(ModelDll.IsLoaded() && DataSet)
 	{
 		ResultField.Clear();
 		

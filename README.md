@@ -14,7 +14,7 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Possibly organize equations and inputs in a way that makes it faster to look up the one you want.
 - Equation search similar to parameter search?
 - More goodness of fit stats.
-- Port to and test on Linux.
+- Test on Linux.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long. But this is tricky as it would require locking down the dataset (or running a copy of it and then writing back the results to the original one when it is done).
 - Always ensure that the left margin of the plot is wide enough so that y axis numbers don't overwrite the y axis unit.
 

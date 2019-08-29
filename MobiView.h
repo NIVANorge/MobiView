@@ -196,8 +196,6 @@ public:
 	
 	Array<Ctrl> EquationSelecterFavControls;
 	
-	
-	HINSTANCE hinstModelDll;
 	model_dll_interface ModelDll;
 	
 	
