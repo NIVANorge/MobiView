@@ -34,7 +34,11 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	Plot.SetSequentialXAll(true);
 	Plot.SetMouseHandling(true, false);
 	
-	Plot.SetPlotAreaLeftMargin(70);
+	Size PlotReticleSize = GetTextSize("00000", Plot.GetReticleFont());
+	Size PlotUnitSize    = GetTextSize("[dummy]", Plot.GetLabelsFont());
+	Plot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
+	Plot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+	
 	Plot.SetGridDash("");
 	Color Grey(180, 180, 180);
 	Plot.SetGridColor(Grey);
