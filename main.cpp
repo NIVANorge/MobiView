@@ -384,7 +384,7 @@ void MobiView::Load()
 {
 	if(ParametersWereChangedSinceLastSave)
 	{
-		int Cl = PromptYesNo("Parameters have been edited since last save. If you load a new dataset now, you will lose them. Continue?");
+		int Cl = PromptYesNo("Parameters have been edited since last save. If you load a new dataset now, you will lose them. Continue anyway?");
 		if(!Cl) return;
 	}
 	
