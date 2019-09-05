@@ -109,7 +109,13 @@ public:
 	
 	TreeCtrl ParameterGroupSelecter;
 	ParameterCtrl Params;
+	
+	ParentCtrl PlotInfoRect;
+	EditDate   CalibrationIntervalStart;
+	EditDate   CalibrationIntervalEnd;
+	Label      CalibrationIntervalLabel;
 	DocEdit PlotInfo;
+	
 	DocEdit LogBox;
 
 	ParentCtrl EquationSelecterRect;

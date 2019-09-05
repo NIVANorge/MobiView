@@ -134,6 +134,43 @@ void PlotCtrl::PlotModeChange()
 		Aggregation.Disable();
 	}
 	
+	
+	if(MajorMode == MajorMode_Residuals || MajorMode == MajorMode_ResidualHistogram || MajorMode == MajorMode_QQ)
+	{
+		Parent->PlotInfo.HSizePos().VSizePos(0, 25);
+		Parent->CalibrationIntervalStart.Show();
+		Parent->CalibrationIntervalEnd.Show();
+		Parent->CalibrationIntervalLabel.Show();
+		
+		Date StartDate = Parent->CalibrationIntervalStart.GetData();
+		Date EndDate   = Parent->CalibrationIntervalStart.GetData();
+		
+		if(IsNull(StartDate))
+		{
+			char TimeVal[256];
+			Parent->ModelDll.GetParameterTime(Parent->DataSet, "Start date", nullptr, 0, TimeVal);
+			StrToDate(StartDate, TimeVal);
+			Parent->CalibrationIntervalStart.SetData(StartDate);
+		}
+		if(IsNull(EndDate))
+		{
+			EndDate = StartDate;
+			uint64 Timesteps = Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
+			EndDate += ((int)Timesteps - 1);
+			Parent->CalibrationIntervalEnd.SetData(EndDate);
+		}
+	}
+	else
+	{
+		Parent->PlotInfo.SizePos();
+		Parent->CalibrationIntervalStart.Hide();
+		Parent->CalibrationIntervalEnd.Hide();
+		Parent->CalibrationIntervalLabel.Hide();
+	}
+	
+	
+	
+	
 	//TODO: This could be more fine-grained. We don't have to update the index list every time.
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
@@ -424,7 +461,7 @@ void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, Stri
 	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
 }
 
-void PlotCtrl::AddLine(String &Legend, double X0, double X1, double Y0, double Y1)
+void PlotCtrl::AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor)
 {
 	std::vector<double> &XValues = PlotData.Allocate(2);
 	std::vector<double> &YValues = PlotData.Allocate(2);
@@ -434,8 +471,10 @@ void PlotCtrl::AddLine(String &Legend, double X0, double X1, double Y0, double Y
 	YValues[0] = Y0;
 	YValues[1] = Y1;
 	
-	Color GraphColor = PlotColors.Next();
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Legend(Legend).Stroke(1.5, GraphColor).Dash("6 3");
+	if(IsNull(GraphColor)) GraphColor = PlotColors.Next();
+	auto& Graph = Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Stroke(1.5, GraphColor).Dash("6 3");
+	if(!IsNull(Legend)) Graph.Legend(Legend);
+	else Graph.ShowSeriesLegend(false);
 }
 
 void PlotCtrl::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
@@ -886,6 +925,17 @@ void PlotCtrl::RePlot()
 		}
 		else
 		{
+			Date ResultEndDate = ResultStartDate + ((int)ResultTimesteps - 1);
+			
+			Date GofStartDate = Parent->CalibrationIntervalStart.GetData();
+			Date GofEndDate   = Parent->CalibrationIntervalEnd.GetData();
+			
+			if(IsNull(GofStartDate)  || GofStartDate < ResultStartDate) GofStartDate = ResultStartDate;
+			if(IsNull(GofEndDate)    || GofEndDate   > ResultEndDate || GofEndDate < GofStartDate)   GofEndDate   = ResultEndDate;
+			
+			int GofTimesteps = GofEndDate - GofStartDate + 1;
+			int GofOffset    = GofStartDate - ResultStartDate;
+			
 			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
 			std::vector<double> ModeledSeries(ResultTimesteps);
 			std::vector<double> ObservedSeries(ResultTimesteps);
@@ -907,15 +957,15 @@ void PlotCtrl::RePlot()
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ModeledStats = {};
-			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data(), ModeledSeries.size(), ResultStartDate);
+			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps, GofStartDate);
 			Parent->DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit);
 			
 			timeseries_stats ObservedStats = {};
-			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data(), ObservedSeries.size(), ResultStartDate);
+			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps, GofStartDate);
 			Parent->DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
 			
 			residual_stats ResidualStats = {};
-			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data(), ModeledSeries.data(), ObservedSeries.size(), ResultStartDate);
+			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps, GofStartDate);
 			String GOF = "Goodness of fit: ";
 			Parent->DisplayResidualStats(ResidualStats, GOF);
 			
@@ -932,16 +982,24 @@ void PlotCtrl::RePlot()
 				NullifyNans(Residuals.data(), Residuals.size());
 				
 				String TL = "Trend line";
-				AddTrendLine(TL, Residuals.size(), XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, ResultStartDate);
+				AddTrendLine(TL, GofTimesteps, XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, GofStartDate);
 				
+				
+				double StartX = (double)(GofStartDate - InputStartDate);
+				double EndX   = (double)(GofEndDate   - InputStartDate);
+				
+				AddLine(Null, StartX, StartX, ResidualStats.MinError, ResidualStats.MaxError, Red());
+				AddLine(Null, EndX, EndX, ResidualStats.MinError, ResidualStats.MaxError, Red());
 			}
 			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
-				int NBins = AddHistogram(Legend, ModUnit, Residuals.data(), Residuals.size());
+				//TODO: Is it the right decision that we only compute this for GOF interval?
+				
+				int NBins = AddHistogram(Legend, ModUnit, Residuals.data()+GofOffset, GofTimesteps);
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				Parent->ComputeTimeseriesStats(RS2, Residuals.data(), Residuals.size(), ResultStartDate);
+				Parent->ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, GofStartDate);
 				
 				AddNormalApproximation(NormLegend, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}

@@ -74,10 +74,18 @@ MobiView::MobiView() : Plotter(this)
 {
 	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
+	
+	//PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
+	PlotInfoRect.Add(PlotInfo.SizePos());
+	CalibrationIntervalLabel.SetText("GOF interval:");
+	PlotInfoRect.Add(CalibrationIntervalLabel.LeftPos(0).BottomPos(5));
+	PlotInfoRect.Add(CalibrationIntervalStart.LeftPos(65, 70).BottomPos(0));
+	PlotInfoRect.Add(CalibrationIntervalEnd.LeftPos(140, 70).BottomPos(0));
+	
 	UpperHorizontal.Horz();
 	UpperHorizontal.Add(ParameterGroupSelecter);
 	UpperHorizontal.Add(Params);
-	UpperHorizontal.Add(PlotInfo);
+	UpperHorizontal.Add(PlotInfoRect);
 	UpperHorizontal.Add(LogBox);
 	
 	UpperHorizontal.SetPos(1500, 0).SetPos(7000, 1).SetPos(8500, 2);
@@ -193,6 +201,16 @@ MobiView::MobiView() : Plotter(this)
 	};
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
+	
+	CalibrationIntervalStart.Hide();
+	CalibrationIntervalEnd.Hide();
+	CalibrationIntervalLabel.Hide();
+	CalibrationIntervalStart.WhenAction << [this](){ Plotter.RePlot(); };
+	CalibrationIntervalEnd.WhenAction   << [this](){ Plotter.RePlot(); };
+	
+	
+	
+	
 	
 	
 	
@@ -431,6 +449,9 @@ void MobiView::Load()
 		Plotter.PlotWasAutoResized = false;
 		
 		Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+		
+		CalibrationIntervalStart.SetData(Null);
+		CalibrationIntervalEnd.SetData(Null);
 	}
 	
 	

@@ -118,6 +118,9 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	double SumObs = 0.0;
 	double SumMod = 0.0;
 	
+	double Min = DBL_MAX;
+	double Max = -DBL_MAX;
+	
 	std::vector<double> FiniteObs;
 	std::vector<double> FiniteMod;
 	FiniteObs.reserve(Len);
@@ -131,6 +134,9 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 			Sum += Val;
 			SumAbs += std::abs(Val);
 			SumSquare += Val*Val;
+			
+			Min = std::min(Min, Val);
+			Max = std::max(Max, Val);
 			
 			SumObs += Obs[Idx];
 			SumMod += Mod[Idx];
@@ -168,8 +174,10 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	
 	double MeanSquareError = SumSquare / (double)FiniteCount;
 	
-	double NS = 1.0 - SumSquare / SSObs;
+	double NS = 1.0 - SumSquare / SSObs;  //TODO: do something here if SSObs == 0?
 	
+	StatsOut.MinError  = Min;
+	StatsOut.MaxError  = Max;
 	StatsOut.MeanError = MeanError;
 	StatsOut.MeanAbsoluteError = SumAbs / (double)FiniteCount;
 	StatsOut.RootMeanSquareError = std::sqrt(MeanSquareError);
