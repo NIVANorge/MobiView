@@ -930,8 +930,11 @@ void PlotCtrl::RePlot()
 			Date GofStartDate = Parent->CalibrationIntervalStart.GetData();
 			Date GofEndDate   = Parent->CalibrationIntervalEnd.GetData();
 			
-			if(IsNull(GofStartDate)  || GofStartDate < ResultStartDate) GofStartDate = ResultStartDate;
-			if(IsNull(GofEndDate)    || GofEndDate   > ResultEndDate || GofEndDate < GofStartDate)   GofEndDate   = ResultEndDate;
+			//PromptOK(Format(GofStartDate));
+			
+			if(IsNull(GofStartDate) || !GofStartDate.IsValid()  || GofStartDate < ResultStartDate   || GofStartDate > ResultEndDate)                                GofStartDate = ResultStartDate;
+			if(IsNull(GofEndDate)   || !GofEndDate.IsValid()    || GofEndDate   < ResultStartDate   || GofEndDate   > ResultEndDate || GofEndDate < GofStartDate)   GofEndDate   = ResultEndDate;
+			
 			
 			int GofTimesteps = GofEndDate - GofStartDate + 1;
 			int GofOffset    = GofStartDate - ResultStartDate;
@@ -971,18 +974,20 @@ void PlotCtrl::RePlot()
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{
-				bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
-				
-				double XMean, XVar, XYCovar;
-				Parent->ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
-				
-				//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
-				AddPlot(Legend, ModUnit, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
-				
-				NullifyNans(Residuals.data(), Residuals.size());
-				
-				String TL = "Trend line";
-				AddTrendLine(TL, GofTimesteps, XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, GofStartDate);
+				if(ResidualStats.DataPoints > 0)
+				{
+					double XMean, XVar, XYCovar;
+					Parent->ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
+					
+					bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
+					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
+					AddPlot(Legend, ModUnit, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
+					
+					NullifyNans(Residuals.data(), Residuals.size());
+					
+					String TL = "Trend line";
+					AddTrendLine(TL, GofTimesteps, XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, GofStartDate);
+				}
 				
 				
 				double StartX = (double)(GofStartDate - InputStartDate);
@@ -1018,121 +1023,124 @@ void PlotCtrl::RePlot()
 	
 	Plot.SetGridLinesX.Clear();
 	
-	if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
+	if(Plot.GetCount() > 0)
 	{
-		Plot.cbModifFormatX.Clear();
-		//NOTE: Histograms require completely different zooming.
-		Plot.ZoomToFit(true, true);
-		PlotWasAutoResized = false;
-		
-		//TODO: Here we want to position the x grid lines at the bars.
-	}
-	else if(PlotMajorMode == MajorMode_QQ)
-	{
-		Plot.cbModifFormatX.Clear();
-		//NOTE: Histograms require completely different zooming.
-		Plot.ZoomToFit(true, true);
-		PlotWasAutoResized = false;
-		
-		double YRange = Plot.GetYRange();
-		double YMin   = Plot.GetYMin();
-		double XRange = Plot.GetXRange();
-		double XMin   = Plot.GetXMin();
-		
-		//NOTE: Make it so that the extremal points are not on the border
-		double ExtendY = YRange * 0.1;
-		YRange += 2.0 * ExtendY;
-		YMin -= ExtendY;
-		double ExtendX = XRange * 0.1;
-		XRange += 2.0 * ExtendX;
-		XMin -= ExtendX;
-		
-		Plot.SetRange(XRange, YRange);
-		Plot.SetXYMin(XMin, YMin);
-	}
-	else if(PlotMajorMode == MajorMode_Profile)
-	{
-		PlotWasAutoResized = false;
-	}
-	else
-	{
-		Plot.cbModifFormatX.Clear();
-		Plot.ZoomToFit(false, true);
-		
-		Plot.SetGridLinesX = THISBACK(UpdateDateGridLinesX);
-		
-		double YRange = Plot.GetYRange();
-		double YMin   = Plot.GetYMin();
-		if(YMin > 0.0)
+		if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 		{
-			double NewRange = YRange + YMin;
-			Plot.SetRange(Plot.GetXRange(), NewRange);
-			Plot.SetXYMin(Plot.GetXMin(), 0.0);
+			Plot.cbModifFormatX.Clear();
+			//NOTE: Histograms require completely different zooming.
+			Plot.ZoomToFit(true, true);
+			PlotWasAutoResized = false;
+			
+			//TODO: Here we want to position the x grid lines at the bars.
 		}
-		
-		if(!PlotWasAutoResized)
+		else if(PlotMajorMode == MajorMode_QQ)
 		{
-			Plot.ZoomToFit(true, false);
-			PlotWasAutoResized = true;
+			Plot.cbModifFormatX.Clear();
+			//NOTE: Histograms require completely different zooming.
+			Plot.ZoomToFit(true, true);
+			PlotWasAutoResized = false;
+			
+			double YRange = Plot.GetYRange();
+			double YMin   = Plot.GetYMin();
+			double XRange = Plot.GetXRange();
+			double XMin   = Plot.GetXMin();
+			
+			//NOTE: Make it so that the extremal points are not on the border
+			double ExtendY = YRange * 0.1;
+			YRange += 2.0 * ExtendY;
+			YMin -= ExtendY;
+			double ExtendX = XRange * 0.1;
+			XRange += 2.0 * ExtendX;
+			XMin -= ExtendX;
+			
+			Plot.SetRange(XRange, YRange);
+			Plot.SetXYMin(XMin, YMin);
 		}
-		
-		bool MonthlyOrYearly = false;
-		if(TimeIntervals.IsEnabled())
+		else if(PlotMajorMode == MajorMode_Profile)
 		{
-			int IntervalType = TimeIntervals.GetData();
-			if(IntervalType == 1)
+			PlotWasAutoResized = false;
+		}
+		else
+		{
+			Plot.cbModifFormatX.Clear();
+			Plot.ZoomToFit(false, true);
+			
+			Plot.SetGridLinesX = THISBACK(UpdateDateGridLinesX);
+			
+			double YRange = Plot.GetYRange();
+			double YMin   = Plot.GetYMin();
+			if(YMin > 0.0)
 			{
-				MonthlyOrYearly = true;
-				
+				double NewRange = YRange + YMin;
+				Plot.SetRange(Plot.GetXRange(), NewRange);
+				Plot.SetXYMin(Plot.GetXMin(), 0.0);
+			}
+			
+			if(!PlotWasAutoResized)
+			{
+				Plot.ZoomToFit(true, false);
+				PlotWasAutoResized = true;
+			}
+			
+			bool MonthlyOrYearly = false;
+			if(TimeIntervals.IsEnabled())
+			{
+				int IntervalType = TimeIntervals.GetData();
+				if(IntervalType == 1)
+				{
+					MonthlyOrYearly = true;
+					
+					Plot.cbModifFormatX << [this](String &s, int i, double d)
+					{
+						Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+						s << Format("%d-%02d", D2.year, D2.month);
+					};
+				}
+				else if(IntervalType == 2)
+				{
+					MonthlyOrYearly = true;
+					
+					Plot.cbModifFormatX << [this](String &s, int i, double d)
+					{
+						Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+						s = Format("%d", D2.year);
+					};
+				}
+			}
+			
+			if(!MonthlyOrYearly)
+			{
 				Plot.cbModifFormatX << [this](String &s, int i, double d)
 				{
 					Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-					s << Format("%d-%02d", D2.year, D2.month);
-				};
-			}
-			else if(IntervalType == 2)
-			{
-				MonthlyOrYearly = true;
-				
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
-				{
-					Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-					s = Format("%d", D2.year);
+					s = Format(D2);
 				};
 			}
 		}
 		
-		if(!MonthlyOrYearly)
+		if(Plot.GetShowLegend())
 		{
-			Plot.cbModifFormatX << [this](String &s, int i, double d)
+			Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
+		}
+		
+		Plot.cbModifFormatY.Clear();
+		if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
+		{
+			Plot.cbModifFormatY << [](String &s, int i, double d)
 			{
-				Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-				s = Format(D2);
+				s = FormatDoubleExp(pow(10., d), 2);
 			};
 		}
+		
+		SetBetterGridLinePositions(1);
+		//TODO: For histogram and residual histogram, we should really let tick marks be at each
+		//bar instead..
+		if(PlotMajorMode == MajorMode_QQ || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram) SetBetterGridLinePositions(0);
+		
+		Size PlotSize = Plot.GetSize();
+		Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	}
-	
-	if(Plot.GetShowLegend())
-	{
-		Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
-	}
-	
-	Plot.cbModifFormatY.Clear();
-	if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
-	{
-		Plot.cbModifFormatY << [](String &s, int i, double d)
-		{
-			s = FormatDoubleExp(pow(10., d), 2);
-		};
-	}
-	
-	SetBetterGridLinePositions(1);
-	//TODO: For histogram and residual histogram, we should really let tick marks be at each
-	//bar instead..
-	if(PlotMajorMode == MajorMode_QQ || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram) SetBetterGridLinePositions(0);
-	
-	Size PlotSize = Plot.GetSize();
-	Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	
 	Plot.Refresh();
 }
