@@ -215,13 +215,15 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			case ParameterType_Double:
 			{
 				double V = Params.ParameterView.Get(Row, Col + 1);
-				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
+				if(!IsNull(V))
+					ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
 			
 			case ParameterType_UInt:
 			{
 				int64 V = Params.ParameterView.Get(Row, Col + 1);
-				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
+				if(!IsNull(V))
+					ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
 			} break;
 			
 			case ParameterType_Bool:
@@ -349,6 +351,8 @@ void MobiView::SaveParametersAs()
 			ParameterFile = NewFile;
 			Log(String("Parameters saved to ") + ParameterFile.data());
 			ParametersWereChangedSinceLastSave = false;
+			
+			StoreSettings(); //So that the current working file is now default when reloading MobiView.
 		}
 	}
 }
