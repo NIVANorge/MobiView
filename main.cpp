@@ -180,6 +180,7 @@ MobiView::MobiView() : Plotter(this)
 	EquationSelecter.ColumnWidths("85 15 0");
 	EquationSelecter.HeaderObject().HideTab(2);
 	
+	/*   //NOTE: This no longer makes sense the way we organize modules..
 	EquationSelecter.HeaderTab(0).WhenAction = [this]()
 	{
 		if(!this->EquationSelecterIsSorted)
@@ -188,6 +189,7 @@ MobiView::MobiView() : Plotter(this)
 			this->EquationSelecter.Sort(2);
 		this->EquationSelecterIsSorted = !this->EquationSelecterIsSorted;
 	};
+	*/
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.AddColumn();
@@ -196,6 +198,7 @@ MobiView::MobiView() : Plotter(this)
 	InputSelecter.NoGrid();
 	InputSelecter.HeaderObject().HideTab(1);
 	
+	/*
 	InputSelecter.HeaderTab(0).WhenAction = [this]()
 	{
 		if(!this->InputSelecterIsSorted)
@@ -204,6 +207,7 @@ MobiView::MobiView() : Plotter(this)
 			this->InputSelecter.Sort(1);
 		this->InputSelecterIsSorted = !this->InputSelecterIsSorted;
 	};
+	*/
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
@@ -586,7 +590,7 @@ void MobiView::Load()
 		if(ResultCount > 0)
 		{
 			EquationSelecter.Add(Format("%s (V%s)", ModuleNames[ModuleIdx], ModuleVersions[ModuleIdx]), Null, Row);
-			EquationSelecter.SetLineColor(Row, Color(170, 170, 170));
+			EquationSelecter.SetLineColor(Row, Color(214, 234, 248));
 			
 			++Row;
 			for(size_t Idx = 0; Idx < ResultCount; ++Idx)
