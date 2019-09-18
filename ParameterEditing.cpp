@@ -27,6 +27,8 @@ void MobiView::RefreshParameterView()
 	
 	if(SelectedGroupName.empty()) return;
 	
+	if(!ModelDll.IsParameterGroupName(DataSet, SelectedGroupName.data())) return;
+	
 	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
 	if (CheckDllUserError()) return;
 	
@@ -51,7 +53,7 @@ void MobiView::RefreshParameterView()
 		IndexList[Id]->Enable();
 		
 		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
-		Indexes[IndexSetCount - Idx - 1] = (char *)Indexes_String[Idx].data(); //NOTE: Have to reverse since GetParameterGroupIndexSets returns in reverse order. May want to fix that!
+		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
 	
 	
@@ -63,13 +65,12 @@ void MobiView::RefreshParameterView()
 	ModelDll.GetAllParameters(DataSet, ParameterNames.data(), ParameterTypes.data(), SelectedGroupName.data());
 	if (CheckDllUserError()) return;
 	
-	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[0], IndexSetNames[1]) == 0))
+	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetCount-1], IndexSetNames[IndexSetCount-2]) == 0))
 	{
-		//NOTE: The last (not first since this list is reversed, sigh..) two index set
-		//dependencies are the same, and so we edit this as a row..
+		//The last two index set dependencies are the same, and so we edit this as a row..
 		Params.ParameterView.AddColumn("Name");
 		
-		size_t Id = IndexSetNameToId[IndexSetNames[0]];
+		size_t Id = IndexSetNameToId[IndexSetNames[IndexSetCount-1]];
 		
 		IndexLock[Id]->Disable(); //If we were to enable it, we would have to make it work properly in this editing mode.
 		
@@ -204,7 +205,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 		std::vector<char *> Indexes(IndexCount);
 		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 		{
-			Indexes[IndexCount - Idx - 1] = (char *)CurrentIndexes[Idx].data(); //NOTE: Have to do the reversing since the GetParameterGroupIndexSets returns them in "reverse order". We may want to fix that..
+			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
 		}
 		
 		std::string Name = Params.ParameterView.Get(Row, 0).ToString().ToStd();
@@ -251,7 +252,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 		const char *IndexSetName = IndexSetNames[Level];
 		size_t Id = IndexSetNameToId[IndexSetName];
 		
-		if(EditingAsRow && (Level == 0))
+		if(EditingAsRow && (Level == IndexSetNames.size()-1))
 		{
 			//NOTE: This happens for instance for the Percolation Matrix of PERSiST where all
 			//parameters of a row are displayed for editing at the same time. In that case the

@@ -6,6 +6,7 @@
 using namespace Upp;
 
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
+typedef const char * (__cdecl *GetModelName_t)(void *DataSetPtr);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
 typedef void * (__cdecl *CopyDataSet_t)(void *DataSetPtr, bool CopyResults);
 typedef void * (__cdecl *DeleteDataSet_t)(void *DataSetPtr);
@@ -36,18 +37,21 @@ typedef uint64 (__cdecl *GetIndexSetsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetIndexSets_t)(void *DataSetPtr, char **NamesOut);
 typedef uint64 (__cdecl *GetIndexCount_t)(void *DataSetPtr, const char *IndexSetName);
 typedef void   (__cdecl *GetIndexes_t)(void *DataSetPtr, const char *IndexSetName, char **NamesOut);
+typedef bool   (__cdecl *IsParameterGroupName_t)(void *DataSetPtr, const char *Name);
 typedef uint64 (__cdecl *GetParameterGroupIndexSetsCount_t)(void *DataSetPtr, const char *ParameterGroupName);
 typedef void   (__cdecl *GetParameterGroupIndexSets_t)(void *DataSetPtr, const char *ParameterGroupName, char **NamesOut);
 typedef uint64 (__cdecl *GetResultIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
 typedef void   (__cdecl *GetResultIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
 typedef uint64 (__cdecl *GetInputIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
 typedef void   (__cdecl *GetInputIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
-typedef uint64 (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const char *ParentGroupName);
-typedef void   (__cdecl *GetAllParameterGroups_t)(void *DataSetPtr, char **NamesOut, const char *ParentGroupName);
+typedef uint64 (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const char *ModuleName);
+typedef void   (__cdecl *GetAllParameterGroups_t)(void *DataSetPtr, char **NamesOut, const char *ModuleName);
+typedef uint64 (__cdecl *GetAllModulesCount_t)(void *DataSetPtr);
+typedef void   (__cdecl *GetAllModules_t)(void *DataSetPtr, char **NamesOut, char **VersionsOut);
 typedef uint64 (__cdecl *GetAllParametersCount_t)(void *DataSetPtr, const char *GroupName);
 typedef void   (__cdecl *GetAllParameters_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *GroupName);
-typedef uint64 (__cdecl *GetAllResultsCount_t)(void *DataSetPtr);
-typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
+typedef uint64 (__cdecl *GetAllResultsCount_t)(void *DataSetPtr, const char *ModuleName);
+typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *ModuleName);
 typedef uint64 (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
 typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
@@ -58,6 +62,7 @@ typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, ui
 struct model_dll_interface
 {
 	SetupModel_t         SetupModel;
+	GetModelName_t       GetModelName;
 	RunModel_t           RunModel;
 	CopyDataSet_t        CopyDataSet;
 	DeleteDataSet_t      DeleteDataSet;
@@ -88,6 +93,7 @@ struct model_dll_interface
 	GetIndexSets_t       GetIndexSets;
 	GetIndexCount_t      GetIndexCount;
 	GetIndexes_t         GetIndexes;
+	IsParameterGroupName_t IsParameterGroupName;
 	GetParameterGroupIndexSetsCount_t GetParameterGroupIndexSetsCount;
 	GetParameterGroupIndexSets_t GetParameterGroupIndexSets;
 	GetResultIndexSetsCount_t GetResultIndexSetsCount;
@@ -96,6 +102,8 @@ struct model_dll_interface
 	GetInputIndexSets_t GetInputIndexSets;
 	GetAllParameterGroupsCount_t GetAllParameterGroupsCount;
 	GetAllParameterGroups_t GetAllParameterGroups;
+	GetAllModulesCount_t    GetAllModulesCount;
+	GetAllModules_t         GetAllModules;
 	GetAllParametersCount_t GetAllParametersCount;
 	GetAllParameters_t   GetAllParameters;
 	GetAllResultsCount_t GetAllResultsCount;

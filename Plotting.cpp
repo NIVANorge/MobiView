@@ -206,7 +206,7 @@ void PlotCtrl::PlotModeChange()
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(Parent->EquationSelecter.IsSelected(Row))
+			if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
 			{
 				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
 				
@@ -645,7 +645,7 @@ void PlotCtrl::RePlot()
 			
 			for(int Row = 0; Row < RowCount; ++Row)
 			{
-				if(Parent->EquationSelecter.IsSelected(Row))
+				if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
 				{
 					std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
 					
@@ -1628,7 +1628,7 @@ void MobiView::SaveToCsv()
 	int Idx = 0;
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		if(EquationSelecter.IsSelected(Row))
+		if(EquationSelecter.IsSelected(Row) && EquationSelecter.GetCtrl(Row, 1) != nullptr)
 		{
 			std::string Name = EquationSelecter.Get(Row, 0).ToString().ToStd();
 			

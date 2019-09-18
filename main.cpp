@@ -115,8 +115,13 @@ MobiView::MobiView() : Plotter(this)
 	ModelDll = {};
 	DataSet = nullptr;
 	
+	LogBox.SetEditable(false);
+	PlotInfo.SetEditable(false);
+	
 	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
 	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
+	
+	
 	
 	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 	
@@ -314,7 +319,8 @@ void MobiView::UpdateEquationSelecter()
 	
 	for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
 	{
-		if(!ShowFavOnly || EquationSelecter.GetCtrl(Row, 1)->GetData())
+		Ctrl *Star =  EquationSelecter.GetCtrl(Row, 1);
+		if(!ShowFavOnly || (Star && Star->GetData()))
 		{
 			EquationSelecter.ShowLine(Row, true);
 		}
@@ -506,7 +512,7 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	Log(String("Loading input file: ") + InputFile.data());
+	Log(String("Selecting input file: ") + InputFile.data());
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
@@ -525,20 +531,29 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	Log(String("Loading parameter file: ") + ParameterFile.data());
+	Log(String("Selecting parameter file: ") + ParameterFile.data());
 	
+
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
 	
 	
 	String DllFileName = GetFileName(DllFile.data());
 	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
+
 	
-	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet);
+	uint64 ModuleCount = ModelDll.GetAllModulesCount(DataSet);
+	std::vector<char *> ModuleNames(ModuleCount);
+	std::vector<char *> ModuleVersions(ModuleCount);
+	ModelDll.GetAllModules(DataSet, ModuleNames.data(), ModuleVersions.data());
 	if (CheckDllUserError()) return;
+	
+
+	//Module-less equations //TODO: Clean up code repeat from below..
+	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, nullptr);
 	std::vector<char *> ResultNames(ResultCount);
 	std::vector<char *> ResultTypes(ResultCount);
-	ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data());
+	ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), nullptr);
 	if (CheckDllUserError()) return;
 	
 	int Row = 0;
@@ -560,6 +575,42 @@ void MobiView::Load()
 		}
 	}
 	
+	for(size_t ModuleIdx = 0; ModuleIdx < ModuleCount; ++ModuleIdx)
+	{
+		uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, ModuleNames[ModuleIdx]);
+		std::vector<char *> ResultNames(ResultCount);
+		std::vector<char *> ResultTypes(ResultCount);
+		ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), ModuleNames[ModuleIdx]);
+		if (CheckDllUserError()) return;
+		
+		if(ResultCount > 0)
+		{
+			EquationSelecter.Add(Format("%s (V%s)", ModuleNames[ModuleIdx], ModuleVersions[ModuleIdx]), Null, Row);
+			EquationSelecter.SetLineColor(Row, Color(170, 170, 170));
+			
+			++Row;
+			for(size_t Idx = 0; Idx < ResultCount; ++Idx)
+			{
+				if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
+				{
+					String Name = ResultNames[Idx];
+					
+					int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
+					
+					EquationSelecter.Add(Name, IsFavorite, Row);
+					EquationSelecterFavControls.Create<StarOption>();
+					Ctrl &Favorite = EquationSelecterFavControls.Top();
+					
+					EquationSelecter.SetCtrl((int)Row, 1, Favorite);
+					Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
+					++Row;
+				}
+			}
+		}
+	}
+	
+	
+
 	
 	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
 	if(CheckDllUserError()) return;
@@ -577,12 +628,41 @@ void MobiView::Load()
 	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 	
 	
-	uint64 ParameterGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
+	
+	ParameterGroupSelecter.Set(0, ModelDll.GetModelName(DataSet));
+
+	
+	uint64 TopGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
+	std::vector<char *> TopGroupNames(TopGroupCount);
+	ModelDll.GetAllParameterGroups(DataSet, TopGroupNames.data(), nullptr);
 	if (CheckDllUserError()) return;
 	
-	AddParameterGroupsRecursive(0, 0, ParameterGroupCount);
+	//PromptOK("bladididi");
+	
+	for(int Idx = 0; Idx < TopGroupCount; ++Idx)
+	{
+		ParameterGroupSelecter.Add(0, Null, TopGroupNames[Idx], false);
+	}
+	
+	for(int Idx = 0; Idx < ModuleCount; ++Idx)
+	{
+		int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
+		
+		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, ModuleNames[Idx]);
+		std::vector<char *> GroupNames(GroupCount);
+		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), ModuleNames[Idx]);
+		if (CheckDllUserError()) return;
+		
+		for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
+		{
+			ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
+		}
+	}
+
 	
 	ParameterGroupSelecter.OpenDeep(0, true);
+	
+	
 	
 	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
 	
@@ -632,23 +712,7 @@ void MobiView::Load()
 	StoreSettings();
 }
 
-void MobiView::AddParameterGroupsRecursive(int ParentId, const char *ParentName, int Count)
-{
-	std::vector<char *> Names(Count);
-	ModelDll.GetAllParameterGroups(DataSet, Names.data(), ParentName);
-	if(CheckDllUserError()) return;
-	
-	for(int Idx = 0; Idx < Count; ++Idx)
-	{
-		uint64 ChildCount = ModelDll.GetAllParameterGroupsCount(DataSet, Names[Idx]);
-		int GroupId = ParameterGroupSelecter.Add(ParentId, Null, Names[Idx], ChildCount!=0);
-		
-		if(ChildCount)
-		{
-			AddParameterGroupsRecursive(GroupId, Names[Idx], ChildCount);
-		}
-	}
-}
+
 
 void MobiView::RunModel()
 {

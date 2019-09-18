@@ -32,11 +32,11 @@ void SearchWindow::Find()
 		
 		String Match = SearchField.GetData();
 		std::string MatchText = Match.ToStd();
-		std::transform(MatchText.begin(), MatchText.end(), MatchText.begin(), ::tolower);
+		std::transform(MatchText.begin(), MatchText.end(), MatchText.begin(), ::tolower);  //TODO: trim leading whitespace
 		
-		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
+		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, "__all!!__");
 		std::vector<char *> GroupNames(GroupCount);
-		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), nullptr);
+		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), "__all!!__");
 		
 		for(int Idx = 0; Idx < GroupCount; ++Idx)
 		{

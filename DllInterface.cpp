@@ -28,6 +28,7 @@ bool model_dll_interface::Load(const char *DllName)
 	
 	SetupModel =         (SetupModel_t)        LoadProc(hinstModelDll, "DllSetupModel");
 	EncounteredError =   (EncounteredError_t)  LoadProc(hinstModelDll, "DllEncounteredError");
+	GetModelName =       (GetModelName_t)      LoadProc(hinstModelDll, "DllGetModelName");
 	RunModel =           (RunModel_t)          LoadProc(hinstModelDll, "DllRunModel");
 	CopyDataSet =        (CopyDataSet_t)       LoadProc(hinstModelDll, "DllCopyDataSet");
 	DeleteDataSet =      (DeleteDataSet_t)     LoadProc(hinstModelDll, "DllDeleteDataSet");
@@ -57,6 +58,7 @@ bool model_dll_interface::Load(const char *DllName)
 	GetIndexSets =       (GetIndexSets_t)      LoadProc(hinstModelDll, "DllGetIndexSets");
 	GetIndexCount =      (GetIndexCount_t)     LoadProc(hinstModelDll, "DllGetIndexCount");
 	GetIndexes =         (GetIndexes_t)        LoadProc(hinstModelDll, "DllGetIndexes");
+	IsParameterGroupName = (IsParameterGroupName_t)LoadProc(hinstModelDll, "DllIsParameterGroupName");
 	GetParameterGroupIndexSetsCount = (GetParameterGroupIndexSetsCount_t)LoadProc(hinstModelDll, "DllGetParameterGroupIndexSetsCount");
 	GetParameterGroupIndexSets = (GetParameterGroupIndexSets_t)LoadProc(hinstModelDll, "DllGetParameterGroupIndexSets");
 	GetResultIndexSetsCount = (GetResultIndexSetsCount_t)LoadProc(hinstModelDll, "DllGetResultIndexSetsCount");
@@ -65,6 +67,8 @@ bool model_dll_interface::Load(const char *DllName)
 	GetInputIndexSets = (GetInputIndexSets_t)LoadProc(hinstModelDll, "DllGetInputIndexSets");
 	GetAllParameterGroupsCount = (GetAllParameterGroupsCount_t)LoadProc(hinstModelDll, "DllGetAllParameterGroupsCount");
 	GetAllParameterGroups = (GetAllParameterGroups_t)LoadProc(hinstModelDll, "DllGetAllParameterGroups");
+	GetAllModulesCount = (GetAllModulesCount_t)LoadProc(hinstModelDll, "DllGetAllModulesCount");
+	GetAllModules      = (GetAllModules_t)LoadProc(hinstModelDll, "DllGetAllModules");
 	GetAllParametersCount = (GetAllParametersCount_t)LoadProc(hinstModelDll, "DllGetAllParametersCount");
 	GetAllParameters =   (GetAllParameters_t)LoadProc(hinstModelDll, "DllGetAllParameters");
 	GetAllResultsCount = (GetAllResultsCount_t)LoadProc(hinstModelDll, "DllGetAllResultsCount");
