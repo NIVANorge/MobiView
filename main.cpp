@@ -475,7 +475,11 @@ void MobiView::Load()
 	String PreviouslyLoadedInputFile     = SettingsJson["Input file path"];
 	
 	FileSel DllSel;
+#ifdef PLATFORM_WIN32
 	DllSel.Type("Model dll files", "*.dll");
+#else
+	DllSel.Type("Model shared object files", "*.so");
+#endif
 	if(!PreviouslyLoadedModel.IsEmpty() && FileExists(PreviouslyLoadedModel))
 	{
 		DllSel.PreSelect(PreviouslyLoadedModel);

@@ -5,6 +5,10 @@
 
 using namespace Upp;
 
+#ifndef PLATFORM_WIN32
+	#define __cdecl
+#endif
+
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
 typedef const char * (__cdecl *GetModelName_t)(void *DataSetPtr);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
