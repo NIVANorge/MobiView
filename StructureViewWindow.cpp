@@ -10,7 +10,7 @@ StructureViewWindow::StructureViewWindow(MobiView *ParentWindow)
 	
 	StructureViewBox.SetColor(TextCtrl::PAPER_READONLY, StructureViewBox.GetColor(TextCtrl::PAPER_NORMAL));
 	
-	uint64 BufLen = 4096;
+	uint64 BufLen = 8192;      //TODO: It is not that good that we have to set a fixed buffer length here..
 	char *Buf = new char[BufLen];
 	
 	ParentWindow->ModelDll.PrintResultStructure(ParentWindow->DataSet, Buf, BufLen);
