@@ -977,7 +977,7 @@ void PlotCtrl::RePlot()
 				if(ResidualStats.DataPoints > 0)
 				{
 					double XMean, XVar, XYCovar;
-					Parent->ComputeTrendStats(Residuals.data(), Residuals.size(), ResidualStats.MeanError, XMean, XVar, XYCovar);
+					Parent->ComputeTrendStats(Residuals.data()+GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
 					
 					bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
