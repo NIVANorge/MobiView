@@ -1661,6 +1661,10 @@ void MobiView::SaveToCsv()
 		return;
 	}
 	
+	char DateStr[256];
+	ModelDll.GetStartDate(DataSet, DateStr);
+	Date ResultDate;
+	StrToDate(ResultDate, DateStr);
 	
 	
 	std::ofstream File;
@@ -1672,21 +1676,26 @@ void MobiView::SaveToCsv()
 		return;
 	}
 	
+	File << "Date\t";
 	for(int Idx = 0; Idx < Names.size(); ++Idx)
 	{
 		File << Names[Idx];
-		if(Idx != Names.size()-1) File << ";";
+		if(Idx != Names.size()-1) File << "\t";
 	}
 	File << "\n";
 	
+	
 	for(uint64 Timestep = 0; Timestep < Timesteps; ++Timestep)
 	{
+		File << Format(ResultDate).ToStd() << "\t";
 		for(int Idx = 0; Idx < Data.size(); ++Idx)
 		{
 			File << Data[Idx][Timestep];
-			if(Idx != Data.size()-1) File << ";";
+			if(Idx != Data.size()-1) File << "\t";
 		}
 		File << "\n";
+		
+		ResultDate++;
 	}
 	
 	File.close();
