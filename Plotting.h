@@ -37,7 +37,9 @@ struct residual_stats
 	double MeanAbsoluteError;
 	double RootMeanSquareError;
 	double NashSutcliffe;
+	double LogNashSutcliffe;
 	double R2;
+	double IndexOfAgreement;
 	double SpearmansRCC;
 	size_t DataPoints;
 };

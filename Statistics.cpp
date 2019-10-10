@@ -32,7 +32,9 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 5) << "\n";
 	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 5) << "\n";
 	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 5) << "\n";
-	Display << "R2: "                 << FormatDouble(Stats.R2, 5) << "\n";
+	Display << "log N-S: "            << FormatDouble(Stats.LogNashSutcliffe, 5) << "\n";
+	Display << "r2: "                 << FormatDouble(Stats.R2, 5) << "\n";
+	Display << "Idx. of agr.: "       << FormatDouble(Stats.IndexOfAgreement, 5) << "\n";
 	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
@@ -118,6 +120,9 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	double SumObs = 0.0;
 	double SumMod = 0.0;
 	
+	double SumLogObs = 0.0;
+	double SumLogSquare = 0.0;
+	
 	double Min = DBL_MAX;
 	double Max = -DBL_MAX;
 	
@@ -141,6 +146,10 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 			SumObs += Obs[Idx];
 			SumMod += Mod[Idx];
 			
+			SumLogObs += std::log(Obs[Idx]);
+			double LogRes = std::log(Obs[Idx]) - std::log(Mod[Idx]);
+			SumLogSquare += LogRes*LogRes;
+			
 			++FiniteCount;
 			
 			FiniteObs.push_back(Obs[Idx]);
@@ -153,9 +162,15 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	double MeanObs = SumObs / (double)FiniteCount;
 	double MeanMod = SumMod / (double)FiniteCount;
 	
+	double MeanLogObs = SumLogObs / (double)FiniteCount;
+	
 	double SSObs = 0.0;
 	double SSMod = 0.0;
 	double Cov = 0.0;
+	
+	double SSLogObs = 0.0;
+	
+	double AgreementDenom = 0.0;
 	
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
@@ -164,6 +179,11 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 			SSObs += (Obs[Idx] - MeanObs)*(Obs[Idx] - MeanObs);
 			SSMod += (Mod[Idx] - MeanMod)*(Mod[Idx] - MeanMod);
 			Cov += (Obs[Idx] - MeanObs)*(Mod[Idx] - MeanMod);
+			
+			SSLogObs += (std::log(Obs[Idx]) - MeanLogObs)*(std::log(Obs[Idx]) - MeanLogObs);
+			
+			double Agreement = std::abs(Mod[Idx] - MeanObs) + std::abs(Obs[Idx] - MeanObs);
+			AgreementDenom += Agreement*Agreement;
 		}
 	}
 	
@@ -176,13 +196,19 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	
 	double NS = 1.0 - SumSquare / SSObs;  //TODO: do something here if SSObs == 0?
 	
+	double logNS = 1.0 - SumLogSquare / SSLogObs;
+	
+	double IA = 1.0 - SumSquare / AgreementDenom;
+	
 	StatsOut.MinError  = Min;
 	StatsOut.MaxError  = Max;
 	StatsOut.MeanError = MeanError;
 	StatsOut.MeanAbsoluteError = SumAbs / (double)FiniteCount;
 	StatsOut.RootMeanSquareError = std::sqrt(MeanSquareError);
 	StatsOut.NashSutcliffe = NS;
+	StatsOut.LogNashSutcliffe = logNS;
 	StatsOut.R2 = RR*RR;
+	StatsOut.IndexOfAgreement = IA;
 	StatsOut.DataPoints = FiniteCount;
 	
 	
