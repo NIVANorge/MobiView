@@ -654,16 +654,20 @@ void MobiView::Load()
 	
 	for(int Idx = 0; Idx < ModuleCount; ++Idx)
 	{
-		int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
-		
 		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, ModuleNames[Idx]);
 		std::vector<char *> GroupNames(GroupCount);
 		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), ModuleNames[Idx]);
 		if (CheckDllUserError()) return;
 		
-		for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
+		//If a module has no parameter groups, don't bother to show it in the parameter group view at all.
+		if(GroupCount > 0)
 		{
-			ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
+			int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
+			
+			for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
+			{
+				ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
+			}
 		}
 	}
 
