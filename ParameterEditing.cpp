@@ -35,9 +35,6 @@ void MobiView::RefreshParameterView()
 	std::vector<char *> IndexSetNames(IndexSetCount);
 	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
 	
-	
-	//PromptOK("OK!");
-	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		IndexList[Idx]->Disable();
@@ -111,7 +108,7 @@ void MobiView::RefreshParameterView()
 	}
 	else
 	{
-		// Otherwise normal editing of just one value
+		// Otherwise regular editing of just one value
 		Params.ParameterView.AddColumn("Name").HeaderTab();
 		Params.ParameterView.AddColumn("Value").HeaderTab();
 		Params.ParameterView.AddColumn("Min").HeaderTab();
@@ -119,7 +116,7 @@ void MobiView::RefreshParameterView()
 		Params.ParameterView.AddColumn("Unit").HeaderTab();
 		Params.ParameterView.AddColumn("Description").HeaderTab();
 		
-		Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
+		Params.ParameterView.ColumnWidths("20 12 10 10 10 38"); //TODO: It would be better to store the previous sizing of these and reuse that.
 		
 		ParameterControls.Clear();
 		CurrentParameterTypes.clear();
@@ -238,9 +235,9 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			{
 				EditDateNotNull* ctrl = (EditDateNotNull*)Params.ParameterView.GetCtrl(Row, Col + 1);
 				Date D = ctrl->GetData();
-				if(D.IsValid())
+				std::string V = Format(D).ToStd();
+				if(V.size() > 0)    // Seems like D.IsValid() and !IsNull(D)  don't work correctly, so we do this instead.
 				{
-					std::string V = Format(D).ToStd();
 					ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
 				}
 			} break;
@@ -311,8 +308,8 @@ void MobiView::SaveParameters()
 		Log("Parameters can only be saved once a model and parameter file is loaded");
 		return;
 	}
-	//TODO: Mechanism for determining if there has actually been edits that need to be saved.
-	//TODO: Maybe also a "do you really want to overwrite <filename>".
+	
+	//TODO: Mechanism for determining if there has actually been edits that need to be saved?
 	ModelDll.WriteParametersToFile(DataSet, ParameterFile.data());
 	if(CheckDllUserError())
 	{

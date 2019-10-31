@@ -998,8 +998,6 @@ void PlotCtrl::RePlot()
 			}
 			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
-				//TODO: Is it the right decision that we only compute this for GOF interval?
-				
 				int NBins = AddHistogram(Legend, ModUnit, Residuals.data()+GofOffset, GofTimesteps);
 				String NormLegend = "Normal distr.";
 				
@@ -1653,7 +1651,7 @@ void MobiView::SaveToCsv()
 	
 	FileSel Sel;
 	Sel.Type("Csv files", "*.csv");
-	//TODO: Remember the last folder..
+	//TODO: Remember the last folder you saved to so that the file selector does not default to C:/ ..
 	Sel.ExecuteSaveAs();
 	std::string FileName = Sel.Get().ToStd();
 	if(FileName.empty())

@@ -219,12 +219,6 @@ MobiView::MobiView() : Plotter(this)
 	
 	
 	
-	
-	
-	
-	
-	
-	
 	//Load in some settings
 	String SettingsFile = LoadFile(GetDataFile("settings.json"));
 	Value SettingsJson = ParseJSON(SettingsFile);
@@ -316,7 +310,6 @@ void MobiView::OpenStructureView()
 
 void MobiView::UpdateEquationSelecter()
 {
-	//TODO: The top of the array is weird when row height for some rows is 0.
 	//TODO: Unfavouriting your last selected series does not remove the plot.
 	
 	bool ShowFavOnly = ShowFavorites.GetData();
