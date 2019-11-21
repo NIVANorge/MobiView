@@ -103,14 +103,14 @@ public:
 	
 	void PlotModeChange();
 	
-	void AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
-	void AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY = 0.0, double MaxY = 0.0);
+	void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
+	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Time &ReferenceTime, Time &StartTime, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
-	void AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate);
+	void AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX);
 	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Date &ReferenceDate, Date &StartDate);
+	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
 	void SetBetterGridLinePositions(int Dim);
 	
@@ -142,14 +142,14 @@ private:
 	std::vector<String> ProfileLabels;
 	String ProfileLegend;
 	String ProfileUnit;
-	Date ProfileDisplayDate; //NOTE: Only currently used when in profile mode.
+	Time ProfileDisplayTime; //NOTE: Only used when in profile mode.
 	size_t ProfileIndexesCount;
 	
 	Vector<String> QQLabels;
 	
 	plot_colors PlotColors;
 	
-	Date InputStartDate;
+	Time InputStartTime;
 };
 
 

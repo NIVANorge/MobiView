@@ -9,6 +9,13 @@ using namespace Upp;
 	#define __cdecl
 #endif
 
+struct timestep_size
+{
+	int Type;         //NOTE: This is an int because it is an enum in the dll code.
+	int32 Magnitude;
+};
+
+
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
 typedef const char * (__cdecl *GetModelName_t)(void *DataSetPtr);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
@@ -62,6 +69,8 @@ typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name,
 typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
 typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
 typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64 BufLen);
+typedef timestep_size (__cdecl *GetTimestepSize_t)(void *DataSetPtr);
+
 
 struct model_dll_interface
 {
@@ -118,6 +127,7 @@ struct model_dll_interface
 	GetBranchInputsCount_t GetBranchInputsCount;
 	GetBranchInputs_t    GetBranchInputs;
 	PrintResultStructure_t PrintResultStructure;
+	GetTimestepSize_t    GetTimestepSize;
 	
 #ifdef PLATFORM_WIN32
 	HINSTANCE hinstModelDll;

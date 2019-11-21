@@ -78,6 +78,64 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 }
 
 
+void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
+{
+	if(TimestepSize.Type == 0)  //Timestep magnitude measured in seconds.
+	{
+		T += ((int64)Timesteps)*((int64)TimestepSize.Magnitude);
+	}
+	else                        //Timestep magnitude measured in months.
+	{
+		T.month += (int)Timesteps*TimestepSize.Magnitude;
+		while(T.month > 12)
+		{
+			T.month -= 12;
+			T.year++;
+		}
+	}
+}
+
+int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize)
+{
+	//NOTE: This could be quite tricky to get correct unless we can guarantee that T1 hits a
+	//timestep exactly. So that should be ensured by the caller!
+	
+	if(TimestepSize.Type == 0)   //Timestep magnitude measured in seconds.
+	{
+		return (T2 - T1) / TimestepSize.Magnitude;
+	}
+	else                         //Timestep magnitude measured in months.
+	{
+		return ((T2.year - T1.year)*12 + T2.month - T1.month) / TimestepSize.Magnitude;
+	}
+}
+
+void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX)
+{
+	if(TimestepSize.Type == 0)        //Timestep magnitude measured in seconds.
+	{
+		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		{
+			WriteX[Idx] = (double)(StartTime - ReferenceTime) + (double)Idx*(double)TimestepSize.Magnitude;
+		}
+	}
+	else                              //Timestep magnitude measured in months.
+	{
+		Time CurTime = StartTime;
+		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		{
+			WriteX[Idx] = (double)(CurTime - ReferenceTime);
+			
+			CurTime.month += TimestepSize.Magnitude;
+			while(CurTime.month > 12)
+			{
+				CurTime.month -= 12;
+				CurTime.year++;
+			}
+		}
+	}
+}
+
 
 
 void PlotCtrl::PlotModeChange()
@@ -142,22 +200,23 @@ void PlotCtrl::PlotModeChange()
 		Parent->CalibrationIntervalEnd.Show();
 		Parent->CalibrationIntervalLabel.Show();
 		
-		Date StartDate = Parent->CalibrationIntervalStart.GetData();
-		Date EndDate   = Parent->CalibrationIntervalStart.GetData();
+		Time StartTime = Parent->CalibrationIntervalStart.GetData();
+		Time EndTime   = Parent->CalibrationIntervalStart.GetData();
 		
-		if(IsNull(StartDate))
+		if(IsNull(StartTime))
 		{
 			char TimeVal[256];
 			Parent->ModelDll.GetParameterTime(Parent->DataSet, "Start date", nullptr, 0, TimeVal);
-			StrToDate(StartDate, TimeVal);
-			Parent->CalibrationIntervalStart.SetData(StartDate);
+			StrToTime(StartTime, TimeVal);
+			Parent->CalibrationIntervalStart.SetData(StartTime);
 		}
-		if(IsNull(EndDate))
+		if(IsNull(EndTime))
 		{
-			EndDate = StartDate;
+			EndTime = StartTime;
 			uint64 Timesteps = Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
-			EndDate += ((int)Timesteps - 1);
-			Parent->CalibrationIntervalEnd.SetData(EndDate);
+			if(Timesteps != 0)
+				AdvanceTimesteps(EndTime, Timesteps - 1, Parent->TimestepSize);
+			Parent->CalibrationIntervalEnd.SetData(EndTime);
 		}
 	}
 	else
@@ -314,11 +373,11 @@ void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Mi
 }
 
 
-void PlotCtrl::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
+void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
 {
 	double CurrentAggregate = 0.0;
 	int    CurrentCount = 0;
-	Date CurrentDate = StartDate;
+	Time CurrentTime = StartTime;
 	int CurrentTimestep = 0;
 	
 	while(CurrentTimestep < Timesteps)
@@ -331,35 +390,33 @@ void PlotCtrl::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 		}
 		
 		++CurrentTimestep;
-		Date NextDate = CurrentDate+1;
+		Time NextTime = CurrentTime;
+		AdvanceTimesteps(NextTime, 1, Parent->TimestepSize);
 		
-		bool PushAggregate = (CurrentTimestep == Timesteps-1) || (NextDate.year != CurrentDate.year);
+		//TODO: Want more aggregation interval types than year or month for models with
+		//non-daily resolutions
+		bool PushAggregate = (CurrentTimestep == Timesteps-1) || (NextTime.year != CurrentTime.year);
 		if(IntervalType == 1)
 		{
-			PushAggregate = PushAggregate || (NextDate.month != CurrentDate.month);
+			PushAggregate = PushAggregate || (NextTime.month != CurrentTime.month);
 		}
 		if(PushAggregate)
 		{
 			double YVal = CurrentAggregate;
-			if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation mode is 'mean', else we actually wanted the sum.
+			if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation type is 'mean', otherwise it is 'sum', so we don't have to modify it.
 			
 			if(!std::isfinite(YVal)) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
 			
 			YValues.push_back(YVal);
 			
-			//TODO: Is it better to put it at the beginning of the year/month or the middle?
-			Date Beginning = CurrentDate;
-			Beginning.day = 0;
-			if(IntervalType == 2) Beginning.month = 0;
-			double XVal = (double)(Beginning - ReferenceDate);
-			
-			//NOTE put the X position roughly in the middle of the respective month or year. This
-			//increases clarity in the plot.
-			
-			//Edit: No, it is not that good to do this actually...
-			
-			//if(IntervalType == 1) XVal += 15.5;
-			//else if(IntervalType == 2) XVal += 182.5;
+			//TODO: Clean this up eventually:
+			Time Beginning = CurrentTime;
+			Beginning.second = 0;
+			Beginning.minute = 0;
+			Beginning.hour   = 0;
+			Beginning.day    = 1;
+			if(IntervalType == 2) Beginning.month = 1;
+			double XVal = (double)(Beginning - ReferenceTime);
 			
 			XValues.push_back(XVal);
 			
@@ -367,12 +424,12 @@ void PlotCtrl::AggregateData(Date &ReferenceDate, Date &StartDate, uint64 Timest
 			CurrentCount = 0;
 		}
 		
-		CurrentDate = NextDate;
+		CurrentTime = NextTime;
 	}
 }
 
 
-void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Date &ReferenceDate, Date &StartDate, double MinY, double MaxY)
+void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Time &ReferenceTime, Time &StartTime, double MinY, double MaxY)
 {
 	int Timesteps = (int)Len;
 	
@@ -381,13 +438,12 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 	
 	Color GraphColor = PlotColors.Next();
 	
-	//TODO: Do some initial trimming to get rid of NaNs at the head and tail of the data.
 	ScatterDraw *Graph = nullptr;
 	
 	if(IntervalType == 0) //Daily values
 	{
 		//TODO: It may not always be that good of an idea to modify the
-		//incoming data...
+		//incoming data... Though it does not cause a problem now..
 		if(NormalY)
 		{
 			for(size_t Idx = 0; Idx < Len; ++Idx)
@@ -404,9 +460,9 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 			}
 		}
 		
-		double Offset = (double)(StartDate - ReferenceDate);
+		double Offset = (double)(StartTime - ReferenceTime);
 		
-		Graph = &Plot.AddSeries(Data, Timesteps, Offset, 1);
+		Graph = &Plot.AddSeries(XIn, Data, Len);
 	}
 	else //Monthly values or yearly values
 	{
@@ -414,7 +470,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 		std::vector<double> &XValues = PlotData.Allocate(0);
 		std::vector<double> &YValues = PlotData.Allocate(0);
 		
-		AggregateData(ReferenceDate, StartDate, Timesteps, Data, IntervalType, AggregationType, XValues, YValues);
+		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, XValues, YValues);
 		
 		Graph = &Plot.AddSeries(XValues.data(), YValues.data(), XValues.size());
 	}
@@ -429,7 +485,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *Data, size_t Len, b
 			Graph->MarkStyle<CircleMarkPlot>();
 			
 			int Index = Plot.GetCount()-1;
-			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not work as intended.
+			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
 		}
 		else
 		{
@@ -477,15 +533,13 @@ void PlotCtrl::AddLine(const String &Legend, double X0, double X1, double Y0, do
 	else Graph.ShowSeriesLegend(false);
 }
 
-void PlotCtrl::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, double XVar, double YMean, double XMean, Date &ReferenceDate, Date &StartDate)
+void PlotCtrl::AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX)
 {
-	double Offset = (double)(StartDate - ReferenceDate);
-	
 	double Beta = XYCovar / XVar;
-	double Alpha = YMean - Beta*(XMean + Offset);
+	double Alpha = YMean - Beta*XMean;
 	
-	double X0 = Offset;
-	double X1 = Offset + (double)Timesteps;
+	double X0 = StartX;
+	double X1 = EndX;
 	double Y0 = Alpha + X0*Beta;
 	double Y1 = Alpha + X1*Beta;
 	
@@ -494,7 +548,7 @@ void PlotCtrl::AddTrendLine(String &Legend, size_t Timesteps, double XYCovar, do
 
 void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
 	std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps,
-	Date &ReferenceDate, Date &StartDate)
+	Time &ReferenceDate, Time &StartDate, double *XIn)
 {
 	if(Level == IndexSets.size())
 	{
@@ -529,7 +583,7 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		if(Parent->CheckDllUserError()) return;
 		
 		double *Dat = Data.data();
-		size_t Len = Data.size();
+		size_t Len = Data.size();  //This will always be == Timesteps though?
 		
 		String Legend = Name.data();
 		if(CurrentIndexes.size() > 0)
@@ -545,13 +599,13 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		Parent->ComputeTimeseriesStats(Stats, Dat, Len, StartDate);
+		Parent->ComputeTimeseriesStats(Stats, Dat, Len);
 		Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
 		
 		bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get() && Mode == 1);
 		bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
 		bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
-		AddPlot(Legend, Unit, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
+		AddPlot(Legend, Unit, XIn, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
 		
 		NullifyNans(Dat, Len);
 	}
@@ -571,7 +625,7 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 			if(EIndexList[Id]->IsSelected(Row))
 			{
 				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
-				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, Timesteps, ReferenceDate, StartDate);
+				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, Timesteps, ReferenceDate, StartDate, XIn);
 			}
 		}
 	}
@@ -606,19 +660,24 @@ void PlotCtrl::RePlot()
 	
 	Plot.SetTitle(String(""));
 	
-	char DateStr[256];
-	Parent->ModelDll.GetStartDate(Parent->DataSet, DateStr);
-	Date ResultStartDate;
-	StrToDate(ResultStartDate, DateStr);
+	char TimeStr[256];
+	Parent->ModelDll.GetStartDate(Parent->DataSet, TimeStr);
+	Time ResultStartTime;
+	StrToTime(ResultStartTime, TimeStr);
 
-	Parent->ModelDll.GetInputStartDate(Parent->DataSet, DateStr);
-	StrToDate(InputStartDate, DateStr);
+	Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeStr);
+	StrToTime(InputStartTime, TimeStr);
+	
+	//PromptOK(Format(InputStartTime,true));
 	
 	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
 	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	
 	if(PlotMajorMode == MajorMode_Regular)
 	{
+		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
+		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
+		
 		int RowCount = Parent->InputSelecter.GetCount();
 		
 		for(int Row = 0; Row < RowCount; ++Row)
@@ -633,7 +692,7 @@ void PlotCtrl::RePlot()
 				if(Parent->CheckDllUserError()) return;
 				
 				std::vector<std::string> CurrentIndexes(IndexSets.size());
-				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartDate, InputStartDate);
+				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
 				
 				if(Parent->CheckDllUserError()) return;
 			}
@@ -641,6 +700,9 @@ void PlotCtrl::RePlot()
 		
 		if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. In this case it should not be possible to select the equation though
 		{
+			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
+			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
+			
 			int RowCount = Parent->EquationSelecter.GetCount();
 			
 			for(int Row = 0; Row < RowCount; ++Row)
@@ -655,7 +717,7 @@ void PlotCtrl::RePlot()
 					if(Parent->CheckDllUserError()) return;
 					
 					std::vector<std::string> CurrentIndexes(IndexSets.size());
-					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartDate, ResultStartDate);
+					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
 					
 					if(Parent->CheckDllUserError()) return;
 				}
@@ -678,7 +740,7 @@ void PlotCtrl::RePlot()
 			String Legend;
 			String Unit;
 		
-			Date StartDate = ResultStartDate;
+			//Time StartTime = ResultStartTime;
 			if(Parent->EquationSelecter.IsSelection() && ResultTimesteps != 0)
 			{
 				Data.resize(ResultTimesteps);
@@ -689,13 +751,13 @@ void PlotCtrl::RePlot()
 			{
 				Data.resize(InputTimesteps);
 				Parent->GetSingleSelectedInputSeries(Parent->DataSet, Legend, Unit, Data.data(), false);
-				StartDate = InputStartDate;
+				//StartTime = InputStartTime;
 			}
 			
 			AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
-			Parent->ComputeTimeseriesStats(Stats, Data.data(), Data.size(), StartDate);
+			Parent->ComputeTimeseriesStats(Stats, Data.data(), Data.size());
 			Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
 		}
 	}
@@ -727,17 +789,17 @@ void PlotCtrl::RePlot()
 			
 			int Mode = Parent->EquationSelecter.GetSelectCount() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
 			
-			Date CurrentStartDate;
+			Time CurrentStartTime;
 			size_t Timesteps;
 			if(Mode == 0)
 			{
 				Timesteps = ResultTimesteps;
-				CurrentStartDate = ResultStartDate;
+				CurrentStartTime = ResultStartTime;
 			}
 			else
 			{
 				Timesteps = InputTimesteps;
-				CurrentStartDate = InputStartDate;
+				CurrentStartTime = InputStartTime;
 			}
 			
 			size_t IdxIdx = 0;
@@ -770,7 +832,7 @@ void PlotCtrl::RePlot()
 						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
 						std::vector<double> YValues;
 						
-						AggregateData(CurrentStartDate, CurrentStartDate, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
+						AggregateData(CurrentStartTime, CurrentStartTime, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
 						
 						Data = YValues; //Note: vector copy
 					}
@@ -797,13 +859,17 @@ void PlotCtrl::RePlot()
 			
 			//TODO: This should be based on the current position of the slider instead unless
 			//we reset the slider!
-			ProfileDisplayDate = CurrentStartDate;
+			ProfileDisplayTime = CurrentStartTime;
 			if(IntervalType == 1 || IntervalType == 2)
 			{
-				ProfileDisplayDate.day = 1;
-				if(IntervalType == 2) ProfileDisplayDate.month = 1;
+				//TODO: Clean this up
+				ProfileDisplayTime.second = 0;
+				ProfileDisplayTime.minute = 0;
+				ProfileDisplayTime.hour   = 0;
+				ProfileDisplayTime.day    = 1;
+				if(IntervalType == 2) ProfileDisplayTime.month = 1;
 			}
-			TimestepEdit.SetData(ProfileDisplayDate);
+			TimestepEdit.SetData(ProfileDisplayTime);
 			
 			ProfileIndexesCount = IndexCount;
 			//std::assert(IndexCount == PlotData.Data.size());
@@ -858,9 +924,9 @@ void PlotCtrl::RePlot()
 			
 			
 			uint64 BaselineTimesteps = Parent->ModelDll.GetTimesteps(Parent->BaselineDataSet);
-			Parent->ModelDll.GetStartDate(Parent->BaselineDataSet, DateStr);
-			Date BaselineStartDate;
-			StrToDate(BaselineStartDate, DateStr);
+			Parent->ModelDll.GetStartDate(Parent->BaselineDataSet, TimeStr);
+			Time BaselineStartTime;
+			StrToTime(BaselineStartTime, TimeStr);
 			
 			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
@@ -869,11 +935,14 @@ void PlotCtrl::RePlot()
 			NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
+			double *BaselineXValues = PlotData.Allocate(BaselineTimesteps).data();
+			ComputeXValues(InputStartTime, BaselineStartTime, BaselineTimesteps, Parent->TimestepSize, BaselineXValues);
+			
 			timeseries_stats Stats = {};
-			Parent->ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), BaselineStartDate);
+			Parent->ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size());
 			Parent->DisplayTimeseriesStats(Stats, BS, Unit);
 			
-			AddPlot(BS, Unit, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartDate, BaselineStartDate, Stats.Min, Stats.Max);
+			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartTime, BaselineStartTime, Stats.Min, Stats.Max);
 
 			
 			
@@ -882,11 +951,14 @@ void PlotCtrl::RePlot()
 			Parent->GetSingleSelectedResultSeries(Parent->DataSet, CurrentLegend, Unit, Current.data());
 			NullifyNans(Current.data(), Current.size());
 			
+			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
+			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
+			
 			timeseries_stats Stats2 = {};
-			Parent->ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), ResultStartDate);
+			Parent->ComputeTimeseriesStats(Stats2, Current.data(), Current.size());
 			Parent->DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
 			
-			AddPlot(CurrentLegend, Unit, Current.data(), Current.size(), false, LogY, NormY, InputStartDate, ResultStartDate, Stats2.Min, Stats2.Max);
+			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, LogY, NormY, InputStartTime, ResultStartTime, Stats2.Min, Stats2.Max);
 
 			
 			
@@ -905,11 +977,14 @@ void PlotCtrl::RePlot()
 				Parent->GetSingleSelectedInputSeries(Parent->DataSet, InputLegend, Unit, Obs.data(), false);
 				NullifyNans(Obs.data(), Obs.size());
 				
+				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
+				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
+				
 				timeseries_stats Stats3 = {};
-				Parent->ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), InputStartDate);
+				Parent->ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size());
 				Parent->DisplayTimeseriesStats(Stats3, InputLegend, Unit);
 				
-				AddPlot(InputLegend, Unit, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartDate, InputStartDate, Stats3.Min, Stats3.Max);
+				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartTime, InputStartTime, Stats3.Min, Stats3.Max);
 			}
 		}
 		
@@ -925,19 +1000,22 @@ void PlotCtrl::RePlot()
 		}
 		else
 		{
-			Date ResultEndDate = ResultStartDate + ((int)ResultTimesteps - 1);
+			Time ResultEndTime = ResultStartTime;
+			AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, Parent->TimestepSize);
 			
-			Date GofStartDate = Parent->CalibrationIntervalStart.GetData();
-			Date GofEndDate   = Parent->CalibrationIntervalEnd.GetData();
+			Time GofStartTime = Parent->CalibrationIntervalStart.GetData();
+			Time GofEndTime   = Parent->CalibrationIntervalEnd.GetData();
 			
 			//PromptOK(Format(GofStartDate));
 			
-			if(IsNull(GofStartDate) || !GofStartDate.IsValid()  || GofStartDate < ResultStartDate   || GofStartDate > ResultEndDate)                                GofStartDate = ResultStartDate;
-			if(IsNull(GofEndDate)   || !GofEndDate.IsValid()    || GofEndDate   < ResultStartDate   || GofEndDate   > ResultEndDate || GofEndDate < GofStartDate)   GofEndDate   = ResultEndDate;
+			if(IsNull(GofStartTime) || !GofStartTime.IsValid()  || GofStartTime < ResultStartTime   || GofStartTime > ResultEndTime)                                GofStartTime = ResultStartTime;
+			if(IsNull(GofEndTime)   || !GofEndTime.IsValid()    || GofEndTime   < ResultStartTime   || GofEndTime   > ResultEndTime || GofEndTime < GofStartTime)   GofEndTime   = ResultEndTime;
 			
+			//TODO! Make sure these become correct!!
+			//TODO! Should probably ensure that GofStartTime matches an exact timestep.
 			
-			int GofTimesteps = GofEndDate - GofStartDate + 1;
-			int GofOffset    = GofStartDate - ResultStartDate;
+			int64 GofTimesteps = TimestepsBetween(GofStartTime, GofEndTime, Parent->TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
+			int64 GofOffset    = TimestepsBetween(ResultStartTime, GofStartTime, Parent->TimestepSize);
 			
 			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
 			std::vector<double> ModeledSeries(ResultTimesteps);
@@ -960,38 +1038,40 @@ void PlotCtrl::RePlot()
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ModeledStats = {};
-			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps, GofStartDate);
+			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps);
 			Parent->DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit);
 			
 			timeseries_stats ObservedStats = {};
-			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps, GofStartDate);
+			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps);
 			Parent->DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
 			
 			residual_stats ResidualStats = {};
-			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps, GofStartDate);
+			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps);
 			String GOF = "Goodness of fit: ";
 			Parent->DisplayResidualStats(ResidualStats, GOF);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{
+				double StartX = (double)(GofStartTime - InputStartTime);
+				double EndX   = (double)(GofEndTime   - InputStartTime);
+				
 				if(ResidualStats.DataPoints > 0)
 				{
+					double *ResidualXValues = PlotData.Allocate(ResultTimesteps).data();
+					ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResidualXValues);
+					
 					double XMean, XVar, XYCovar;
-					Parent->ComputeTrendStats(Residuals.data()+GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
+					Parent->ComputeTrendStats(ResidualXValues + GofOffset, Residuals.data() + GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
 					
 					bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
-					AddPlot(Legend, ModUnit, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartDate, ResultStartDate);
+					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartTime, ResultStartTime);
 					
 					NullifyNans(Residuals.data(), Residuals.size());
 					
 					String TL = "Trend line";
-					AddTrendLine(TL, GofTimesteps, XYCovar, XVar, ResidualStats.MeanError, XMean, InputStartDate, GofStartDate);
+					AddTrendLine(TL, XYCovar, XVar, ResidualStats.MeanError, XMean, StartX, EndX);
 				}
-				
-				
-				double StartX = (double)(GofStartDate - InputStartDate);
-				double EndX   = (double)(GofEndDate   - InputStartDate);
 				
 				AddLine(Null, StartX, StartX, ResidualStats.MinError, ResidualStats.MaxError, Red());
 				AddLine(Null, EndX, EndX, ResidualStats.MinError, ResidualStats.MaxError, Red());
@@ -1002,7 +1082,7 @@ void PlotCtrl::RePlot()
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				Parent->ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, GofStartDate);
+				Parent->ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps);
 				
 				AddNormalApproximation(NormLegend, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}
@@ -1091,7 +1171,7 @@ void PlotCtrl::RePlot()
 					
 					Plot.cbModifFormatX << [this](String &s, int i, double d)
 					{
-						Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+						Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 						s << Format("%d-%02d", D2.year, D2.month);
 					};
 				}
@@ -1101,7 +1181,7 @@ void PlotCtrl::RePlot()
 					
 					Plot.cbModifFormatX << [this](String &s, int i, double d)
 					{
-						Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+						Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 						s = Format("%d", D2.year);
 					};
 				}
@@ -1111,8 +1191,9 @@ void PlotCtrl::RePlot()
 			{
 				Plot.cbModifFormatX << [this](String &s, int i, double d)
 				{
-					Date D2 = this->InputStartDate + (int)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-					s = Format(D2);
+					//TODO: Improve this one for sub-daily timestep sizes!
+					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					s = Format("%d-%d-%d", D2.year, D2.month, D2.day);
 				};
 			}
 		}
@@ -1208,20 +1289,27 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 {
 	//InputStartDate is X=0. X resolution is daily
 	
+	//TODO! Has to be improved for sub-day timestep resolutions!!
+	
+	
 	int DesiredGridLineNum = 10;  //TODO: Make it sensitive to plot size
 	
 	double XMin = Plot.GetXMin();
 	double XRange = Plot.GetXRange();
 	
-	Date FirstDate = InputStartDate + (int)XMin;
-	Date LastDate = FirstDate + (int)XRange;
+	Time FirstTime = InputStartTime + (int)XMin;
+	Time LastTime  = FirstTime + (int)XRange;
+	
+	Time FirstDate(FirstTime.year, FirstTime.month, FirstTime.day);
+	Time LastDate(LastTime.year, LastTime.month, LastTime.day);
 	
 	int DoStep = 0;
 	
+	
 	int IntervalType = TimeIntervals.GetData();
-	if(!TimeIntervals.IsEnabled() || IntervalType == 0)
+	if(!TimeIntervals.IsEnabled() || IntervalType == 0)    //This when there is no aggregation of plot data
 	{
-		int DayRange = LastDate - FirstDate;
+		int DayRange = (LastDate - FirstDate) / 86400 + 1;
 		int DayStep = DayRange / DesiredGridLineNum + 1;
 		
 		if(DayStep >= 20) DoStep = 1; //Monthly;
@@ -1235,7 +1323,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 			else if(DayStep == 8 || DayStep == 9) DayStep = 10;
 			else if(DayStep > 2 && DayStep < 20) DayStep = 15;
 			
-			Date IterDate = FirstDate;
+			Time IterDate = FirstDate;
 			IterDate.day -= (((int)IterDate.day-1) % DayStep);
 			while(IterDate.Compare(LastDate) != 1)
 			{
@@ -1255,7 +1343,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 						IterDate.year++;
 					}
 				}
-				double XVal = (double)((IterDate - InputStartDate)) - XMin;
+				double XVal = (double)((IterDate - InputStartTime)) - XMin;
 				if(XVal > 0 && XVal < XRange)
 					LinesOut << XVal;
 			}
@@ -1281,7 +1369,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 			int Surp = ((FirstMonth-1) % MonthStep);
 			MonthRange += Surp;
 			FirstMonth -= Surp; //NOTE: This should not result in FirstMonth being negative.
-			Date IterDate(FirstDate.year, (byte)FirstMonth, 1);
+			Time IterDate(FirstDate.year, (byte)FirstMonth, 1);
 			for(int Month = 0; Month <= MonthRange; Month += MonthStep)
 			{
 				IterDate.month += MonthStep;
@@ -1290,7 +1378,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 					IterDate.month -= 12;
 					IterDate.year++;
 				}
-				double XVal = (double)((IterDate - InputStartDate)) - XMin;
+				double XVal = (double)((IterDate - InputStartTime)) - XMin;
 				if(XVal > 0 && XVal < XRange)
 					LinesOut << XVal;
 			}
@@ -1310,11 +1398,11 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 		
 		FirstYear -= (FirstYear % YearStep);
 		
-		Date IterDate(FirstYear, 1, 1);
+		Time IterDate(FirstYear, 1, 1);
 		for(int Year = FirstYear; Year <= LastYear; Year += YearStep)
 		{
 			IterDate.year = Year;
-			double XVal = (double)((IterDate - InputStartDate)) - XMin;
+			double XVal = (double)((IterDate - InputStartTime)) - XMin;
 			if(XVal > 0 && XVal < XRange)
 				LinesOut << XVal;
 		}
@@ -1325,27 +1413,27 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 void PlotCtrl::TimestepSliderEvent()
 {
 	int Timestep = TimestepSlider.GetData();
-	Date NewDate = ProfileDisplayDate;
+	Time NewTime = ProfileDisplayTime;
 	
 	// Recompute the displayed date in the "TimestepEdit" based on the new position of the
 	// slider.
 	int IntervalType = TimeIntervals.GetData();
 	if(IntervalType == 0) // Daily values
 	{
-		NewDate += Timestep;
+		AdvanceTimesteps(NewTime, Timestep, Parent->TimestepSize);
 	}
 	else if(IntervalType == 1) // Monthly values
 	{
-		int Month = ((NewDate.month + Timestep - 1) % 12) + 1;
-		int YearAdd = (NewDate.month + Timestep - 1) / 12;
-		NewDate.month = Month;
-		NewDate.year += YearAdd;
+		int Month   = ((NewTime.month + Timestep - 1) % 12) + 1;
+		int YearAdd = (NewTime.month + Timestep - 1) / 12;
+		NewTime.month = Month;
+		NewTime.year += YearAdd;
 	}
 	else if(IntervalType == 2) // Yearly values
 	{
-		NewDate.year += Timestep;
+		NewTime.year += Timestep;
 	}
-	TimestepEdit.SetData(NewDate);
+	TimestepEdit.SetData(NewTime);
 	
 	
 	ReplotProfile();
@@ -1356,8 +1444,10 @@ void PlotCtrl::TimestepEditEvent()
 	//NOTE: This can only happen if we are in daily mode since the edit is disabled otherwise.
 	//If this changes, this code has to be rethought.
 	
-	Date CurrentDate = TimestepEdit.GetData();
-	int Timestep = CurrentDate - ProfileDisplayDate;
+	//TODO: Fix this again later!!!
+	
+	Time CurrentTime = TimestepEdit.GetData();
+	int Timestep = TimestepsBetween(ProfileDisplayTime, CurrentTime, Parent->TimestepSize);
 	TimestepSlider.SetData(Timestep);
 	ReplotProfile();
 }

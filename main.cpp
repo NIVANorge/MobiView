@@ -74,7 +74,6 @@ MobiView::MobiView() : Plotter(this)
 {
 	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
-	
 	//PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
 	PlotInfoRect.Add(PlotInfo.SizePos());
 	CalibrationIntervalLabel.SetText("GOF interval:");
@@ -543,6 +542,8 @@ void MobiView::Load()
 	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
 
 	
+	TimestepSize = ModelDll.GetTimestepSize(DataSet);
+	
 	uint64 ModuleCount = ModelDll.GetAllModulesCount(DataSet);
 	std::vector<char *> ModuleNames(ModuleCount);
 	std::vector<char *> ModuleVersions(ModuleCount);
@@ -732,13 +733,13 @@ void MobiView::RunModel()
 	auto End = std::chrono::high_resolution_clock::now();
 	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
 	
-	CheckDllUserError();
+	bool Error = CheckDllUserError();
 	
 	EquationSelecter.Enable();
 	
 	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
 	
-	Log(String("Model was run.\nDuration: ") << Ms << " ms.");
+	if(!Error) Log(String("Model was run.\nDuration: ") << Ms << " ms.");
 }
 
 void MobiView::SaveBaseline()

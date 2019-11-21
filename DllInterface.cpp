@@ -79,6 +79,7 @@ bool model_dll_interface::Load(const char *DllName)
 	GetBranchInputsCount = (GetBranchInputsCount_t) LoadProc(hinstModelDll, "DllGetBranchInputsCount");
 	GetBranchInputs    = (GetBranchInputs_t)   LoadProc(hinstModelDll, "DllGetBranchInputs");
 	PrintResultStructure = (PrintResultStructure_t) LoadProc(hinstModelDll, "DllPrintResultStructure");
+	GetTimestepSize    = (GetTimestepSize_t) LoadProc(hinstModelDll, "DllGetTimestepSize");
 	
 	//TODO: Handle errors if LoadProc fails (can happen if e.g. somebody uses an old dll version)!
 	

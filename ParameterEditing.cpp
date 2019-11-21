@@ -177,11 +177,12 @@ void MobiView::RefreshParameterView()
 			{
 				char TimeVal[256];
 				ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
-				Date D;
-				StrToDate(D, TimeVal); //Error handling? But should not be necessary.
+
+				Time D;
+				StrToTime(D, TimeVal); //Error handling? But should not be necessary.
 				ParVal = D;
 				
-				ParameterControls.Create<EditDateNotNull>();
+				ParameterControls.Create<EditTimeNotNull>();
 				CurrentParameterTypes.push_back(ParameterType_Time);
 			}
 			Params.ParameterView.Add(String(Name), ParVal, ParMin, ParMax, ParUnit, ParDesc);
@@ -233,9 +234,9 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			
 			case ParameterType_Time:
 			{
-				EditDateNotNull* ctrl = (EditDateNotNull*)Params.ParameterView.GetCtrl(Row, Col + 1);
-				Date D = ctrl->GetData();
-				std::string V = Format(D).ToStd();
+				EditTimeNotNull* ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col + 1);
+				Time D = ctrl->GetData();
+				std::string V = Format(D, true).ToStd();
 				if(V.size() > 0)    // Seems like D.IsValid() and !IsNull(D)  don't work correctly, so we do this instead.
 				{
 					ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());

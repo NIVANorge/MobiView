@@ -44,7 +44,7 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 }
 
 
-void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, Date &StartDate)
+void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len)
 {
 	double Sum = 0.0;
 	size_t FiniteCount = 0;
@@ -110,7 +110,7 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 }
 
 
-void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len, Date &StartDate)
+void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len)
 {
 	double Sum = 0.0;
 	double SumAbs = 0.0;
@@ -246,7 +246,7 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	StatsOut.SpearmansRCC = 1.0 - 6.0 * SumSquareRankDiff / (FC * (FC*FC - 1.0));
 }
 
-void MobiView::ComputeTrendStats(double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)
+void MobiView::ComputeTrendStats(double *XData, double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)
 {
 	double SumX = 0.0;
 	size_t FiniteCount = 0;
@@ -256,7 +256,7 @@ void MobiView::ComputeTrendStats(double *YData, size_t Len, double MeanY, double
 		double YVal = YData[Idx];
 		if(std::isfinite(YVal))
 		{
-			SumX += (double)Idx;
+			SumX += XData[Idx];
 			FiniteCount++;
 		}
 	}
@@ -271,7 +271,7 @@ void MobiView::ComputeTrendStats(double *YData, size_t Len, double MeanY, double
 		double Val = YData[Idx];
 		if(std::isfinite(Val))
 		{
-			double DevX = ((double)Idx - MeanX);
+			double DevX = (XData[Idx] - MeanX);
 			CovarAcc += (Val - MeanY)*DevX;
 			XVarAcc += DevX*DevX;
 		}

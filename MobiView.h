@@ -111,8 +111,8 @@ public:
 	ParameterCtrl Params;
 	
 	ParentCtrl PlotInfoRect;
-	EditDate   CalibrationIntervalStart;
-	EditDate   CalibrationIntervalEnd;
+	EditTime   CalibrationIntervalStart;
+	EditTime   CalibrationIntervalEnd;
 	Label      CalibrationIntervalLabel;
 	DocEdit PlotInfo;
 	
@@ -182,10 +182,10 @@ public:
 	void SaveToCsv();
 	
 	
-	
-	void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, Date &StartDate);
-	void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len, Date &StartDate);
-	void ComputeTrendStats(double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
+	//TODO: The computation functions don't need to be member functions of this class?
+	void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len);
+	void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len);
+	void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 	
 	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit);
 	void DisplayResidualStats(residual_stats &Stats, String &Name);
@@ -203,7 +203,7 @@ public:
 	Array<Ctrl> EquationSelecterFavControls;
 	
 	model_dll_interface ModelDll;
-	
+	timestep_size TimestepSize;
 	
 	Label     *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
 	DropList  *IndexList[MAX_INDEX_SETS];
