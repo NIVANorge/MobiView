@@ -110,6 +110,35 @@ int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize)
 	}
 }
 
+int PlotCtrl::GetSmallestStepResolution()
+{
+	//NOTE: To compute the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
+	//4=months, 5=years
+
+	int IntervalType = TimeIntervals.GetData();
+	if(!TimeIntervals.IsEnabled() || IntervalType == 0)       //IntervalType==0 signifies no aggregation
+	{
+		//NOTE: The plot does not display aggregated data, so the unit of the grid line step should be
+		//determined by the model step size.
+		if(Parent->TimestepSize.Type == 0)          //Timestep size is measured in seconds
+		{
+			if(Parent->TimestepSize.Magnitude < 60)         return 0;
+			else if(Parent->TimestepSize.Magnitude < 3600)  return 1;
+			else if(Parent->TimestepSize.Magnitude < 86400) return 2;
+			else                                            return 3;
+		}
+		else                                        //Timestep size is measured in months
+		{
+			if(Parent->TimestepSize.Magnitude < 12) return 4;
+			else                                    return 5;
+		}
+	}
+	else if(IntervalType == 1) return 4;
+	else if(IntervalType == 2) return 5;
+	
+	return 0;
+}
+
 void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX)
 {
 	if(TimestepSize.Type == 0)        //Timestep magnitude measured in seconds.
@@ -1161,39 +1190,69 @@ void PlotCtrl::RePlot()
 				PlotWasAutoResized = true;
 			}
 			
-			bool MonthlyOrYearly = false;
-			if(TimeIntervals.IsEnabled())
-			{
-				int IntervalType = TimeIntervals.GetData();
-				if(IntervalType == 1)
-				{
-					MonthlyOrYearly = true;
-					
-					Plot.cbModifFormatX << [this](String &s, int i, double d)
-					{
-						Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-						s << Format("%d-%02d", D2.year, D2.month);
-					};
-				}
-				else if(IntervalType == 2)
-				{
-					MonthlyOrYearly = true;
-					
-					Plot.cbModifFormatX << [this](String &s, int i, double d)
-					{
-						Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-						s = Format("%d", D2.year);
-					};
-				}
-			}
+			const char *MonthNames[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 			
-			if(!MonthlyOrYearly)
+			int DoStep = GetSmallestStepResolution();
+			if(DoStep == 0)
+			{
+				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				{
+					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point impreciseness unless we do this
+					Time D2 = this->InputStartTime + (int64)dd;
+					s << Format("%02d:%02d:%02d", D2.hour, D2.minute, D2.second);
+					if(D2.hour==0 && D2.minute==0 && D2.second==0)
+					{
+						s << Format("\n%d.", D2.day);
+						if(D2.day == 1)
+						{
+							s << " " << MonthNames[D2.month-1];
+							if(D2.month == 1) s << Format("\n%d", D2.year);
+						}
+					}
+				};
+			}
+			else if(DoStep == 1 || DoStep == 2)
+			{
+				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					s << Format("%02d:%02d", D2.hour, D2.minute);
+					if(D2.hour==0 && D2.minute==0)
+					{
+						s << Format("\n%d.", D2.day);
+						if(D2.day == 1)
+						{
+							s << " " << MonthNames[D2.month-1];
+							if(D2.month == 1) s << Format("\n%d", D2.year);
+						}
+					}
+				};
+			}
+			else if(DoStep == 3)
+			{
+				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					s << Format("%d.", D2.day);
+					if(D2.day == 1) s << " " << MonthNames[D2.month-1];
+					if(D2.month == 1 && D2.day == 1) s << Format("\n%d", D2.year);
+				};
+			}
+			else if(DoStep == 4)
+			{
+				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					if(D2.month == 1) s << Format("%s\n%d", MonthNames[D2.month-1], D2.year);
+					else              s << MonthNames[D2.month-1];
+				};
+			}
+			else if(DoStep == 5)
 			{
 				Plot.cbModifFormatX << [this](String &s, int i, double d)
 				{
-					//TODO: Improve this one for sub-daily timestep sizes!
 					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
-					s = Format("%d-%d-%d", D2.year, D2.month, D2.day);
+					s = Format("%d", D2.year);
 				};
 			}
 		}
@@ -1284,10 +1343,33 @@ int RoundStep(int Step)
 	return OrderOfMagnitude*10;
 }
 
+int RoundStep60(int Step)
+{
+	if(Step == 3) Step = 2;
+	else if(Step == 4) Step = 5;
+	else if(Step == 6 || Step == 7) Step = 5;
+	else if(Step >= 8 && Step <= 12) Step = 10;
+	else if(Step >= 13 && Step <= 17) Step = 15;
+	else if(Step >= 18 && Step <= 26) Step = 20;
+	else if(Step >= 27 && Step <= 40) Step = 30;
+		
+	return Step;
+}
+
+int RoundStep24(int Step)
+{
+	if(Step == 3) Step = 2;
+	if(Step == 5) Step = 4;
+	if(Step == 7 || Step == 8) Step = 6;
+	if(Step >= 9 && Step <= 14) Step = 12;
+	
+	return Step;
+}
+
 
 void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 {
-	//InputStartDate is X=0. X resolution is daily
+	//InputStartTime  corresponds to  X=0. X resolution is always measured in seconds
 	
 	//TODO! Has to be improved for sub-day timestep resolutions!!
 	
@@ -1297,26 +1379,96 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 	double XMin = Plot.GetXMin();
 	double XRange = Plot.GetXRange();
 	
-	Time FirstTime = InputStartTime + (int)XMin;
-	Time LastTime  = FirstTime + (int)XRange;
+	Time FirstTime = InputStartTime + (int64)XMin;
+	Time LastTime  = FirstTime + (int64)XRange;
+	
+	//NOTE: DoStep denotes the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
+	//4=months, 5=years
+	int DoStep = GetSmallestStepResolution();
+	
+	if(DoStep==0)    //Seconds
+	{
+		int64 SecondRange = (LastTime - FirstTime);
+		int64 SecondStep = SecondRange / DesiredGridLineNum + 1;
+		
+		SecondStep = RoundStep60(SecondStep);
+		
+		if(SecondStep > 30) DoStep = 1;    //The plot is too wide to do secondly resolution, try minutely instead
+		else
+		{
+			Time IterTime = FirstTime;
+			IterTime -= (IterTime.second % SecondStep);
+			for(; IterTime <= LastTime; IterTime += SecondStep)
+			{
+				double XVal = (double)((IterTime - InputStartTime)) - XMin;
+				if(XVal > 0 && XVal < XRange)
+					LinesOut << XVal;
+			}
+			
+			return;
+		}
+	}
+	
+	if(DoStep == 1)
+	{
+		int64 MinuteRange = (LastTime - FirstTime) / 60;
+		int64 MinuteStep = MinuteRange / DesiredGridLineNum + 1;
+		
+		MinuteStep = RoundStep60(MinuteStep);
+		
+		if(MinuteStep > 30) DoStep = 2;    //The plot is too wide to do minutely resolution, try hourly instead
+		else
+		{
+			Time IterTime = FirstTime;
+			IterTime.second = 0;
+			IterTime -= 60*(IterTime.minute % MinuteStep);
+			for(; IterTime <= LastTime; IterTime += 60*MinuteStep)
+			{
+				double XVal = (double)((IterTime - InputStartTime)) - XMin;
+				if(XVal > 0 && XVal < XRange)
+					LinesOut << XVal;
+			}
+			
+			return;
+		}
+	}
+	
+	if(DoStep == 2)
+	{
+		int64 HourRange = (LastTime - FirstTime) / 3600;
+		int64 HourStep = HourRange / DesiredGridLineNum + 1;
+		
+		HourStep = RoundStep24(HourStep);
+		
+		if(HourStep > 12) DoStep = 3;    //The plot is too wide to do hourly resolution, try daily instead
+		else
+		{
+			Time IterTime = FirstTime;
+			IterTime.second = 0;
+			IterTime.minute = 0;
+			IterTime -= 3600*(IterTime.hour % HourStep);
+			for(; IterTime <= LastTime; IterTime += 3600*HourStep)
+			{
+				double XVal = (double)((IterTime - InputStartTime)) - XMin;
+				if(XVal > 0 && XVal < XRange)
+					LinesOut << XVal;
+			}
+			
+			return;
+		}
+	}
 	
 	Time FirstDate(FirstTime.year, FirstTime.month, FirstTime.day);
 	Time LastDate(LastTime.year, LastTime.month, LastTime.day);
 	
-	int DoStep = 0;
-	
-	
-	int IntervalType = TimeIntervals.GetData();
-	if(!TimeIntervals.IsEnabled() || IntervalType == 0)    //This when there is no aggregation of plot data
+	if(DoStep==3)    //Daily
 	{
-		int DayRange = (LastDate - FirstDate) / 86400 + 1;
+		int DayRange = (LastTime - FirstTime) / 86400 + 1;
 		int DayStep = DayRange / DesiredGridLineNum + 1;
 		
-		if(DayStep >= 20) DoStep = 1; //Monthly;
+		if(DayStep >= 20) DoStep = 4; //The plot is too wide to do daily resolution, try monthly instead;
 		else
 		{
-			DoStep = 0;
-			
 			if(DayStep == 3) DayStep = 2;
 			else if(DayStep == 4) DayStep = 5;
 			else if(DayStep == 6 || DayStep == 7) DayStep = 5;
@@ -1352,16 +1504,14 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 		}
 	}
 	
-	if(DoStep == 1 || IntervalType == 1)
+	if(DoStep == 4) //Monthly
 	{
 		int MonthRange = (int)LastDate.month - (int)FirstDate.month + 12*(LastDate.year - FirstDate.year);
 		int MonthStep = MonthRange / DesiredGridLineNum + 1;
 		
-		if(MonthStep >= 10) DoStep = 2; //Yearly
+		if(MonthStep >= 10) DoStep = 5; //The plot is too wide to do monthly resolution, try yearly instead
 		else
 		{
-			DoStep = 1; //Monthly
-			
 			if(MonthStep == 4) MonthStep = 3;
 			else if(MonthStep == 5 || (MonthStep > 6 && MonthStep <= 9)) MonthStep = 6;
 			
@@ -1384,14 +1534,13 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 			}
 			return;
 		}
-		
 	}
 	
-	if(DoStep == 2 || IntervalType == 2) //Yearly
+	if(DoStep == 5) //Yearly
 	{
 		int FirstYear = FirstDate.year;
 		int LastYear = LastDate.year;
-		
+
 		int YearCount = LastYear - FirstYear;
 		int YearStep = YearCount / DesiredGridLineNum + 1;
 		YearStep = RoundStep(YearStep);

@@ -34,6 +34,7 @@ void MobiView::Log(String Msg)
 
 void MobiView::HandleDllError()
 {
+	Log("There was an error when trying to load the model dll. This could be because the dll is compiled from a version of Mobius that is too old compared to the build of MobiView you are using or vice versa.");
 	Log(ModelDll.GetDllError());
 }
 

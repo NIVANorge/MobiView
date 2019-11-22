@@ -114,6 +114,8 @@ public:
 	
 	void SetBetterGridLinePositions(int Dim);
 	
+	int GetSmallestStepResolution();
+	
 	void RePlot();
 	
 	void TimestepSliderEvent();
