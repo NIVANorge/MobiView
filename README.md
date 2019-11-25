@@ -12,6 +12,7 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 ### Needed improvements (TODO list):
 - Allow opening separate windows with multiple plots side by side (with locked x-axises)
 - Equation search similar to parameter search?
+- Make plot aggregations for minute, hour, day available for models with a timestep size where this makes sense.
 - More goodness of fit stats (?), though we do have quite a lot of them now.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long. But this is tricky as it would require locking down the dataset (or running a copy of it and then writing back the results to the original one when it is done).
 
