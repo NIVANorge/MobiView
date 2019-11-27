@@ -1900,8 +1900,8 @@ void MobiView::SaveToCsv()
 	
 	char DateStr[256];
 	ModelDll.GetStartDate(DataSet, DateStr);
-	Date ResultDate;
-	StrToDate(ResultDate, DateStr);
+	Time ResultTime;
+	StrToTime(ResultTime, DateStr);
 	
 	
 	std::ofstream File;
@@ -1921,10 +1921,20 @@ void MobiView::SaveToCsv()
 	}
 	File << "\n";
 	
+	//TODO: Whether or not to print the timestamp could also be a config option.
+	bool PrintTime = false;
+	if(TimestepSize.Type == 0 && (TimestepSize.Magnitude % 86400 != 0 || ResultTime.second != 0 || ResultTime.minute != 0 || ResultTime.hour != 0) ) PrintTime = true;
 	
 	for(uint64 Timestep = 0; Timestep < Timesteps; ++Timestep)
 	{
-		File << Format(ResultDate).ToStd() << "\t";
+		if(PrintTime)
+			File << Format(ResultTime).ToStd() << "\t";
+		else
+		{
+			Date ResultDate(ResultTime.year, ResultTime.month, ResultTime.day);
+			File << Format(ResultDate).ToStd() << "\t";
+		}
+		
 		for(int Idx = 0; Idx < Data.size(); ++Idx)
 		{
 			File << Data[Idx][Timestep];
@@ -1932,7 +1942,7 @@ void MobiView::SaveToCsv()
 		}
 		File << "\n";
 		
-		ResultDate++;
+		AdvanceTimesteps(ResultTime, 1, TimestepSize);
 	}
 	
 	File.close();
