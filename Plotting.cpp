@@ -342,7 +342,7 @@ int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 	if(Max != Min && FiniteCount > 0) //TODO: epsilon distance instead? But that may not make sense in this case.
 	{
 		double Span = Max - Min;
-		size_t NBins = 1 + (size_t)(3.322 * std::log((double)FiniteCount));   //NOTE: Sturge's rule.
+		size_t NBins = 1 + (size_t)std::log2((double)FiniteCount);   //NOTE: Sturges' rule.
 		double Stride = Span / (double) NBins;
 		
 		XValues.resize(NBins);
@@ -926,6 +926,7 @@ void PlotCtrl::RePlot()
 			Plot.SetMajorUnits(1.0);
 			Plot.SetMinUnits(0.5);
 			
+			Plot.cbModifFormatXGridUnits.Clear();
 			Plot.cbModifFormatX.Clear();
 			Plot.cbModifFormatX <<
 			[IndexCount, this](String &s, int i, double d)
@@ -1134,6 +1135,7 @@ void PlotCtrl::RePlot()
 	{
 		if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 		{
+			Plot.cbModifFormatXGridUnits.Clear();
 			Plot.cbModifFormatX.Clear();
 			//NOTE: Histograms require completely different zooming.
 			Plot.ZoomToFit(true, true);
@@ -1143,6 +1145,7 @@ void PlotCtrl::RePlot()
 		}
 		else if(PlotMajorMode == MajorMode_QQ)
 		{
+			Plot.cbModifFormatXGridUnits.Clear();
 			Plot.cbModifFormatX.Clear();
 			//NOTE: Histograms require completely different zooming.
 			Plot.ZoomToFit(true, true);
@@ -1170,6 +1173,7 @@ void PlotCtrl::RePlot()
 		}
 		else
 		{
+			Plot.cbModifFormatXGridUnits.Clear();
 			Plot.cbModifFormatX.Clear();
 			Plot.ZoomToFit(false, true);
 			
@@ -1193,11 +1197,13 @@ void PlotCtrl::RePlot()
 			const char *MonthNames[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 			
 			int DoStep = GetSmallestStepResolution();
+			
+			//NOTE: Format to be displayed at grid lines
 			if(DoStep == 0)
 			{
-				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
 				{
-					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point impreciseness unless we do this
+					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point imprecition unless we do this
 					Time D2 = this->InputStartTime + (int64)dd;
 					s << Format("%02d:%02d:%02d", D2.hour, D2.minute, D2.second);
 					if(D2.hour==0 && D2.minute==0 && D2.second==0)
@@ -1213,7 +1219,7 @@ void PlotCtrl::RePlot()
 			}
 			else if(DoStep == 1 || DoStep == 2)
 			{
-				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
 				{
 					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s << Format("%02d:%02d", D2.hour, D2.minute);
@@ -1230,7 +1236,7 @@ void PlotCtrl::RePlot()
 			}
 			else if(DoStep == 3)
 			{
-				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
 				{
 					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s << Format("%d.", D2.day);
@@ -1240,7 +1246,7 @@ void PlotCtrl::RePlot()
 			}
 			else if(DoStep == 4)
 			{
-				Plot.cbModifFormatX << [this, MonthNames](String &s, int i, double d)
+				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
 				{
 					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					if(D2.month == 1) s << Format("%s\n%d", MonthNames[D2.month-1], D2.year);
@@ -1249,9 +1255,45 @@ void PlotCtrl::RePlot()
 			}
 			else if(DoStep == 5)
 			{
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				Plot.cbModifFormatXGridUnits << [this](String &s, int i, double d)
 				{
 					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					s = Format("%d", D2.year);
+				};
+			}
+			
+			//NOTE: Format to be displayed at popup or data table
+			if(DoStep == 0 || DoStep == 1 || DoStep == 2)
+			{
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				{
+					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point imprecition unless we do this
+					Time D2 = this->InputStartTime + (int64)dd;
+					s = Format(D2);
+				};
+			}
+			else if(DoStep == 3)
+			{
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5);
+					Date D3(D2.year, D2.month, D2.day);
+					s = Format(D3);
+				};
+			}
+			else if(DoStep == 4)
+			{
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5);
+					s = Format("%d-%d", D2.year, D2.month);
+				};
+			}
+			else if(DoStep == 5)
+			{
+				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				{
+					Time D2 = this->InputStartTime + (int64)(d + 0.5);
 					s = Format("%d", D2.year);
 				};
 			}
