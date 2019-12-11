@@ -342,7 +342,9 @@ int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 	if(Max != Min && FiniteCount > 0) //TODO: epsilon distance instead? But that may not make sense in this case.
 	{
 		double Span = Max - Min;
-		size_t NBins = 1 + (size_t)std::log2((double)FiniteCount);   //NOTE: Sturges' rule.
+		//size_t NBins = 1 + (size_t)std::ceil(std::log2((double)FiniteCount));   //NOTE: Sturges' rule.
+		size_t NBins = 2*(size_t)(std::ceil(std::cbrt((double)FiniteCount)));      //NOTE: Rice's rule.
+		
 		double Stride = Span / (double) NBins;
 		
 		XValues.resize(NBins);
