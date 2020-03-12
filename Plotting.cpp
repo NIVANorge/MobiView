@@ -32,7 +32,6 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	
 	Plot.SetFastViewX(true);
 	Plot.SetSequentialXAll(true);
-	Plot.SetMouseHandling(true, false);
 	
 	Size PlotReticleSize = GetTextSize("00000", Plot.GetReticleFont());
 	Size PlotUnitSize    = GetTextSize("[dummy]", Plot.GetLabelsFont());
@@ -200,6 +199,12 @@ void PlotCtrl::PlotModeChange()
 		TimestepSlider.Show();
 		TimestepEdit.Show();
 		TimeIntervals.Enable();
+	}
+	
+	Plot.SetMouseHandling(true, false);
+	if(MajorMode == MajorMode_Profile || MajorMode == MajorMode_Histogram || MajorMode == MajorMode_ResidualHistogram)
+	{
+		Plot.SetMouseHandling(false, false);
 	}
 	
 	if(TimeIntervals.IsEnabled())
@@ -704,6 +709,9 @@ void PlotCtrl::RePlot()
 	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
 	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	
+	int NBinsHistogram = 0;
+	
+	
 	if(PlotMajorMode == MajorMode_Regular)
 	{
 		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
@@ -785,7 +793,7 @@ void PlotCtrl::RePlot()
 				//StartTime = InputStartTime;
 			}
 			
-			AddHistogram(Legend, Unit, Data.data(), Data.size());
+			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
 			Parent->ComputeTimeseriesStats(Stats, Data.data(), Data.size());
@@ -1110,13 +1118,13 @@ void PlotCtrl::RePlot()
 			}
 			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
-				int NBins = AddHistogram(Legend, ModUnit, Residuals.data()+GofOffset, GofTimesteps);
+				NBinsHistogram = AddHistogram(Legend, ModUnit, Residuals.data()+GofOffset, GofTimesteps);
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
 				Parent->ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps);
 				
-				AddNormalApproximation(NormLegend, NBins, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
+				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}
 			else if(PlotMajorMode == MajorMode_QQ)
 			{
@@ -1139,11 +1147,31 @@ void PlotCtrl::RePlot()
 		{
 			Plot.cbModifFormatXGridUnits.Clear();
 			Plot.cbModifFormatX.Clear();
-			//NOTE: Histograms require completely different zooming.
+			//NOTE: Histograms require different zooming.
 			Plot.ZoomToFit(true, true);
 			PlotWasAutoResized = false;
 			
-			//TODO: Here we want to position the x grid lines at the bars.
+			double XRange = Plot.GetXRange();
+			double XMin   = Plot.GetXMin();
+			
+			//NOTE: The auto-resize cuts out half of each outer bar, so we fix that
+			double Stride = XRange / (double)(NBinsHistogram-1);
+			XMin   -= 0.5*Stride;
+			XRange += Stride;
+			Plot.SetXYMin(XMin);
+			Plot.SetRange(XRange);
+			
+			int LineSkip = NBinsHistogram / 30 + 1;
+			
+			Plot.SetGridLinesX << [NBinsHistogram, Stride, LineSkip, this](Vector<double> &LinesOut)
+			{
+				double At = Plot.GetXMin();
+				for(int Idx = 0; Idx < NBinsHistogram; ++Idx)
+				{
+					LinesOut << At;
+					At += Stride * (double)LineSkip;
+				}
+			};
 		}
 		else if(PlotMajorMode == MajorMode_QQ)
 		{
@@ -1315,10 +1343,10 @@ void PlotCtrl::RePlot()
 			};
 		}
 		
+		
 		SetBetterGridLinePositions(1);
-		//TODO: For histogram and residual histogram, we should really let tick marks be at each
-		//bar instead..
-		if(PlotMajorMode == MajorMode_QQ || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram) SetBetterGridLinePositions(0);
+
+		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
 		
 		Size PlotSize = Plot.GetSize();
 		Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....

@@ -12,8 +12,9 @@ StructureViewWindow::StructureViewWindow(MobiView *ParentWindow)
 	
 	uint64 BufLen = 8192;      //TODO: It is not that good that we have to set a fixed buffer length here..
 	char *Buf = new char[BufLen];
+	Buf[BufLen-1] = 0;
 	
-	ParentWindow->ModelDll.PrintResultStructure(ParentWindow->DataSet, Buf, BufLen);
+	ParentWindow->ModelDll.PrintResultStructure(ParentWindow->DataSet, Buf, BufLen-1);
 	
 	StructureViewBox.Set(String(Buf));
 	
