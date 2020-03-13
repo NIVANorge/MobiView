@@ -1165,7 +1165,7 @@ void PlotCtrl::RePlot()
 			
 			Plot.SetGridLinesX << [NBinsHistogram, Stride, LineSkip, this](Vector<double> &LinesOut)
 			{
-				double At = Plot.GetXMin();
+				double At = 0.0;//Plot.GetXMin();
 				for(int Idx = 0; Idx < NBinsHistogram; ++Idx)
 				{
 					LinesOut << At;
