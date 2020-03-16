@@ -13,7 +13,6 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 - Allow opening separate windows with multiple plots side by side (with locked x-axises)
 - Make plot aggregations for minute, hour, day available for models with a timestep size where this makes sense.
 - More goodness of fit stats (?), though we do have quite a lot of them now.
-- Histograms should have better positioning of X axis labels. Also, disable panning and zooming for these.
 
 Optional:
 - Equation search similar to parameter search?
