@@ -318,8 +318,6 @@ void PlotCtrl::PlotModeChange()
 	}
 	
 	
-	//PromptOK("Got here!");
-	
 	RePlot();
 }
 
@@ -685,6 +683,11 @@ void PlotCtrl::RePlot()
 	PlotData.Clear();
 	PlotColors.Reset();
 	
+	Plot.RemoveSurf();
+	SurfX.Clear();
+	SurfY.Clear();
+	SurfZ.Clear();
+	
 	Plot.ShowLegend(true);
 	
 	Plot.SetLabelX(" ");
@@ -800,7 +803,7 @@ void PlotCtrl::RePlot()
 			Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
 		}
 	}
-	else if(PlotMajorMode == MajorMode_Profile)
+	else if(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Profile2D)
 	{
 		int TimeseriesCount = Parent->EquationSelecter.GetSelectCount() + Parent->InputSelecter.GetSelectCount();
 		
@@ -847,38 +850,8 @@ void PlotCtrl::RePlot()
 			int IntervalType = TimeIntervals.GetData();
 			int AggregationType = Aggregation.GetData();
 			
-			for(int Row = 0; Row < RowCount; ++Row)
-			{
-				if(EIndexList[ProfileIndexSet]->IsSelected(Row))
-				{
-					std::vector<double> &Data = PlotData.Allocate(Timesteps);
-					
-					if(Mode == 0)
-					{
-						Parent->GetSingleResultSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
-					}
-					else
-					{
-						Parent->GetSingleInputSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
-					}
-					
-					NullifyNans(Data.data(), Data.size());
-					
-					ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
-					
-					if(IntervalType == 1 || IntervalType == 2) //Monthly or yearly aggregation
-					{
-						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
-						std::vector<double> YValues;
-						
-						AggregateData(CurrentStartTime, CurrentStartTime, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
-						
-						Data = YValues; //Note: vector copy
-					}
-					
-					++IdxIdx;
-				}
-			}
+			ProfileIndexesCount = IndexCount;
+			//std::assert(IndexCount == PlotData.Data.size());
 			
 			if(Mode == 0)
 			{
@@ -892,61 +865,150 @@ void PlotCtrl::RePlot()
 			}
 			ProfileLegend << " profile";
 			
-			size_t DataLength = PlotData.Data[0].size();
-			
-			TimestepSlider.Range((int)DataLength - 1);
-			
-			//TODO: This should be based on the current position of the slider instead unless
-			//we reset the slider!
-			ProfileDisplayTime = CurrentStartTime;
-			if(IntervalType == 1 || IntervalType == 2)
+			//TODO: We could use the same data storage in both cases, so that we don't have to
+			//branch here!
+			if(MajorMode == MajorMode_Profile)
 			{
-				//TODO: Clean this up
-				ProfileDisplayTime.second = 0;
-				ProfileDisplayTime.minute = 0;
-				ProfileDisplayTime.hour   = 0;
-				ProfileDisplayTime.day    = 1;
-				if(IntervalType == 2) ProfileDisplayTime.month = 1;
-			}
-			TimestepEdit.SetData(ProfileDisplayTime);
-			
-			ProfileIndexesCount = IndexCount;
-			//std::assert(IndexCount == PlotData.Data.size());
-			
-			std::vector<double> &XValues = PlotData.Allocate(IndexCount);
-			std::vector<double> &YValues = PlotData.Allocate(IndexCount);
-			
-			double YMax = DBL_MIN;
-			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
-			{
-				for(size_t Ts = 0; Ts < DataLength; ++Ts)
+				for(int Row = 0; Row < RowCount; ++Row)
 				{
-					double Value = PlotData.Data[Idx][Ts];
-					if(std::isfinite(Value) && !IsNull(Value))
+					if(EIndexList[ProfileIndexSet]->IsSelected(Row))
 					{
-						YMax = std::max(YMax, Value);
+						std::vector<double> &Data = PlotData.Allocate(Timesteps);
+						
+						if(Mode == 0)
+						{
+							Parent->GetSingleResultSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
+						}
+						else
+						{
+							Parent->GetSingleInputSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
+						}
+						
+						NullifyNans(Data.data(), Data.size());
+						
+						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
+						
+						if(IntervalType == 1 || IntervalType == 2) //Monthly or yearly aggregation
+						{
+							std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
+							std::vector<double> YValues;
+							
+							AggregateData(CurrentStartTime, CurrentStartTime, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
+							
+							Data = YValues; //Note: vector copy
+						}
+						
+						++IdxIdx;
 					}
 				}
 				
-				XValues[Idx] = (double)Idx + 0.5;
+				size_t DataLength = PlotData.Data[0].size();
+			
+				TimestepSlider.Range((int)DataLength - 1);
+				
+				//TODO: This should be based on the current position of the slider instead unless
+				//we reset the slider!
+				ProfileDisplayTime = CurrentStartTime;
+				if(IntervalType == 1 || IntervalType == 2)
+				{
+					//TODO: Clean this up
+					ProfileDisplayTime.second = 0;
+					ProfileDisplayTime.minute = 0;
+					ProfileDisplayTime.hour   = 0;
+					ProfileDisplayTime.day    = 1;
+					if(IntervalType == 2) ProfileDisplayTime.month = 1;
+				}
+				TimestepEdit.SetData(ProfileDisplayTime);
+				
+				std::vector<double> &XValues = PlotData.Allocate(IndexCount);
+				std::vector<double> &YValues = PlotData.Allocate(IndexCount);
+				
+				double YMax = DBL_MIN;
+				for(size_t Idx = 0; Idx < IndexCount; ++Idx)
+				{
+					for(size_t Ts = 0; Ts < DataLength; ++Ts)
+					{
+						double Value = PlotData.Data[Idx][Ts];
+						if(std::isfinite(Value) && !IsNull(Value))
+						{
+							YMax = std::max(YMax, Value);
+						}
+					}
+					
+					XValues[Idx] = (double)Idx + 0.5;
+				}
+				
+				Plot.SetXYMin(0.0, 0.0);
+				Plot.SetRange((double)IndexCount, YMax);
+				Plot.SetMajorUnits(1.0);
+				Plot.SetMinUnits(0.5);
+				
+				Plot.cbModifFormatXGridUnits.Clear();
+				Plot.cbModifFormatX.Clear();
+				Plot.cbModifFormatX <<
+				[IndexCount, this](String &s, int i, double d)
+				{
+					int Idx = (int)d;
+					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx];
+				};
+				
+				TimestepSlider.Enable();
+				ReplotProfile();
 			}
-			
-			Plot.SetXYMin(0.0, 0.0);
-			Plot.SetRange((double)IndexCount, YMax);
-			Plot.SetMajorUnits(1.0);
-			Plot.SetMinUnits(0.5);
-			
-			Plot.cbModifFormatXGridUnits.Clear();
-			Plot.cbModifFormatX.Clear();
-			Plot.cbModifFormatX <<
-			[IndexCount, this](String &s, int i, double d)
+			else // MajorMode == MajorMode_Profile2D
 			{
-				int Idx = (int)d;
-				if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx];
-			};
-			
-			TimestepSlider.Enable();
-			ReplotProfile();
+				
+				for(int Row = 0; Row < RowCount; ++Row)
+				{
+					if(EIndexList[ProfileIndexSet]->IsSelected(Row))
+					{
+						SurfY << (double)IdxIdx;
+						
+						double *Data = (double *)malloc(sizeof(double)*Timesteps);
+						
+						if(Mode == 0)
+						{
+							Parent->GetSingleResultSeries(Parent->DataSet, Data, ProfileIndexSet, Row);
+						}
+						else
+						{
+							Parent->GetSingleInputSeries(Parent->DataSet, Data, ProfileIndexSet, Row);
+						}
+						
+						NullifyNans(Data, Timesteps);
+						
+						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
+						
+						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts]; //Ugh, slow!
+						
+						++IdxIdx;
+						
+						free(Data);
+					}
+				}
+				SurfY << (double)IdxIdx;
+				
+				double *XValues = PlotData.Allocate(Timesteps+1).data();
+				ComputeXValues(InputStartTime, CurrentStartTime, Timesteps+1, Parent->TimestepSize, XValues);
+				
+				for(size_t Ts = 0; Ts < Timesteps+1; ++Ts) SurfX << XValues[Ts]; //Ugh, slow!
+				
+				SurfData.Init(SurfZ, SurfX, SurfY, TableInterpolate::NO, true);
+
+				Plot.AddSurf(SurfData).ZoomToFitZ();//.Legend(ProfileLegend);
+				
+				Plot.ZoomToFit(false, true); //Apparently we have to do this before SetMajorUnits, or things get weird.
+				Plot.SetMajorUnits(Null, 1.0);
+
+				Plot.cbModifFormatYGridUnits.Clear();
+				Plot.cbModifFormatY.Clear();
+				Plot.cbModifFormatY <<
+				[IndexCount, this](String &s, int i, double d)
+				{
+					int Idx = (int)d;
+					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx];
+				};
+			}
 		}
 	}
 	else if(PlotMajorMode == MajorMode_CompareBaseline)
@@ -1141,7 +1203,7 @@ void PlotCtrl::RePlot()
 	
 	Plot.SetGridLinesX.Clear();
 	
-	if(Plot.GetCount() > 0)
+	if(Plot.GetCount() > 0 || (PlotMajorMode == MajorMode_Profile2D && SurfZ.size() > 0))
 	{
 		if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 		{
@@ -1163,7 +1225,7 @@ void PlotCtrl::RePlot()
 			
 			int LineSkip = NBinsHistogram / 30 + 1;
 			
-			Plot.SetGridLinesX << [NBinsHistogram, Stride, LineSkip, this](Vector<double> &LinesOut)
+			Plot.SetGridLinesX << [NBinsHistogram, Stride, LineSkip](Vector<double> &LinesOut)
 			{
 				double At = 0.0;//Plot.GetXMin();
 				for(int Idx = 0; Idx < NBinsHistogram; ++Idx)
@@ -1329,28 +1391,30 @@ void PlotCtrl::RePlot()
 			}
 		}
 		
-		if(Plot.GetShowLegend())
+		if(Plot.GetShowLegend() && PlotMajorMode != MajorMode_Profile2D)
 		{
 			Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
 		}
 		
-		Plot.cbModifFormatY.Clear();
-		if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
+		if(PlotMajorMode != MajorMode_Profile2D)
 		{
-			Plot.cbModifFormatY << [](String &s, int i, double d)
+			Plot.cbModifFormatY.Clear();
+			if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
 			{
-				s = FormatDoubleExp(pow(10., d), 2);
-			};
+				Plot.cbModifFormatY << [](String &s, int i, double d)
+				{
+					s = FormatDoubleExp(pow(10., d), 2);
+				};
+			}
+
+			SetBetterGridLinePositions(1);
 		}
-		
-		
-		SetBetterGridLinePositions(1);
 
 		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
-		
-		Size PlotSize = Plot.GetSize();
-		Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	}
+	
+	Size PlotSize = Plot.GetSize();
+	Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	
 	Plot.Refresh();
 }

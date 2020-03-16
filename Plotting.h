@@ -7,6 +7,7 @@ enum plot_major_mode
 	MajorMode_Regular = 0,
 	MajorMode_Histogram,
 	MajorMode_Profile,
+	MajorMode_Profile2D,
 	MajorMode_CompareBaseline,
 	MajorMode_Residuals,
 	MajorMode_ResidualHistogram,
@@ -152,6 +153,11 @@ private:
 	plot_colors PlotColors;
 	
 	Time InputStartTime;
+	
+	Vector<double> SurfX;
+	Vector<double> SurfY;
+	Vector<double> SurfZ;
+	TableDataVector SurfData;
 };
 
 
