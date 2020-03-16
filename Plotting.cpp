@@ -958,6 +958,10 @@ void PlotCtrl::RePlot()
 			else // MajorMode == MajorMode_Profile2D
 			{
 				
+				SurfY.Reserve(ProfileIndexesCount + 1);
+				SurfX.Reserve(Timesteps + 1);
+				SurfZ.Reserve(ProfileIndexesCount*Timesteps);
+				
 				for(int Row = 0; Row < RowCount; ++Row)
 				{
 					if(EIndexList[ProfileIndexSet]->IsSelected(Row))
@@ -979,7 +983,7 @@ void PlotCtrl::RePlot()
 						
 						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
 						
-						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts]; //Ugh, slow!
+						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];
 						
 						++IdxIdx;
 						
@@ -991,7 +995,7 @@ void PlotCtrl::RePlot()
 				double *XValues = PlotData.Allocate(Timesteps+1).data();
 				ComputeXValues(InputStartTime, CurrentStartTime, Timesteps+1, Parent->TimestepSize, XValues);
 				
-				for(size_t Ts = 0; Ts < Timesteps+1; ++Ts) SurfX << XValues[Ts]; //Ugh, slow!
+				for(size_t Ts = 0; Ts < Timesteps+1; ++Ts) SurfX << XValues[Ts];
 				
 				SurfData.Init(SurfZ, SurfX, SurfY, TableInterpolate::NO, true);
 
