@@ -33,6 +33,10 @@ bool model_dll_interface::Load(const char *DllName)
 	
 	
 	LoadProcedure(SetupModel);
+	LoadProcedure(SetupModelBlankIndexSets);
+	LoadProcedure(ReadInputs);
+	LoadProcedure(SetIndexes);
+	LoadProcedure(SetBranchIndexes);
 	LoadProcedure(EncounteredError);
 	LoadProcedure(GetModelName);
 	LoadProcedure(RunModel);

@@ -94,6 +94,18 @@ public :
 	virtual void Paint(Draw &W);
 };
 
+class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow> {
+public:
+	ChangeIndexesWindow(MobiView *ParentWindow);
+	
+	MobiView *ParentWindow;
+	
+	Label     *IndexSetName[MAX_INDEX_SETS];
+	DocEdit   *IndexList[MAX_INDEX_SETS];
+	
+	void DoIndexUpdate();
+};
+
 
 class MobiView : public TopWindow {
 	
@@ -143,6 +155,9 @@ public:
 	void SaveBaseline();
 	void StoreSettings();
 	
+	void CleanInterface();
+	void BuildInterface();
+	
 	void OpenSearch();
 	SearchWindow *Search = nullptr;
 	
@@ -153,6 +168,10 @@ public:
 	
 	void OpenStructureView();
 	StructureViewWindow *StructureView = nullptr;
+	
+	
+	void OpenChangeIndexes();
+	ChangeIndexesWindow *ChangeIndexes = nullptr;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);

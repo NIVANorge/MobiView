@@ -60,6 +60,7 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
+	bar.Add(IconImg::ChangeIndexes(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes").Key(K_CTRL_E);
 	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
@@ -284,7 +285,7 @@ void MobiView::OpenVisualizeBranches()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't visualize branch network before a dataset is loaded in.");
+		Log("Can't visualize branch network before a dataset is loaded.");
 		return;
 	}
 	
@@ -298,7 +299,7 @@ void MobiView::OpenStructureView()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't visualize the model before a dataset is loaded in.");
+		Log("Can't visualize the model before a dataset is loaded.");
 		return;
 	}
 	
@@ -307,6 +308,21 @@ void MobiView::OpenStructureView()
 		StructureView = new StructureViewWindow(this);
 	}
 }
+
+void MobiView::OpenChangeIndexes()
+{
+	if(!ModelDll.IsLoaded() || !DataSet)
+	{
+		Log("Can't edit indexes before a dataset is loaded.");
+		return;
+	}
+	
+	if(!ChangeIndexes)
+	{
+		ChangeIndexes = new ChangeIndexesWindow(this);
+	}
+}
+
 
 void MobiView::UpdateEquationSelecter()
 {
@@ -401,6 +417,219 @@ void MobiView::StoreSettings()
 }
 
 
+void MobiView::CleanInterface()
+{
+	EquationSelecter.Clear();
+	EquationSelecter.Disable();
+	EquationSelecterFavControls.Clear();
+	InputSelecter.Clear();
+	
+	ParameterGroupSelecter.Clear();
+	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
+	
+	Params.ParameterView.Clear();
+	
+	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
+	{
+		IndexList[Idx]->Clear();
+		IndexList[Idx]->Hide();
+		Plotter.EIndexList[Idx]->Clear();
+		Plotter.EIndexList[Idx]->Hide();
+		IndexLock[Idx]->Hide();
+		IndexSetName[Idx]->Hide();
+	}
+	
+	IndexSetNameToId.clear();
+	
+	Plotter.Plot.RemoveAllSeries();
+	Plotter.PlotData.Clear();
+	Plotter.PlotWasAutoResized = false;
+	
+	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+}
+
+
+void MobiView::BuildInterface()
+{
+	TimestepSize = ModelDll.GetTimestepSize(DataSet);
+	
+	
+	
+	String SettingsFile = LoadFile(GetDataFile("settings.json"));
+	Value SettingsJson = ParseJSON(SettingsFile);
+	
+	String DllFileName = GetFileName(DllFile.data());
+	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
+	
+	uint64 ModuleCount = ModelDll.GetAllModulesCount(DataSet);
+	std::vector<char *> ModuleNames(ModuleCount);
+	std::vector<char *> ModuleVersions(ModuleCount);
+	ModelDll.GetAllModules(DataSet, ModuleNames.data(), ModuleVersions.data());
+	if (CheckDllUserError()) return;
+	
+
+	//Module-less equations //TODO: Clean up code repeat from below..
+	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, nullptr);
+	std::vector<char *> ResultNames(ResultCount);
+	std::vector<char *> ResultTypes(ResultCount);
+	ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), nullptr);
+	if (CheckDllUserError()) return;
+	
+	int Row = 0;
+	for(size_t Idx = 0; Idx < ResultCount; ++Idx)
+	{
+		if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
+		{
+			String Name = ResultNames[Idx];
+			
+			int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
+			
+			EquationSelecter.Add(ResultNames[Idx], IsFavorite, Row);
+			EquationSelecterFavControls.Create<StarOption>();
+			Ctrl &Favorite = EquationSelecterFavControls.Top();
+			
+			EquationSelecter.SetCtrl((int)Row, 1, Favorite);
+			Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
+			++Row;
+		}
+	}
+	
+	for(size_t ModuleIdx = 0; ModuleIdx < ModuleCount; ++ModuleIdx)
+	{
+		uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, ModuleNames[ModuleIdx]);
+		std::vector<char *> ResultNames(ResultCount);
+		std::vector<char *> ResultTypes(ResultCount);
+		ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), ModuleNames[ModuleIdx]);
+		if (CheckDllUserError()) return;
+		
+		if(ResultCount > 0)
+		{
+			EquationSelecter.Add(Format("%s (V%s)", ModuleNames[ModuleIdx], ModuleVersions[ModuleIdx]), Null, Row);
+			EquationSelecter.SetLineColor(Row, Color(214, 234, 248));
+			
+			++Row;
+			for(size_t Idx = 0; Idx < ResultCount; ++Idx)
+			{
+				if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
+				{
+					String Name = ResultNames[Idx];
+					
+					int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
+					
+					EquationSelecter.Add(Name, IsFavorite, Row);
+					EquationSelecterFavControls.Create<StarOption>();
+					Ctrl &Favorite = EquationSelecterFavControls.Top();
+					
+					EquationSelecter.SetCtrl((int)Row, 1, Favorite);
+					Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
+					++Row;
+				}
+			}
+		}
+	}
+	
+
+	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
+	if(CheckDllUserError()) return;
+	std::vector<char *> InputNames(InputCount);
+	std::vector<char *> InputTypes(InputCount);
+	ModelDll.GetAllInputs(DataSet, InputNames.data(), InputTypes.data());
+	if (CheckDllUserError()) return;
+	
+	for(size_t Idx = 0; Idx < InputCount; ++Idx)
+	{
+		InputSelecter.Add(InputNames[Idx], (int)Idx);
+	}
+
+	Plotter.PlotMajorMode.Enable();
+	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+	
+	
+	
+	ParameterGroupSelecter.Set(0, ModelDll.GetModelName(DataSet));
+
+	
+	uint64 TopGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
+	std::vector<char *> TopGroupNames(TopGroupCount);
+	ModelDll.GetAllParameterGroups(DataSet, TopGroupNames.data(), nullptr);
+	if (CheckDllUserError()) return;
+	
+	//PromptOK("bladididi");
+	
+	for(int Idx = 0; Idx < TopGroupCount; ++Idx)
+	{
+		ParameterGroupSelecter.Add(0, Null, TopGroupNames[Idx], false);
+	}
+	
+	for(int Idx = 0; Idx < ModuleCount; ++Idx)
+	{
+		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, ModuleNames[Idx]);
+		std::vector<char *> GroupNames(GroupCount);
+		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), ModuleNames[Idx]);
+		if (CheckDllUserError()) return;
+		
+		//If a module has no parameter groups, don't bother to show it in the parameter group view at all.
+		if(GroupCount > 0)
+		{
+			int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
+			
+			for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
+			{
+				ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
+			}
+		}
+	}
+
+	ParameterGroupSelecter.OpenDeep(0, true);
+	
+	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
+	
+	if(IndexSetCount > MAX_INDEX_SETS)
+	{
+		PromptOK(String("MobiView does not currently support models with more than ") + MAX_INDEX_SETS + " index sets. The model you tried to load has " + IndexSetCount + ".");
+		return;
+	}
+	
+	std::vector<char *> IndexSets(IndexSetCount);
+	std::vector<char *> IndexSetTypes(IndexSetCount);
+	ModelDll.GetIndexSets(DataSet, IndexSets.data(), IndexSetTypes.data());
+	if (CheckDllUserError()) return;
+	
+	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
+	{
+		IndexLock[IndexSet]->Show();
+		
+		const char *Name = IndexSets[IndexSet];
+		
+		IndexSetName[IndexSet]->SetText(Name);
+		IndexSetName[IndexSet]->Show();
+		
+		IndexSetNameToId[Name] = IndexSet;
+		
+		uint64 IndexCount = ModelDll.GetIndexCount(DataSet, Name);
+		if (CheckDllUserError()) return;
+		std::vector<char *> IndexNames(IndexCount);
+		ModelDll.GetIndexes(DataSet, Name, IndexNames.data());
+		if (CheckDllUserError()) return;
+		
+		Plotter.EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
+		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
+		{
+			IndexList[IndexSet]->Add(IndexNames[Idx]);
+			
+			Plotter.EIndexList[IndexSet]->Add(IndexNames[Idx]);
+		}
+		IndexList[IndexSet]->GoBegin();
+		IndexList[IndexSet]->Show();
+		
+		Plotter.EIndexList[IndexSet]->GoBegin();
+		Plotter.EIndexList[IndexSet]->Show();
+	}
+	
+	PlotModeChange();
+}
+
+
 void MobiView::Load()
 {
 	if(ParametersWereChangedSinceLastSave)
@@ -414,44 +643,17 @@ void MobiView::Load()
 		if(BaselineDataSet)
 		{
 			ModelDll.DeleteDataSet(BaselineDataSet);
-			BaselineDataSet = 0;
+			BaselineDataSet = nullptr;
 		}
 		
 		if(DataSet)
 		{
 			ModelDll.DeleteModelAndDataSet(DataSet);
-			DataSet = 0;
+			DataSet = nullptr;
 		}
 		
 		ParametersWereChangedSinceLastSave = false;
-		
-		EquationSelecter.Clear();
-		EquationSelecter.Disable();
-		EquationSelecterFavControls.Clear();
-		InputSelecter.Clear();
-		
-		ParameterGroupSelecter.Clear();
-		ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
-		
-		Params.ParameterView.Clear();
-		
-		for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
-		{
-			IndexList[Idx]->Clear();
-			IndexList[Idx]->Hide();
-			Plotter.EIndexList[Idx]->Clear();
-			Plotter.EIndexList[Idx]->Hide();
-			IndexLock[Idx]->Hide();
-			IndexSetName[Idx]->Hide();
-		}
-		
-		IndexSetNameToId.clear();
-		
-		Plotter.Plot.RemoveAllSeries();
-		Plotter.PlotData.Clear();
-		Plotter.PlotWasAutoResized = false;
-		
-		Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+		CleanInterface();
 		
 		CalibrationIntervalStart.SetData(Null);
 		CalibrationIntervalEnd.SetData(Null);
@@ -537,184 +739,10 @@ void MobiView::Load()
 
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	if (CheckDllUserError()) return;
-	
-	
-	String DllFileName = GetFileName(DllFile.data());
-	auto &FavoriteList = SettingsJson["Favorite equations"][DllFileName];
+
 
 	
-	TimestepSize = ModelDll.GetTimestepSize(DataSet);
-	
-	uint64 ModuleCount = ModelDll.GetAllModulesCount(DataSet);
-	std::vector<char *> ModuleNames(ModuleCount);
-	std::vector<char *> ModuleVersions(ModuleCount);
-	ModelDll.GetAllModules(DataSet, ModuleNames.data(), ModuleVersions.data());
-	if (CheckDllUserError()) return;
-	
-
-	//Module-less equations //TODO: Clean up code repeat from below..
-	uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, nullptr);
-	std::vector<char *> ResultNames(ResultCount);
-	std::vector<char *> ResultTypes(ResultCount);
-	ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), nullptr);
-	if (CheckDllUserError()) return;
-	
-	int Row = 0;
-	for(size_t Idx = 0; Idx < ResultCount; ++Idx)
-	{
-		if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
-		{
-			String Name = ResultNames[Idx];
-			
-			int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
-			
-			EquationSelecter.Add(ResultNames[Idx], IsFavorite, Row);
-			EquationSelecterFavControls.Create<StarOption>();
-			Ctrl &Favorite = EquationSelecterFavControls.Top();
-			
-			EquationSelecter.SetCtrl((int)Row, 1, Favorite);
-			Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
-			++Row;
-		}
-	}
-	
-	for(size_t ModuleIdx = 0; ModuleIdx < ModuleCount; ++ModuleIdx)
-	{
-		uint64 ResultCount = ModelDll.GetAllResultsCount(DataSet, ModuleNames[ModuleIdx]);
-		std::vector<char *> ResultNames(ResultCount);
-		std::vector<char *> ResultTypes(ResultCount);
-		ModelDll.GetAllResults(DataSet, ResultNames.data(), ResultTypes.data(), ModuleNames[ModuleIdx]);
-		if (CheckDllUserError()) return;
-		
-		if(ResultCount > 0)
-		{
-			EquationSelecter.Add(Format("%s (V%s)", ModuleNames[ModuleIdx], ModuleVersions[ModuleIdx]), Null, Row);
-			EquationSelecter.SetLineColor(Row, Color(214, 234, 248));
-			
-			++Row;
-			for(size_t Idx = 0; Idx < ResultCount; ++Idx)
-			{
-				if(strcmp(ResultTypes[Idx], "initialvalue") != 0)
-				{
-					String Name = ResultNames[Idx];
-					
-					int IsFavorite = (std::find(FavoriteList.begin(), FavoriteList.end(), Name) != FavoriteList.end());
-					
-					EquationSelecter.Add(Name, IsFavorite, Row);
-					EquationSelecterFavControls.Create<StarOption>();
-					Ctrl &Favorite = EquationSelecterFavControls.Top();
-					
-					EquationSelecter.SetCtrl((int)Row, 1, Favorite);
-					Favorite.WhenAction = THISBACK(UpdateEquationSelecter);
-					++Row;
-				}
-			}
-		}
-	}
-	
-	
-
-	
-	uint64 InputCount = ModelDll.GetAllInputsCount(DataSet);
-	if(CheckDllUserError()) return;
-	std::vector<char *> InputNames(InputCount);
-	std::vector<char *> InputTypes(InputCount);
-	ModelDll.GetAllInputs(DataSet, InputNames.data(), InputTypes.data());
-	if (CheckDllUserError()) return;
-	
-	for(size_t Idx = 0; Idx < InputCount; ++Idx)
-	{
-		InputSelecter.Add(InputNames[Idx], (int)Idx);
-	}
-
-	Plotter.PlotMajorMode.Enable();
-	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
-	
-	
-	
-	ParameterGroupSelecter.Set(0, ModelDll.GetModelName(DataSet));
-
-	
-	uint64 TopGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
-	std::vector<char *> TopGroupNames(TopGroupCount);
-	ModelDll.GetAllParameterGroups(DataSet, TopGroupNames.data(), nullptr);
-	if (CheckDllUserError()) return;
-	
-	//PromptOK("bladididi");
-	
-	for(int Idx = 0; Idx < TopGroupCount; ++Idx)
-	{
-		ParameterGroupSelecter.Add(0, Null, TopGroupNames[Idx], false);
-	}
-	
-	for(int Idx = 0; Idx < ModuleCount; ++Idx)
-	{
-		uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, ModuleNames[Idx]);
-		std::vector<char *> GroupNames(GroupCount);
-		ModelDll.GetAllParameterGroups(DataSet, GroupNames.data(), ModuleNames[Idx]);
-		if (CheckDllUserError()) return;
-		
-		//If a module has no parameter groups, don't bother to show it in the parameter group view at all.
-		if(GroupCount > 0)
-		{
-			int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
-			
-			for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
-			{
-				ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
-			}
-		}
-	}
-
-	
-	ParameterGroupSelecter.OpenDeep(0, true);
-	
-	
-	
-	uint64 IndexSetCount = ModelDll.GetIndexSetsCount(DataSet);
-	
-	if(IndexSetCount > MAX_INDEX_SETS)
-	{
-		PromptOK(String("MobiView does not currently support models with more than ") + MAX_INDEX_SETS + " index sets. The model you tried to load has " + IndexSetCount + ".");
-		return;
-	}
-	
-	std::vector<char *> IndexSets(IndexSetCount);
-	ModelDll.GetIndexSets(DataSet, IndexSets.data());
-	if (CheckDllUserError()) return;
-	
-	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
-	{
-		IndexLock[IndexSet]->Show();
-		
-		const char *Name = IndexSets[IndexSet];
-		
-		IndexSetName[IndexSet]->SetText(Name);
-		IndexSetName[IndexSet]->Show();
-		
-		IndexSetNameToId[Name] = IndexSet;
-		
-		uint64 IndexCount = ModelDll.GetIndexCount(DataSet, Name);
-		if (CheckDllUserError()) return;
-		std::vector<char *> IndexNames(IndexCount);
-		ModelDll.GetIndexes(DataSet, Name, IndexNames.data());
-		if (CheckDllUserError()) return;
-		
-		Plotter.EIndexList[IndexSet]->HeaderTab(0).SetText(Name);
-		for(size_t Idx = 0; Idx < IndexCount; ++Idx)
-		{
-			IndexList[IndexSet]->Add(IndexNames[Idx]);
-			
-			Plotter.EIndexList[IndexSet]->Add(IndexNames[Idx]);
-		}
-		IndexList[IndexSet]->GoBegin();
-		IndexList[IndexSet]->Show();
-		
-		Plotter.EIndexList[IndexSet]->GoBegin();
-		Plotter.EIndexList[IndexSet]->Show();
-	}
-	
-	PlotModeChange();
+	BuildInterface();
 	
 	StoreSettings();
 }

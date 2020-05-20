@@ -79,3 +79,19 @@ LAYOUT(Mockup, 776, 660)
 	ITEM(Label, dv___28, SetLabel(t_("Select preset")).LeftPosZ(512, 68).TopPosZ(4, 19))
 END_LAYOUT
 
+LAYOUT(ChangeIndexesLayout, 560, 204)
+	ITEM(DocEdit, IndexList1, LeftPosZ(4, 88).BottomPosZ(36, 116))
+	ITEM(DocEdit, IndexList2, LeftPosZ(96, 88).BottomPosZ(36, 116))
+	ITEM(DocEdit, IndexList3, LeftPosZ(188, 88).BottomPosZ(36, 116))
+	ITEM(DocEdit, IndexList4, LeftPosZ(280, 88).BottomPosZ(36, 116))
+	ITEM(DocEdit, IndexList5, LeftPosZ(372, 88).BottomPosZ(36, 116))
+	ITEM(DocEdit, IndexList6, LeftPosZ(464, 88).BottomPosZ(36, 116))
+	ITEM(Label, IndexSetName1, LeftPosZ(4, 88).TopPosZ(28, 19))
+	ITEM(Label, IndexSetName2, LeftPosZ(96, 88).TopPosZ(28, 19))
+	ITEM(Label, IndexSetName3, LeftPosZ(188, 88).TopPosZ(28, 19))
+	ITEM(Label, IndexSetName4, LeftPosZ(464, 88).TopPosZ(28, 19))
+	ITEM(Label, IndexSetName5, LeftPosZ(372, 88).TopPosZ(28, 19))
+	ITEM(Label, IndexSetName6, LeftPosZ(280, 88).TopPosZ(28, 19))
+	ITEM(Button, FinishEdit, SetLabel(t_("Finish editing")).HSizePosZ(464, 8).TopPosZ(172, 24))
+END_LAYOUT
+

@@ -15,8 +15,18 @@ struct timestep_size
 	int32 Magnitude;
 };
 
+struct dll_branch_index
+{
+	const char *IndexName;
+	uint64 BranchCount;
+	char **BranchNames;
+};
 
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
+typedef void * (__cdecl *SetupModelBlankIndexSets_t)(const char *Inputfile);
+typedef void   (__cdecl *ReadInputs_t)(void *DataSetPtr, const char *Inputfile);
+typedef void   (__cdecl *SetIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64 IndexCount, char **IndexNames);
+typedef void   (__cdecl *SetBranchIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64 IndexCount, dll_branch_index *Indexes);
 typedef const char * (__cdecl *GetModelName_t)(void *DataSetPtr);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
 typedef void * (__cdecl *CopyDataSet_t)(void *DataSetPtr, bool CopyResults);
@@ -45,7 +55,7 @@ typedef const char * (__cdecl *GetResultUnit_t)(void *DataSetPtr, const char *Na
 typedef const char * (__cdecl *GetInputUnit_t)(void *DataSetPtr, const char *Name);
 typedef void   (__cdecl *WriteParametersToFile_t)(void *DataSetPtr, const char *Filename);
 typedef uint64 (__cdecl *GetIndexSetsCount_t)(void *DataSetPtr);
-typedef void   (__cdecl *GetIndexSets_t)(void *DataSetPtr, char **NamesOut);
+typedef void   (__cdecl *GetIndexSets_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
 typedef uint64 (__cdecl *GetIndexCount_t)(void *DataSetPtr, const char *IndexSetName);
 typedef void   (__cdecl *GetIndexes_t)(void *DataSetPtr, const char *IndexSetName, char **NamesOut);
 typedef bool   (__cdecl *IsParameterGroupName_t)(void *DataSetPtr, const char *Name);
@@ -75,6 +85,10 @@ typedef timestep_size (__cdecl *GetTimestepSize_t)(void *DataSetPtr);
 struct model_dll_interface
 {
 	SetupModel_t         SetupModel;
+	SetupModelBlankIndexSets_t SetupModelBlankIndexSets;
+	ReadInputs_t         ReadInputs;
+	SetIndexes_t         SetIndexes;
+	SetBranchIndexes_t   SetBranchIndexes;
 	GetModelName_t       GetModelName;
 	RunModel_t           RunModel;
 	CopyDataSet_t        CopyDataSet;
