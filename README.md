@@ -33,7 +33,6 @@ This is not an ideal solution since it also changes the scaling of all your othe
 
 ### Other known bugs (minor)
 - Completely empty time series (all NaN) are sometimes plotted as a constant function with a random value
-- On monthly/yearly aggregation there is sometimes a duplicate of the final date, with a wrong value attached to it.
 - The interface can some times crash if reloading the same model dll as is already loaded.
 
 
