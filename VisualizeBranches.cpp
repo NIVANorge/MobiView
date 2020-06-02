@@ -38,6 +38,18 @@ int DetermineLevels(std::vector<reach_node> &Reaches, int AtIdx, int AtLevel)
 	return MaxLevel;
 }
 
+
+inline void RadiusComponents(double Angle, double &RX, double &RY)
+{
+	//NOTE: The factor r is just to stretch it out a little more to fill out space better. No
+	//"scientific backing", only visual tweaking behind it
+	double a = -8.0/(M_PI*M_PI);
+	double b = -a*M_PI/2.0;
+	double r = (a*Angle*Angle + b*Angle)*(std::sqrt(2.0)-1.0);
+	RX = std::cos(Angle)*(1.0 + r);
+	RY = std::sin(Angle)*(1.0 + r);
+}
+
 void RecursiveDrawReach(std::vector<reach_node> &Reaches, std::vector<int> &SpentAtLevel, std::vector<int> &CountAtLevel, int Current, DrawPainter &P, double Width, double Height, double ToX, double ToY)
 {
 	reach_node &Reach = Reaches[Current];
@@ -46,21 +58,26 @@ void RecursiveDrawReach(std::vector<reach_node> &Reaches, std::vector<int> &Spen
 	int Level = Reach.Level;
 	int PosAtLevel = SpentAtLevel[Level]++;
 	
-	double RadiusX = Width / (double)(CountAtLevel.size());
-	double RadiusY = Height / (double)(CountAtLevel.size());
+	double RadiusX = Width / (double)(CountAtLevel.size()+1);
+	double RadiusY = Height / (double)(CountAtLevel.size()+1);
 
 	double Angle = M_PI * 0.5 * (double)(PosAtLevel + 1)/(double)(CountAtLevel[Level]+1);
+	
+	double RX, RY;
+	RadiusComponents(Angle, RX, RY);
 
-	double FromX = Width  - RadiusX * (double)(Level + 2) * std::cos(Angle);
-	double FromY = Height - RadiusY * (double)(Level + 2) * std::sin(Angle);
+	double FromX = Width  - RadiusX * (double)(Level + 2) * RX;
+	double FromY = Height - RadiusY * (double)(Level + 2) * RY;
 
 	//TODO: Draw name
 
 	// (special case if Reach.Level == 0. In that case compute ToX, ToY);
 	if(Level == 0)
 	{
-		ToX = Width  - RadiusX * (double)(Level + 1) * std::cos(Angle);
-		ToY = Height - RadiusY * (double)(Level + 1) * std::sin(Angle);
+		double RX, RY;
+		RadiusComponents(Angle, RX, RY);
+		ToX = Width  - RadiusX * (double)(Level + 1) * RX;
+		ToY = Height - RadiusY * (double)(Level + 1) * RY;
 	}
 	
 	
