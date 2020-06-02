@@ -196,10 +196,27 @@ void ChangeIndexesWindow::DoIndexUpdate()
 				Indexes[Line].IndexName = IndexName;
 				if(HasIndex(ModelDll, OldDataSet, IndexSetName, IndexName))
 				{
-					Indexes[Line].BranchCount = ModelDll.GetBranchInputsCount(OldDataSet, IndexSetName, IndexName);
-					Branches[Line].resize(Indexes[Line].BranchCount);
-					ModelDll.GetBranchInputs(OldDataSet, IndexSetName, IndexName, Branches[Line].data());
+					//Attempt to copy over old branch connectivity if applicable
 					
+					std::vector<char *> OldBranches;
+					uint64 OldBranchCount = ModelDll.GetBranchInputsCount(OldDataSet, IndexSetName, IndexName);
+					OldBranches.resize(OldBranchCount);
+					ModelDll.GetBranchInputs(OldDataSet, IndexSetName, IndexName, OldBranches.data());
+					
+					for(char *OldBranch : OldBranches)
+					{
+						bool Found = false;
+						for(int PrevLine = 0; PrevLine < Line; ++PrevLine)
+						{
+							if(strcmp(OldBranch, Indexes[PrevLine].IndexName) == 0)
+							{
+								Branches[Line].push_back(OldBranch);
+								break;
+							}
+						}
+					}
+
+					Indexes[Line].BranchCount = Branches[Line].size();
 					Indexes[Line].BranchNames = Branches[Line].data();
 				}
 				else
@@ -217,7 +234,6 @@ void ChangeIndexesWindow::DoIndexUpdate()
 			return;
 		}
 	}
-	
 
 	uint64 GroupCount = ModelDll.GetAllParameterGroupsCount(NewDataSet, "__all!!__");
 	std::vector<char *> GroupNames(GroupCount);
