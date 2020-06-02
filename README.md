@@ -31,6 +31,11 @@ If this does not work right away, you could
 
 This is not an ideal solution since it also changes the scaling of all your other programs and may make text hard to read. We will try to see if there is a better solution.
 
+### Other known bugs (minor)
+- Completely empty time series (all NaN) are sometimes plotted as a constant function with a random value
+- On monthly/yearly aggregation there is sometimes a duplicate of the final date, with a wrong value attached to it.
+- The interface can some times crash if reloading the same model dll as is already loaded.
+
 
 ### Getting MobiView
 If you are on Windows, you can download a MobiView .exe from ftp://mobiserver.niva.no
