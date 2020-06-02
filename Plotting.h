@@ -14,6 +14,15 @@ enum plot_major_mode
 	MajorMode_QQ,
 };
 
+//NOTE: This has to match up to the aggregation selecter.
+enum aggregation_type
+{
+	Aggregation_Mean,
+	Aggregation_Sum,
+	Aggregation_Min,
+	Aggregation_Max,
+};
+
 const size_t NUM_PERCENTILES = 7;
 const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
 
@@ -104,7 +113,7 @@ public:
 	
 	void PlotModeChange();
 	
-	void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
+	void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, aggregation_type AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
 	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Time &ReferenceTime, Time &StartTime, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);

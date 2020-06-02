@@ -407,29 +407,41 @@ void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Mi
 }
 
 
-void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, int AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
+void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, aggregation_type AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
 {
-	double CurrentAggregate = 0.0;
+	double CurrentAggregate;
+	if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+		CurrentAggregate = 0.0;
+	else if(AggregationType == Aggregation_Min)
+		CurrentAggregate = DBL_MAX;
+	else if(AggregationType == Aggregation_Max)
+		CurrentAggregate = -DBL_MAX;
+		
 	int    CurrentCount = 0;
 	Time CurrentTime = StartTime;
-	int CurrentTimestep = 0;
 	
-	while(CurrentTimestep < Timesteps)
+	for(int CurrentTimestep = 0; CurrentTimestep < Timesteps; ++CurrentTimestep)
 	{
 		double Val = Data[CurrentTimestep];
 		if(std::isfinite(Val) && !IsNull(Val))
 		{
-			CurrentAggregate += Val;
+			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+				CurrentAggregate += Val;
+			else if(AggregationType == Aggregation_Min)
+				CurrentAggregate = std::min(Val, CurrentAggregate);
+			else if(AggregationType == Aggregation_Max)
+				CurrentAggregate = std::max(Val, CurrentAggregate);
+			
 			++CurrentCount;
 		}
 		
-		++CurrentTimestep;
+		int NextTimestep = CurrentTimestep+1;
 		Time NextTime = CurrentTime;
 		AdvanceTimesteps(NextTime, 1, Parent->TimestepSize);
 		
 		//TODO: Want more aggregation interval types than year or month for models with
 		//non-daily resolutions
-		bool PushAggregate = (CurrentTimestep == Timesteps-1) || (NextTime.year != CurrentTime.year);
+		bool PushAggregate = (NextTimestep == Timesteps) || (NextTime.year != CurrentTime.year);
 		if(IntervalType == 1)
 		{
 			PushAggregate = PushAggregate || (NextTime.month != CurrentTime.month);
@@ -437,9 +449,9 @@ void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timest
 		if(PushAggregate)
 		{
 			double YVal = CurrentAggregate;
-			if(AggregationType == 0) YVal /= (double)CurrentCount; //Aggregation type is 'mean', otherwise it is 'sum', so we don't have to modify it.
+			if(AggregationType == Aggregation_Mean) YVal /= (double)CurrentCount;
 			
-			if(!std::isfinite(YVal)) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
+			if(!std::isfinite(YVal) || CurrentCount == 0) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
 			
 			YValues.push_back(YVal);
 			
@@ -454,7 +466,13 @@ void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timest
 			
 			XValues.push_back(XVal);
 			
-			CurrentAggregate = 0.0;
+			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+				CurrentAggregate = 0.0;
+			else if(AggregationType == Aggregation_Min)
+				CurrentAggregate = DBL_MAX;
+			else if(AggregationType == Aggregation_Max)
+				CurrentAggregate = -DBL_MAX;
+			
 			CurrentCount = 0;
 		}
 		
@@ -468,7 +486,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 	int Timesteps = (int)Len;
 	
 	int IntervalType = TimeIntervals.GetData();
-	int AggregationType = Aggregation.GetData();
+	aggregation_type AggregationType = (aggregation_type)(int)Aggregation.GetData();
 	
 	Color GraphColor = PlotColors.Next();
 	
@@ -848,7 +866,7 @@ void PlotCtrl::RePlot()
 			int RowCount = EIndexList[ProfileIndexSet]->GetCount();
 			
 			int IntervalType = TimeIntervals.GetData();
-			int AggregationType = Aggregation.GetData();
+			aggregation_type AggregationType = (aggregation_type)(int)Aggregation.GetData();
 			
 			ProfileIndexesCount = IndexCount;
 			//std::assert(IndexCount == PlotData.Data.size());
