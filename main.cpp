@@ -264,6 +264,12 @@ MobiView::MobiView() : Plotter(this)
 	}
 	
 	if((bool)SettingsJson["Maximize"]) Maximize();
+	
+	
+	Visualize.ParentWindow = this;
+	Search.ParentWindow = this;
+	StructureView.ParentWindow = this;
+	ChangeIndexes.ParentWindow = this;
 }
 
 
@@ -274,9 +280,15 @@ void MobiView::PlotModeChange()
 
 void MobiView::OpenSearch()
 {
-	if(!Search)
+	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Search = new SearchWindow(this);
+		Log("Can't search parameters before a dataset is loaded.");
+		return;
+	}
+	
+	if(!Search.IsOpen())
+	{
+		Search.Open();
 	}
 }
 
@@ -289,9 +301,9 @@ void MobiView::OpenVisualizeBranches()
 		return;
 	}
 	
-	if(!Visualize)
+	if(!Visualize.IsOpen())
 	{
-		Visualize = new VisualizeBranches(this);
+		Visualize.Open();
 	}
 }
 
@@ -299,13 +311,14 @@ void MobiView::OpenStructureView()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't visualize the model before a dataset is loaded.");
+		Log("Can't visualize the model structure before a dataset is loaded.");
 		return;
 	}
 	
-	if(!StructureView)
+	if(!StructureView.IsOpen())
 	{
-		StructureView = new StructureViewWindow(this);
+		StructureView.RefreshText();
+		StructureView.Open();
 	}
 }
 
@@ -317,9 +330,10 @@ void MobiView::OpenChangeIndexes()
 		return;
 	}
 	
-	if(!ChangeIndexes)
+	if(!ChangeIndexes.IsOpen())
 	{
-		ChangeIndexes = new ChangeIndexesWindow(this);
+		ChangeIndexes.RefreshData();
+		ChangeIndexes.Open();
 	}
 }
 

@@ -1,19 +1,15 @@
 #include "MobiView.h"
 
 
-ChangeIndexesWindow::ChangeIndexesWindow(MobiView *ParentWindow)
+ChangeIndexesWindow::ChangeIndexesWindow()
 {
 	CtrlLayout(*this, "Edit index sets");
-	
-	
-	this->ParentWindow = ParentWindow;
-	//Sizeable().Zoomable();
-	
-	WhenClose << [ParentWindow](){ delete ParentWindow->ChangeIndexes; ParentWindow->ChangeIndexes = nullptr; }; //TODO: Is this always a safe way of doing it?? No, apparently not!!
-	
-	FinishEdit.WhenAction << [this](){ this->DoIndexUpdate(); };
-	
-	
+
+	FinishEdit.WhenAction = THISBACK(DoIndexUpdate);
+}
+
+void ChangeIndexesWindow::RefreshData()
+{
 	IndexSetName[0] = &IndexSetName1;
 	IndexSetName[1] = &IndexSetName2;
 	IndexSetName[2] = &IndexSetName3;
@@ -59,6 +55,7 @@ ChangeIndexesWindow::ChangeIndexesWindow(MobiView *ParentWindow)
 		ModelDll.GetIndexes(DataSet, Name, IndexNames.data());
 		if (ParentWindow->CheckDllUserError()) return;
 		
+		IndexList[IndexSet]->Clear();
 		for(const char *IndexName : IndexNames)
 		{
 			IndexList[IndexSet]->Append(IndexName, CHARSET_UTF8);
@@ -68,12 +65,7 @@ ChangeIndexesWindow::ChangeIndexesWindow(MobiView *ParentWindow)
 		IndexList[IndexSet]->Show();
 		IndexList[IndexSet]->Enable();
 	}
-	
-	
-	
-	Open();
 }
-
 
 
 bool HasIndex(model_dll_interface &ModelDll, void *DataSet, char *IndexSetName, char *IndexName)
@@ -277,6 +269,4 @@ void ChangeIndexesWindow::DoIndexUpdate()
 	ParentWindow->BuildInterface();
 	
 	Close();
-	ParentWindow->ChangeIndexes = nullptr;
-	delete this;
 }

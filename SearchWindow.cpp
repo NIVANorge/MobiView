@@ -1,18 +1,13 @@
 #include "MobiView.h"
 
 
-SearchWindow::SearchWindow(MobiView *ParentWindow)
+SearchWindow::SearchWindow()
 {
-	this->ParentWindow = ParentWindow;
-	
+
 	CtrlLayout(*this, "MobiView search");
 	
 	Sizeable();
-	
-	Open();
-	
-	WhenClose << [ParentWindow](){ delete ParentWindow->Search; ParentWindow->Search = nullptr; }; //TODO: Is this always a safe way of doing it?? No, apparently not!!
-	
+
 	SearchField.WhenAction = THISBACK(Find);
 	
 	ResultField.AddColumn("Name");

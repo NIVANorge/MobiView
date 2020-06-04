@@ -1,17 +1,11 @@
 #include "MobiView.h"
 #include <Painter/Painter.h>
 
-VisualizeBranches::VisualizeBranches(MobiView *ParentWindow)
+VisualizeBranches::VisualizeBranches()
 {
-	this->ParentWindow = ParentWindow;
-	
 	Sizeable().Zoomable().Title("Branch connectivity visualization");
 	
-	SetRect(0, 0, 400, 400);
-	
-	Open();
-	
-	WhenClose << [ParentWindow](){ delete ParentWindow->Visualize; ParentWindow->Visualize = nullptr; }; //TODO: Is this always a safe way of doing it?? No, apparently not!!
+	SetRect(0, 0, 600, 600);
 }
 
 

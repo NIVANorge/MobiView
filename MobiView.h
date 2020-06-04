@@ -70,7 +70,7 @@ class SearchWindow : public WithSearchLayout<TopWindow> {
 public:
 	typedef SearchWindow CLASSNAME;
 	
-	SearchWindow(MobiView *ParentWindow);
+	SearchWindow();
 	
 	MobiView *ParentWindow;
 	
@@ -82,12 +82,16 @@ class StructureViewWindow : public WithStructureViewLayout<TopWindow> {
 public:
 	typedef StructureViewWindow CLASSNAME;
 	
-	StructureViewWindow(MobiView *ParentWindow);
+	StructureViewWindow();
+	
+	MobiView *ParentWindow;
+	
+	void RefreshText();
 };
 
 class VisualizeBranches : public TopWindow {
 public :
-	VisualizeBranches(MobiView *ParentWindow);
+	VisualizeBranches();
 	
 	MobiView *ParentWindow;
 	
@@ -96,13 +100,16 @@ public :
 
 class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow> {
 public:
-	ChangeIndexesWindow(MobiView *ParentWindow);
+	typedef ChangeIndexesWindow CLASSNAME;
+	
+	ChangeIndexesWindow();
 	
 	MobiView *ParentWindow;
 	
 	Label     *IndexSetName[MAX_INDEX_SETS];
 	DocEdit   *IndexList[MAX_INDEX_SETS];
 	
+	void RefreshData();
 	void DoIndexUpdate();
 };
 
@@ -159,19 +166,19 @@ public:
 	void BuildInterface();
 	
 	void OpenSearch();
-	SearchWindow *Search = nullptr;
+	SearchWindow Search;
 	
 	
 	void OpenVisualizeBranches();
-	VisualizeBranches *Visualize = nullptr;
+	VisualizeBranches Visualize;
 	
 	
 	void OpenStructureView();
-	StructureViewWindow *StructureView = nullptr;
+	StructureViewWindow StructureView;
 	
 	
 	void OpenChangeIndexes();
-	ChangeIndexesWindow *ChangeIndexes = nullptr;
+	ChangeIndexesWindow ChangeIndexes;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
