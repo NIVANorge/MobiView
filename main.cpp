@@ -60,8 +60,8 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
-	bar.Add(IconImg::ChangeIndexes(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes").Key(K_CTRL_E);
-	bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
+	bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes").Key(K_CTRL_E);
+	//bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
@@ -266,10 +266,11 @@ MobiView::MobiView() : Plotter(this)
 	if((bool)SettingsJson["Maximize"]) Maximize();
 	
 	
-	Visualize.ParentWindow = this;
+	//Visualize.ParentWindow = this;
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
 	ChangeIndexes.ParentWindow = this;
+	ChangeIndexes.Branches.ParentWindow = this;
 }
 
 
@@ -292,7 +293,7 @@ void MobiView::OpenSearch()
 	}
 }
 
-
+/*
 void MobiView::OpenVisualizeBranches()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
@@ -306,6 +307,7 @@ void MobiView::OpenVisualizeBranches()
 		Visualize.Open();
 	}
 }
+*/
 
 void MobiView::OpenStructureView()
 {

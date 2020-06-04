@@ -5,7 +5,17 @@ ChangeIndexesWindow::ChangeIndexesWindow()
 {
 	CtrlLayout(*this, "Edit index sets");
 
+	Zoomable().Sizeable();
+
 	FinishEdit.WhenAction = THISBACK(DoIndexUpdate);
+	
+	Branches.OtherParent = this;
+	
+	Add(Branches.HSizePos(0, 120).VSizePos(0, 200));
+	
+	SelectBranchedSet.WhenAction << [this](){
+		this->Branches.Refresh();
+	};
 }
 
 void ChangeIndexesWindow::RefreshData()
@@ -40,9 +50,16 @@ void ChangeIndexesWindow::RefreshData()
 	ModelDll.GetIndexSets(DataSet, IndexSets.data(), IndexSetTypes.data());
 	if (ParentWindow->CheckDllUserError()) return;
 	
+	SelectBranchedSet.Clear();
+	
 	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
 	{
 		const char *Name = IndexSets[IndexSet];
+		
+		if(strcmp(IndexSetTypes[IndexSet], "branched")==0)
+		{
+			SelectBranchedSet.Add(Name);
+		}
 		
 		IndexSetName[IndexSet]->SetText(Name);
 		IndexSetName[IndexSet]->Show();
@@ -65,6 +82,8 @@ void ChangeIndexesWindow::RefreshData()
 		IndexList[IndexSet]->Show();
 		IndexList[IndexSet]->Enable();
 	}
+	
+	SelectBranchedSet.GoBegin();
 }
 
 

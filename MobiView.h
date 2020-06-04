@@ -78,6 +78,18 @@ public:
 	void SelectItem();
 };
 
+class ChangeIndexesWindow;
+
+class VisualizeBranches : public Ctrl {
+public :
+	VisualizeBranches();
+	
+	MobiView *ParentWindow;
+	ChangeIndexesWindow *OtherParent;
+	
+	virtual void Paint(Draw &W);
+};
+
 class StructureViewWindow : public WithStructureViewLayout<TopWindow> {
 public:
 	typedef StructureViewWindow CLASSNAME;
@@ -89,15 +101,6 @@ public:
 	void RefreshText();
 };
 
-class VisualizeBranches : public TopWindow {
-public :
-	VisualizeBranches();
-	
-	MobiView *ParentWindow;
-	
-	virtual void Paint(Draw &W);
-};
-
 class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow> {
 public:
 	typedef ChangeIndexesWindow CLASSNAME;
@@ -105,6 +108,8 @@ public:
 	ChangeIndexesWindow();
 	
 	MobiView *ParentWindow;
+	
+	VisualizeBranches Branches;
 	
 	Label     *IndexSetName[MAX_INDEX_SETS];
 	DocEdit   *IndexList[MAX_INDEX_SETS];
@@ -169,8 +174,8 @@ public:
 	SearchWindow Search;
 	
 	
-	void OpenVisualizeBranches();
-	VisualizeBranches Visualize;
+	//void OpenVisualizeBranches();
+	//VisualizeBranches Visualize;
 	
 	
 	void OpenStructureView();

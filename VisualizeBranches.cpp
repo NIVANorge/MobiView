@@ -3,9 +3,9 @@
 
 VisualizeBranches::VisualizeBranches()
 {
-	Sizeable().Zoomable().Title("Branch connectivity visualization");
+	//Sizeable().Zoomable().Title("Branch connectivity visualization");
 	
-	SetRect(0, 0, 600, 600);
+	//SetRect(0, 0, 600, 600);
 }
 
 
@@ -117,62 +117,71 @@ void VisualizeBranches::Paint(Draw &W)
 	DrawPainter P(W, GetSize());
 	P.Clear(White());
 	
-	//TODO: Instead select from a list of branched index sets detected by the model.
-	const char *IndexSetName = "Reaches";
-	
-	uint64 IndexCount = ParentWindow->ModelDll.GetIndexCount(ParentWindow->DataSet, IndexSetName);
-	
-	if(ParentWindow->CheckDllUserError()) return;
-	
-	std::vector<char *> Indexes(IndexCount);
-	ParentWindow->ModelDll.GetIndexes(ParentWindow->DataSet, IndexSetName, Indexes.data());
-	
-	std::map<std::string, int> IndexNameToIdx;
-	
-	std::vector<reach_node> Reaches(IndexCount);
-	for(int Idx = 0; Idx < IndexCount; ++Idx)
+	if(OtherParent->SelectBranchedSet.GetCount() > 0)
 	{
-		Reaches[Idx].Index = Idx;
-		IndexNameToIdx[Indexes[Idx]] = Idx;
-		Reaches[Idx].Level = -1;
-		Reaches[Idx].Name = Indexes[Idx];
-	}
-	
-	for(int Idx = 0; Idx < IndexCount; ++Idx)
-	{
-		uint64 InputCount = ParentWindow->ModelDll.GetBranchInputsCount(ParentWindow->DataSet, IndexSetName, Indexes[Idx]);
-		std::vector<char *> Inputs(InputCount);
-		ParentWindow->ModelDll.GetBranchInputs(ParentWindow->DataSet, IndexSetName, Indexes[Idx], Inputs.data());
-		for(char *Input : Inputs)
+		String IndexSetNameStr0 = OtherParent->SelectBranchedSet.Get();
+		std::string IndexSetNameStr = IndexSetNameStr0.ToStd();
+		const char *IndexSetName = IndexSetNameStr.data();
+		
+		uint64 IndexCount = ParentWindow->ModelDll.GetIndexCount(ParentWindow->DataSet, IndexSetName);
+		
+		if(ParentWindow->CheckDllUserError()) return;
+		
+		std::vector<char *> Indexes(IndexCount);
+		ParentWindow->ModelDll.GetIndexes(ParentWindow->DataSet, IndexSetName, Indexes.data());
+		
+		std::map<std::string, int> IndexNameToIdx;
+		
+		std::vector<reach_node> Reaches(IndexCount);
+		for(int Idx = 0; Idx < IndexCount; ++Idx)
 		{
-			Reaches[Idx].InIndexes.push_back(IndexNameToIdx[Input]);
+			Reaches[Idx].Index = Idx;
+			IndexNameToIdx[Indexes[Idx]] = Idx;
+			Reaches[Idx].Level = -1;
+			Reaches[Idx].Name = Indexes[Idx];
+		}
+		
+		for(int Idx = 0; Idx < IndexCount; ++Idx)
+		{
+			uint64 InputCount = ParentWindow->ModelDll.GetBranchInputsCount(ParentWindow->DataSet, IndexSetName, Indexes[Idx]);
+			std::vector<char *> Inputs(InputCount);
+			ParentWindow->ModelDll.GetBranchInputs(ParentWindow->DataSet, IndexSetName, Indexes[Idx], Inputs.data());
+			for(char *Input : Inputs)
+			{
+				Reaches[Idx].InIndexes.push_back(IndexNameToIdx[Input]);
+			}
+		}
+		
+		int MaxLevel = 0;
+		for(int Idx = 0; Idx < IndexCount; ++Idx)
+		{
+			int LookupIdx = (int)Reaches.size()-1-Idx;
+			if(Reaches[LookupIdx].Level >= 0) continue;
+			MaxLevel = std::max(MaxLevel, DetermineLevels(Reaches, LookupIdx, 0));
+		}
+		
+		std::vector<int> CountAtLevel(MaxLevel+1);
+		std::vector<int> SpentAtLevel(MaxLevel+1);
+		
+		for(reach_node &Reach : Reaches)
+		{
+			CountAtLevel[Reach.Level]++;
+		}
+		
+		double Width = GetSize().cx;
+		double Height = GetSize().cy;
+		
+		for(int Idx = 0; Idx < IndexCount; ++Idx)
+		{
+			if(Reaches[Idx].Level == 0)
+			{
+				RecursiveDrawReach(Reaches, SpentAtLevel, CountAtLevel, Idx, P, Width, Height, 0.0, 0.0);
+			}
 		}
 	}
-	
-	int MaxLevel = 0;
-	for(int Idx = 0; Idx < IndexCount; ++Idx)
+	else
 	{
-		int LookupIdx = (int)Reaches.size()-1-Idx;
-		if(Reaches[LookupIdx].Level >= 0) continue;
-		MaxLevel = std::max(MaxLevel, DetermineLevels(Reaches, LookupIdx, 0));
-	}
-	
-	std::vector<int> CountAtLevel(MaxLevel+1);
-	std::vector<int> SpentAtLevel(MaxLevel+1);
-	
-	for(reach_node &Reach : Reaches)
-	{
-		CountAtLevel[Reach.Level]++;
-	}
-	
-	double Width = GetSize().cx;
-	double Height = GetSize().cy;
-	
-	for(int Idx = 0; Idx < IndexCount; ++Idx)
-	{
-		if(Reaches[Idx].Level == 0)
-		{
-			RecursiveDrawReach(Reaches, SpentAtLevel, CountAtLevel, Idx, P, Width, Height, 0.0, 0.0);
-		}
+		Font Fnt(Roman(14));
+		P.Text(100, 100, "No branched index sets to display", Fnt).Fill(Blue());
 	}
 }
