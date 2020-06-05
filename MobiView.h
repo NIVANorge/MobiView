@@ -113,9 +113,21 @@ public:
 	
 	Label     *IndexSetName[MAX_INDEX_SETS];
 	DocEdit   *IndexList[MAX_INDEX_SETS];
+	ArrayCtrl *BranchList[MAX_INDEX_SETS];
+	
+	Array<Array<Ctrl>> BranchControls;
+	Array<Array<Ctrl>> NameControls;
+	
+	bool ParseIntList(String &ListStr, std::vector<int> &Result, int Row);
 	
 	void RefreshData();
 	void DoIndexUpdate();
+	void AddIndexPushed();
+	void DeleteSelectedPushed();
+	
+	void SelectedBranchListUpdate();
+	
+	void BuildConnectionEditFromDataset();
 };
 
 

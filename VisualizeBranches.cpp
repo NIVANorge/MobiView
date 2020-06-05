@@ -15,7 +15,7 @@ struct reach_node
 	int Index;
 	int Level;
 	std::vector<int> InIndexes;
-	char *Name;
+	String Name;
 };
 
 
@@ -119,63 +119,62 @@ void VisualizeBranches::Paint(Draw &W)
 	
 	if(OtherParent->SelectBranchedSet.GetCount() > 0)
 	{
-		String IndexSetNameStr0 = OtherParent->SelectBranchedSet.Get();
-		std::string IndexSetNameStr = IndexSetNameStr0.ToStd();
-		const char *IndexSetName = IndexSetNameStr.data();
+		int Select = OtherParent->SelectBranchedSet.GetIndex();
 		
-		uint64 IndexCount = ParentWindow->ModelDll.GetIndexCount(ParentWindow->DataSet, IndexSetName);
+		ArrayCtrl *BranchList = OtherParent->BranchList[Select];
 		
-		if(ParentWindow->CheckDllUserError()) return;
 		
-		std::vector<char *> Indexes(IndexCount);
-		ParentWindow->ModelDll.GetIndexes(ParentWindow->DataSet, IndexSetName, Indexes.data());
+		int ErrorLine = -1;
 		
-		std::map<std::string, int> IndexNameToIdx;
-		
+		int IndexCount = BranchList->GetCount();
 		std::vector<reach_node> Reaches(IndexCount);
 		for(int Idx = 0; Idx < IndexCount; ++Idx)
 		{
 			Reaches[Idx].Index = Idx;
-			IndexNameToIdx[Indexes[Idx]] = Idx;
+			//IndexNameToIdx[Indexes[Idx]] = Idx;
 			Reaches[Idx].Level = -1;
-			Reaches[Idx].Name = Indexes[Idx];
+			Reaches[Idx].Name = BranchList->Get(Idx, 1);
+			String BranchListStr = BranchList->Get(Idx,2);
+			
+			bool Success = OtherParent->ParseIntList(BranchListStr, Reaches[Idx].InIndexes, Idx);
+			if(!Success) ErrorLine = Idx;
 		}
 		
-		for(int Idx = 0; Idx < IndexCount; ++Idx)
+		if(ErrorLine >= 0)
 		{
-			uint64 InputCount = ParentWindow->ModelDll.GetBranchInputsCount(ParentWindow->DataSet, IndexSetName, Indexes[Idx]);
-			std::vector<char *> Inputs(InputCount);
-			ParentWindow->ModelDll.GetBranchInputs(ParentWindow->DataSet, IndexSetName, Indexes[Idx], Inputs.data());
-			for(char *Input : Inputs)
+			Font Fnt(Roman(14));
+			P.Text(10, 100, Format("Error at id %d.", ErrorLine), Fnt).Fill(Blue());
+			P.Text(10, 120, Format("The input ids has to be a comma-separated list of numbers", ErrorLine), Fnt).Fill(Blue());
+			P.Text(10, 140, Format("smaller than the line id", ErrorLine), Fnt).Fill(Blue());
+		}
+		else
+		{
+		
+			int MaxLevel = 0;
+			for(int Idx = 0; Idx < IndexCount; ++Idx)
 			{
-				Reaches[Idx].InIndexes.push_back(IndexNameToIdx[Input]);
+				int LookupIdx = (int)Reaches.size()-1-Idx;
+				if(Reaches[LookupIdx].Level >= 0) continue;
+				MaxLevel = std::max(MaxLevel, DetermineLevels(Reaches, LookupIdx, 0));
 			}
-		}
-		
-		int MaxLevel = 0;
-		for(int Idx = 0; Idx < IndexCount; ++Idx)
-		{
-			int LookupIdx = (int)Reaches.size()-1-Idx;
-			if(Reaches[LookupIdx].Level >= 0) continue;
-			MaxLevel = std::max(MaxLevel, DetermineLevels(Reaches, LookupIdx, 0));
-		}
-		
-		std::vector<int> CountAtLevel(MaxLevel+1);
-		std::vector<int> SpentAtLevel(MaxLevel+1);
-		
-		for(reach_node &Reach : Reaches)
-		{
-			CountAtLevel[Reach.Level]++;
-		}
-		
-		double Width = GetSize().cx;
-		double Height = GetSize().cy;
-		
-		for(int Idx = 0; Idx < IndexCount; ++Idx)
-		{
-			if(Reaches[Idx].Level == 0)
+			
+			std::vector<int> CountAtLevel(MaxLevel+1);
+			std::vector<int> SpentAtLevel(MaxLevel+1);
+			
+			for(reach_node &Reach : Reaches)
 			{
-				RecursiveDrawReach(Reaches, SpentAtLevel, CountAtLevel, Idx, P, Width, Height, 0.0, 0.0);
+				CountAtLevel[Reach.Level]++;
+			}
+			
+			double Width = GetSize().cx;
+			double Height = GetSize().cy;
+			
+			for(int Idx = 0; Idx < IndexCount; ++Idx)
+			{
+				if(Reaches[Idx].Level == 0)
+				{
+					RecursiveDrawReach(Reaches, SpentAtLevel, CountAtLevel, Idx, P, Width, Height, 0.0, 0.0);
+				}
 			}
 		}
 	}
