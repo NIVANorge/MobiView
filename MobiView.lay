@@ -101,7 +101,7 @@ LAYOUT(ChangeIndexesLayout, 568, 536)
 	ITEM(ArrayCtrl, BranchList4, RightPosZ(8, 180).TopPosZ(28, 300))
 	ITEM(ArrayCtrl, BranchList5, RightPosZ(8, 180).TopPosZ(28, 300))
 	ITEM(ArrayCtrl, BranchList6, RightPosZ(8, 180).TopPosZ(28, 300))
-	ITEM(Button, PushDeleteIndex, SetLabel(t_("Delete selected")).HSizePosZ(472, 8).TopPosZ(332, 24))
-	ITEM(Button, PushAddIndex, SetLabel(t_("Add index")).LeftPosZ(380, 88).TopPosZ(332, 24))
+	ITEM(Button, PushDeleteIndex, SetLabel(t_("Delete selected")).RightPosZ(8, 88).TopPosZ(332, 24))
+	ITEM(Button, PushAddIndex, SetLabel(t_("Add index")).RightPosZ(100, 88).TopPosZ(332, 24))
 END_LAYOUT
 
