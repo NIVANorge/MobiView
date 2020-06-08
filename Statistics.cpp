@@ -35,6 +35,7 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	Display << "log N-S: "            << FormatDouble(Stats.LogNashSutcliffe, 5) << "\n";
 	Display << "r2: "                 << FormatDouble(Stats.R2, 5) << "\n";
 	Display << "Idx. of agr.: "       << FormatDouble(Stats.IndexOfAgreement, 5) << "\n";
+	Display << "KGE: "                << FormatDouble(Stats.KlingGuptaEfficiency, 5) << "\n";
 	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
@@ -158,7 +159,7 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	}
 	
 	//NOTE: We can NOT just reuse these from timeseries_stats computation, because here we can
-	//ONLY count in values where both Obs and Mod are not NaN!!
+	//only count values where BOTH Obs and Mod are not NaN!!
 	double MeanObs = SumObs / (double)FiniteCount;
 	double MeanMod = SumMod / (double)FiniteCount;
 	
@@ -179,15 +180,23 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 			SSObs += (Obs[Idx] - MeanObs)*(Obs[Idx] - MeanObs);
 			SSMod += (Mod[Idx] - MeanMod)*(Mod[Idx] - MeanMod);
 			Cov += (Obs[Idx] - MeanObs)*(Mod[Idx] - MeanMod);
-			
 			SSLogObs += (std::log(Obs[Idx]) - MeanLogObs)*(std::log(Obs[Idx]) - MeanLogObs);
 			
 			double Agreement = std::abs(Mod[Idx] - MeanObs) + std::abs(Obs[Idx] - MeanObs);
 			AgreementDenom += Agreement*Agreement;
 		}
 	}
+	Cov /= (double)FiniteCount;
 	
-	double RR = Cov / (std::sqrt(SSObs) * std::sqrt(SSMod));
+	double StdObs = std::sqrt(SSObs/(double)FiniteCount);
+	double StdMod = std::sqrt(SSMod/(double)FiniteCount);
+	double CvarObs = StdObs/MeanObs;
+	double CvarMod = StdMod/MeanMod;
+	
+	double Beta = MeanMod / MeanObs;
+	double Delta = CvarMod / CvarObs;
+	double RR = Cov / (StdObs * StdMod);
+	
 	
 	
 	double MeanError = Sum / (double)FiniteCount;
@@ -200,6 +209,8 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	
 	double IA = 1.0 - SumSquare / AgreementDenom;
 	
+	double KGE = 1.0 - std::sqrt((RR-1.0)*(RR-1.0) + (Beta-1.0)*(Beta-1.0) + (Delta-1.0)*(Delta-1.0));
+	
 	StatsOut.MinError  = Min;
 	StatsOut.MaxError  = Max;
 	StatsOut.MeanError = MeanError;
@@ -209,6 +220,7 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	StatsOut.LogNashSutcliffe = logNS;
 	StatsOut.R2 = RR*RR;
 	StatsOut.IndexOfAgreement = IA;
+	StatsOut.KlingGuptaEfficiency = KGE;
 	StatsOut.DataPoints = FiniteCount;
 	
 	

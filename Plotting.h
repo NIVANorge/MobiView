@@ -50,6 +50,7 @@ struct residual_stats
 	double LogNashSutcliffe;
 	double R2;
 	double IndexOfAgreement;
+	double KlingGuptaEfficiency;
 	double SpearmansRCC;
 	size_t DataPoints;
 };
