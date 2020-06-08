@@ -112,7 +112,7 @@ public:
 	VisualizeBranches Branches;
 	
 	Label     *IndexSetName[MAX_INDEX_SETS];
-	DocEdit   *IndexList[MAX_INDEX_SETS];
+	LineEdit  *IndexList[MAX_INDEX_SETS];
 	ArrayCtrl *BranchList[MAX_INDEX_SETS];
 	
 	Array<Array<Ctrl>> BranchControls;

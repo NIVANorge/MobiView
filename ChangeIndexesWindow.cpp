@@ -39,6 +39,11 @@ ChangeIndexesWindow::ChangeIndexesWindow()
 	BranchList[3]    = &BranchList4;
 	BranchList[4]    = &BranchList5;
 	BranchList[5]    = &BranchList6;
+	
+	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
+	{
+		IndexList[Idx]->SetFont(Courier(11));
+	}
 }
 
 void ChangeIndexesWindow::RefreshData()
