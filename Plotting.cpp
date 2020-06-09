@@ -275,7 +275,7 @@ void PlotCtrl::PlotModeChange()
 	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		if(Parent->InputSelecter.IsSelected(Row))
+		if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))
 		{
 			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
 			
@@ -742,7 +742,7 @@ void PlotCtrl::RePlot()
 		
 		for(int Row = 0; Row < RowCount; ++Row)
 		{
-			if(Parent->InputSelecter.IsSelected(Row))
+			if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))
 			{
 				std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
 				

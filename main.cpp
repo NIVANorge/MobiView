@@ -552,9 +552,22 @@ void MobiView::BuildInterface()
 	ModelDll.GetAllInputs(DataSet, InputNames.data(), InputTypes.data());
 	if (CheckDllUserError()) return;
 	
+	InputSelecter.Add("Model inputs", Null);
+	InputSelecter.SetLineColor(0, Color(214, 234, 248));
+	
+	Row = 1;
+	bool AdditionalSectionStarted = false;
 	for(size_t Idx = 0; Idx < InputCount; ++Idx)
 	{
-		InputSelecter.Add(InputNames[Idx], (int)Idx);
+		if(strcmp(InputTypes[Idx], "additional")==0  && !AdditionalSectionStarted)
+		{
+			InputSelecter.Add("Additional time series", Null);
+			InputSelecter.SetLineColor(Row, Color(214, 234, 248));
+			AdditionalSectionStarted = true;
+			++Row;
+		}
+		InputSelecter.Add(InputNames[Idx], Row);
+		++Row;
 	}
 
 	Plotter.PlotMajorMode.Enable();
