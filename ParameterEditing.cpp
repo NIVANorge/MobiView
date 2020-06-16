@@ -15,7 +15,7 @@ ParameterCtrl::ParameterCtrl()
 
 void MobiView::RefreshParameterView()
 {
-
+	//TODO: We should avoid the following resizing the columns in the ParameterView ArrayCtrl!
 	Params.ParameterView.Clear();
 	Params.ParameterView.Reset();
 	
@@ -24,7 +24,7 @@ void MobiView::RefreshParameterView()
 	
 	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
 	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
-	
+
 	if(SelectedGroupName.empty()) return;
 	
 	if(!ModelDll.IsParameterGroupName(DataSet, SelectedGroupName.data())) return;
@@ -192,6 +192,95 @@ void MobiView::RefreshParameterView()
 	}
 	
 }
+
+void MobiView::RefreshParameterViewValues()
+{
+	//This does not reload the view, instead just reloads parameter values from the dataset.
+	//This is only relevant when there are computed parameters that get displayed
+	
+	//TODO: Some of the code in this one could be merged with the previous routine.
+	
+	Vector<int> Selected = ParameterGroupSelecter.GetSel();
+	if(Selected.size() == 0 || Selected[0] == 0) return;
+	
+	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
+	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
+
+	if(SelectedGroupName.empty()) return;
+	
+	if(!ModelDll.IsParameterGroupName(DataSet, SelectedGroupName.data())) return;
+	
+	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
+	if (CheckDllUserError()) return;
+	
+	std::vector<char *> IndexSetNames(IndexSetCount);
+	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
+	
+	std::vector<std::string> Indexes_String(IndexSetCount);
+	std::vector<char *> Indexes(IndexSetCount);
+	
+	for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
+	{
+		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
+		IndexList[Id]->Enable();
+		
+		Indexes_String[Idx] = IndexList[Id]->Get().ToString().ToStd();
+		Indexes[Idx] = (char *)Indexes_String[Idx].data();
+	}
+
+	uint64 ParameterCount = ModelDll.GetAllParametersCount(DataSet, SelectedGroupName.data());
+	if (CheckDllUserError()) return;
+	
+	std::vector<char *> ParameterNames(ParameterCount);
+	std::vector<char *> ParameterTypes(ParameterCount);
+	ModelDll.GetAllParameters(DataSet, ParameterNames.data(), ParameterTypes.data(), SelectedGroupName.data());
+	if (CheckDllUserError()) return;
+	
+	
+	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetCount-1], IndexSetNames[IndexSetCount-2]) == 0))
+	{
+		//TODO!! Row formatted display
+	}
+	else
+	{
+		for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
+		{
+			const char *Name = ParameterNames[Idx];
+			const char *Type = ParameterTypes[Idx];
+			
+			Value ParVal;
+			
+			if(strcmp(Type, "double") == 0)
+			{
+				ParVal = ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetCount);
+				
+			}
+			else if(strcmp(Type, "uint") == 0)
+			{
+				//TODO: Converting to int potentially loses precision. However Value has no uint64
+				//subtype
+				ParVal = (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetCount);
+			}
+			else if(strcmp(Type, "bool") == 0)
+			{
+				ParVal = ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetCount);
+			}
+			else if(strcmp(Type, "time") == 0)
+			{
+				char TimeVal[256];
+				ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
+
+				Time D;
+				StrToTime(D, TimeVal); //Error handling? But should not be necessary.
+				ParVal = D;
+			}
+			if (CheckDllUserError()) return;
+			
+			Params.ParameterView.Set(Idx, 1, ParVal);
+		}
+	}
+}
+
 
 
 void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditingAsRow)

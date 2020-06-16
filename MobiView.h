@@ -216,6 +216,7 @@ public:
 	
 	
 	void RefreshParameterView();
+	void RefreshParameterViewValues();
 	
 	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditAsRow);
 	void ParameterEditAccepted(int Row, int Col, bool EditAsRow);
@@ -267,7 +268,6 @@ public:
 	std::string DllFile;
 	std::string InputFile;
 	std::string ParameterFile;
-	
 };
 
 

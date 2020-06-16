@@ -797,6 +797,8 @@ void MobiView::RunModel()
 	
 	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
 	
+	RefreshParameterViewValues(); //NOTE: In case there are computed parameters that are displayed.
+	
 	if(!Error) Log(String("Model was run.\nDuration: ") << Ms << " ms.");
 }
 
