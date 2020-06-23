@@ -240,14 +240,14 @@ void PlotCtrl::PlotModeChange()
 		if(IsNull(StartTime))
 		{
 			char TimeVal[256];
-			Parent->ModelDll.GetParameterTime(Parent->DataSet, "Start date", nullptr, 0, TimeVal);
+			Parent->ModelDll.GetStartDate(Parent->DataSet, TimeVal);
 			StrToTime(StartTime, TimeVal);
 			Parent->CalibrationIntervalStart.SetData(StartTime);
 		}
 		if(IsNull(EndTime))
 		{
 			EndTime = StartTime;
-			uint64 Timesteps = Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
+			uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);//Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
 			if(Timesteps != 0)
 				AdvanceTimesteps(EndTime, Timesteps - 1, Parent->TimestepSize);
 			Parent->CalibrationIntervalEnd.SetData(EndTime);
