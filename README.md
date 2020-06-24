@@ -33,8 +33,6 @@ This is not an ideal solution since it also changes the scaling of all your othe
 
 ### Other known bugs (minor)
 - Completely empty time series (all NaN) are sometimes plotted as a constant function with a random value
-- The interface can some times crash if reloading the same model dll as is already loaded.
-
 
 ### Getting MobiView
 If you are on Windows, you can download a MobiView .exe from ftp://mobiserver.niva.no
