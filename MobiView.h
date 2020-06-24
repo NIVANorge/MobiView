@@ -208,11 +208,11 @@ public:
 	void UpdateEquationSelecter();
 	
 	
-	void GetSingleSelectedResultSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo);
-	void GetSingleSelectedInputSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
+	void GetSingleSelectedResultSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo);
+	void GetSingleSelectedInputSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
 	
-	void GetSingleResultSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
-	void GetSingleInputSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row);
+	void GetSingleResultSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row);
+	void GetSingleInputSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row);
 	
 	
 	void RefreshParameterView();

@@ -685,8 +685,6 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 
 void PlotCtrl::RePlot()
 {
-	if(!Parent->EquationSelecter.IsSelection() && !Parent->InputSelecter.IsSelection()) return;
-
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
@@ -732,63 +730,74 @@ void PlotCtrl::RePlot()
 	
 	int NBinsHistogram = 0;
 	
+	std::vector<std::string> SelectedResults;
+	std::vector<std::string> SelectedInputs;
+	
+	int InputRowCount = Parent->InputSelecter.GetCount();
+	for(int Row = 0; Row < InputRowCount; ++Row)
+	{
+		if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))   //TODO: We should unify how we mark header rows with the EquationSelecter
+		{
+			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
+			SelectedInputs.push_back(Name);
+		}
+	}
+	if(ResultTimesteps != 0)
+	{
+		//ResultTimesteps == 0 if the model has not been run yet. In this case it should not be possible to select 
+		// the equation since the selecter is inactive, but we have this check just for safety
+		int ResultRowCount = Parent->EquationSelecter.GetCount();
+		for(int Row = 0; Row < ResultRowCount; ++Row)
+		{
+			if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
+			{
+				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
+				SelectedResults.push_back(Name);
+			}
+		}
+	}
+
+	int TimeseriesCount = SelectedInputs.size() + SelectedResults.size();
+
+	if(TimeseriesCount == 0) return;
 	
 	if(PlotMajorMode == MajorMode_Regular)
 	{
 		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
 		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 		
-		int RowCount = Parent->InputSelecter.GetCount();
-		
-		for(int Row = 0; Row < RowCount; ++Row)
+		for(std::string &Name : SelectedInputs)
 		{
-			if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))
-			{
-				std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
-				
-				uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
-				std::vector<char *> IndexSets(IndexSetCount);
-				Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
-				if(Parent->CheckDllUserError()) return;
-				
-				std::vector<std::string> CurrentIndexes(IndexSets.size());
-				AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
-				
-				if(Parent->CheckDllUserError()) return;
-			}
+			uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
+			std::vector<char *> IndexSets(IndexSetCount);
+			Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+			if(Parent->CheckDllUserError()) return;
+			
+			std::vector<std::string> CurrentIndexes(IndexSets.size());
+			AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
+			
+			if(Parent->CheckDllUserError()) return;
 		}
 		
-		if(ResultTimesteps != 0) //Timesteps  == 0 if the model has not been run yet. In this case it should not be possible to select the equation though
+		double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
+		ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
+			
+		for(std::string &Name : SelectedResults)
 		{
-			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
-			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
+			uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data());
+			std::vector<char *> IndexSets(IndexSetCount);
+			Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+			if(Parent->CheckDllUserError()) return;
 			
-			int RowCount = Parent->EquationSelecter.GetCount();
+			std::vector<std::string> CurrentIndexes(IndexSets.size());
+			AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
 			
-			for(int Row = 0; Row < RowCount; ++Row)
-			{
-				if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
-				{
-					std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
-					
-					uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data());
-					std::vector<char *> IndexSets(IndexSetCount);
-					Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
-					if(Parent->CheckDllUserError()) return;
-					
-					std::vector<std::string> CurrentIndexes(IndexSets.size());
-					AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
-					
-					if(Parent->CheckDllUserError()) return;
-				}
-			}
+			if(Parent->CheckDllUserError()) return;
 		}
+
 	}
 	else if(PlotMajorMode == MajorMode_Histogram)
 	{
-		int TimeseriesCount = Parent->EquationSelecter.GetSelectCount() + Parent->InputSelecter.GetSelectCount();
-		
-		
 		if(TimeseriesCount > 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
@@ -801,16 +810,16 @@ void PlotCtrl::RePlot()
 			String Unit;
 		
 			//Time StartTime = ResultStartTime;
-			if(Parent->EquationSelecter.IsSelection() && ResultTimesteps != 0)
+			if(SelectedResults.size() == 1)
 			{
 				Data.resize(ResultTimesteps);
 				
-				Parent->GetSingleSelectedResultSeries(Parent->DataSet, Legend, Unit, Data.data());
+				Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], Legend, Unit, Data.data());
 			}
-			else if(Parent->InputSelecter.IsSelection())
+			else if(SelectedInputs.size() == 1)
 			{
 				Data.resize(InputTimesteps);
-				Parent->GetSingleSelectedInputSeries(Parent->DataSet, Legend, Unit, Data.data(), false);
+				Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], Legend, Unit, Data.data(), false);
 				//StartTime = InputStartTime;
 			}
 			
@@ -823,8 +832,6 @@ void PlotCtrl::RePlot()
 	}
 	else if(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Profile2D)
 	{
-		int TimeseriesCount = Parent->EquationSelecter.GetSelectCount() + Parent->InputSelecter.GetSelectCount();
-		
 		size_t ProfileIndexSet;
 		int NumberOfIndexSetsWithMultipleIndexesSelected = 0;
 		for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
@@ -847,7 +854,7 @@ void PlotCtrl::RePlot()
 			
 			ProfileLabels.resize(IndexCount);
 			
-			int Mode = Parent->EquationSelecter.GetSelectCount() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
+			int Mode = SelectedResults.size() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
 			
 			Time CurrentStartTime;
 			size_t Timesteps;
@@ -873,13 +880,13 @@ void PlotCtrl::RePlot()
 			
 			if(Mode == 0)
 			{
-				ProfileLegend = Parent->EquationSelecter.Get(0).ToString();
-				ProfileUnit = Parent->ModelDll.GetResultUnit(Parent->DataSet, ProfileLegend);
+				ProfileLegend = SelectedResults[0].data();
+				ProfileUnit = Parent->ModelDll.GetResultUnit(Parent->DataSet, SelectedResults[0].data());
 			}
 			else
 			{
-				ProfileLegend = Parent->InputSelecter.Get(0).ToString();
-				ProfileUnit = Parent->ModelDll.GetInputUnit(Parent->DataSet, ProfileLegend);
+				ProfileLegend = SelectedInputs[0].data();
+				ProfileUnit = Parent->ModelDll.GetInputUnit(Parent->DataSet, SelectedInputs[0].data());
 			}
 			ProfileLegend << " profile";
 			
@@ -895,11 +902,11 @@ void PlotCtrl::RePlot()
 						
 						if(Mode == 0)
 						{
-							Parent->GetSingleResultSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
+							Parent->GetSingleResultSeries(Parent->DataSet, SelectedResults[0], Data.data(), ProfileIndexSet, Row);
 						}
 						else
 						{
-							Parent->GetSingleInputSeries(Parent->DataSet, Data.data(), ProfileIndexSet, Row);
+							Parent->GetSingleInputSeries(Parent->DataSet, SelectedInputs[0], Data.data(), ProfileIndexSet, Row);
 						}
 						
 						NullifyNans(Data.data(), Data.size());
@@ -990,18 +997,18 @@ void PlotCtrl::RePlot()
 						
 						if(Mode == 0)
 						{
-							Parent->GetSingleResultSeries(Parent->DataSet, Data, ProfileIndexSet, Row);
+							Parent->GetSingleResultSeries(Parent->DataSet, SelectedResults[0], Data, ProfileIndexSet, Row);
 						}
 						else
 						{
-							Parent->GetSingleInputSeries(Parent->DataSet, Data, ProfileIndexSet, Row);
+							Parent->GetSingleInputSeries(Parent->DataSet, SelectedInputs[0], Data, ProfileIndexSet, Row);
 						}
 						
 						NullifyNans(Data, Timesteps);
 						
 						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
 						
-						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];
+						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
 						
 						++IdxIdx;
 						
@@ -1037,7 +1044,7 @@ void PlotCtrl::RePlot()
 	{
 		//TODO: Limit to one selected result series. Maybe also allow plotting a observation
 		//comparison.
-		if(Parent->EquationSelecter.GetSelectCount() > 1 || MultiIndex)
+		if(SelectedResults.size() > 1 || MultiIndex)
 		{
 			Plot.SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
 		}
@@ -1055,7 +1062,7 @@ void PlotCtrl::RePlot()
 			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
 			String Unit;
-			Parent->GetSingleSelectedResultSeries(Parent->BaselineDataSet, BS, Unit, Baseline.data());
+			Parent->GetSingleSelectedResultSeries(Parent->BaselineDataSet, SelectedResults[0], BS, Unit, Baseline.data());
 			NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
@@ -1072,7 +1079,7 @@ void PlotCtrl::RePlot()
 			
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
-			Parent->GetSingleSelectedResultSeries(Parent->DataSet, CurrentLegend, Unit, Current.data());
+			Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], CurrentLegend, Unit, Current.data());
 			NullifyNans(Current.data(), Current.size());
 			
 			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
@@ -1088,7 +1095,7 @@ void PlotCtrl::RePlot()
 			
 			//TODO: Should we compute any residual statistics here?
 			
-			if(Parent->InputSelecter.GetSelectCount() == 1)
+			if(SelectedInputs.size() == 1)
 			{
 				//TODO: Should we allow displaying multiple input series here? Probably no
 				//reason to
@@ -1098,7 +1105,7 @@ void PlotCtrl::RePlot()
 				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
 				String InputLegend;
 				String Unit;
-				Parent->GetSingleSelectedInputSeries(Parent->DataSet, InputLegend, Unit, Obs.data(), false);
+				Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
 				NullifyNans(Obs.data(), Obs.size());
 				
 				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
@@ -1117,13 +1124,16 @@ void PlotCtrl::RePlot()
 	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
 	{
 		
-		if(Parent->EquationSelecter.GetSelectCount() != 1 || Parent->InputSelecter.GetSelectCount() != 1 || MultiIndex)
+		if(SelectedResults.size() != 1 || SelectedInputs.size() != 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
 			Plot.SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
 		}
 		else
 		{
+			
+			//PromptOK(Format("Selected %d", Parent->EquationSelecter.GetSelectCount()));
+			
 			Time ResultEndTime = ResultStartTime;
 			AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, Parent->TimestepSize);
 			
@@ -1151,8 +1161,8 @@ void PlotCtrl::RePlot()
 			String ModUnit;
 			String ObsUnit;
 			
-			Parent->GetSingleSelectedResultSeries(Parent->DataSet, ModeledLegend, ModUnit, ModeledSeries.data());
-			Parent->GetSingleSelectedInputSeries(Parent->DataSet, ObservedLegend, ObsUnit, ObservedSeries.data(), true);
+			Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries.data());
+			Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries.data(), true);
 			
 			for(size_t Idx = 0; Idx < ResultTimesteps; ++Idx)
 			{
@@ -1800,10 +1810,8 @@ void PlotCtrl::NullifyNans(double *Data, size_t Len)
 
 
 
-void MobiView::GetSingleResultSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row)
+void MobiView::GetSingleResultSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row)
 {
-	std::string Name = EquationSelecter.Get(0).ToString().ToStd();
-	
 	uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
@@ -1832,10 +1840,8 @@ void MobiView::GetSingleResultSeries(void *DataSet, double *WriteTo, size_t Sele
 }
 
 
-void MobiView::GetSingleInputSeries(void *DataSet, double *WriteTo, size_t SelectRowFor, int Row)
+void MobiView::GetSingleInputSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row)
 {
-	std::string Name = InputSelecter.Get(0).ToString().ToStd();
-	
 	uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
@@ -1864,10 +1870,8 @@ void MobiView::GetSingleInputSeries(void *DataSet, double *WriteTo, size_t Selec
 }
 
 
-void MobiView::GetSingleSelectedResultSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo)
+void MobiView::GetSingleSelectedResultSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo)
 {
-	std::string Name = EquationSelecter.Get(0).ToString().ToStd();
-				
 	uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
@@ -1901,10 +1905,8 @@ void MobiView::GetSingleSelectedResultSeries(void *DataSet, String &Legend, Stri
 	}
 }
 
-void MobiView::GetSingleSelectedInputSeries(void *DataSet, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
+void MobiView::GetSingleSelectedInputSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
 {
-	std::string Name = InputSelecter.Get(0).ToString().ToStd();
-				
 	uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());

@@ -85,26 +85,44 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 	
 	for(size_t PercentileIdx = 0; PercentileIdx < NUM_PERCENTILES; ++PercentileIdx)
 	{
-		size_t Idx = (size_t)std::ceil(PERCENTILES[PercentileIdx] * (double)FiniteCount); // Should not lose precision since we don't usually have millions of timesteps
-		StatsOut.Percentiles[PercentileIdx] = SortedData[Idx];
+		if(FiniteCount > 0)
+		{
+			size_t Idx = (size_t)std::ceil(PERCENTILES[PercentileIdx] * (double)FiniteCount); // Should not lose precision since we don't usually have millions of timesteps
+			StatsOut.Percentiles[PercentileIdx] = SortedData[Idx];
+		}
+		else
+		{
+			StatsOut.Percentiles[PercentileIdx] = Null;
+		}
 	}
 	
 	
 	Variance /= (double)FiniteCount;
 	
-	StatsOut.Min = SortedData[0];
-	StatsOut.Max = SortedData[SortedData.size()-1];
-	StatsOut.Sum = Sum;
-	StatsOut.Mean = Mean;
-	size_t Middle = FiniteCount / 2;
-	if(FiniteCount % 2 == 0)
+	if(FiniteCount > 0)
 	{
-		StatsOut.Median = 0.5 * (SortedData[Middle] + SortedData[Middle-1]);
+		StatsOut.Min = SortedData[0];
+		StatsOut.Max = SortedData[SortedData.size()-1];
+		
+		size_t Middle = FiniteCount / 2;
+		if(FiniteCount % 2 == 0)
+		{
+			StatsOut.Median = 0.5 * (SortedData[Middle] + SortedData[Middle-1]);
+		}
+		else
+		{
+			StatsOut.Median = SortedData[Middle];
+		}
 	}
 	else
 	{
-		StatsOut.Median = SortedData[Middle];
+		StatsOut.Min = Null;
+		StatsOut.Max = Null;
+		StatsOut.Median = Null;
 	}
+	StatsOut.Sum = Sum;
+	StatsOut.Mean = Mean;
+	
 	StatsOut.Variance = Variance;
 	StatsOut.StandardDeviation = std::sqrt(Variance);
 	StatsOut.DataPoints = FiniteCount;
