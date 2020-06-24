@@ -9,13 +9,13 @@ void MobiView::DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, Str
 {
 	String Display = Name + " [" + Unit + "]:\n";
 	
-	Display << "min: "         << FormatDouble(Stats.Min, 2) << "\n";
-	Display << "max: "         << FormatDouble(Stats.Max, 2) << "\n";
-	Display << "sum: "         << FormatDouble(Stats.Sum, 2) << "\n";
-	Display << "mean: "        << FormatDouble(Stats.Mean, 2) << "\n";
-	Display << "median: "      << FormatDouble(Stats.Median, 2) << "\n";
-	Display << "variance: "    << FormatDouble(Stats.Variance, 2) << "\n";
-	Display << "std.dev.: "    << FormatDouble(Stats.StandardDeviation, 2) << "\n";
+	if(StatSettings.DisplayMin)         Display << "min: "         << FormatDouble(Stats.Min, 2) << "\n";
+	if(StatSettings.DisplayMax)         Display << "max: "         << FormatDouble(Stats.Max, 2) << "\n";
+	if(StatSettings.DisplaySum)         Display << "sum: "         << FormatDouble(Stats.Sum, 2) << "\n";
+	if(StatSettings.DisplayMean)        Display << "mean: "        << FormatDouble(Stats.Mean, 2) << "\n";
+	if(StatSettings.DisplayMedian)      Display << "median: "      << FormatDouble(Stats.Median, 2) << "\n";
+	if(StatSettings.DisplayVariance)    Display << "variance: "    << FormatDouble(Stats.Variance, 2) << "\n";
+	if(StatSettings.DisplayStandardDev) Display << "std.dev.: "    << FormatDouble(Stats.StandardDeviation, 2) << "\n";
 	Display << "data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	
@@ -28,15 +28,15 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 	String Display = Name;
 	
 	Display << "\n";
-	Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 5) << "\n";
-	Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 5) << "\n";
-	Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 5) << "\n";
-	Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 5) << "\n";
-	Display << "log N-S: "            << FormatDouble(Stats.LogNashSutcliffe, 5) << "\n";
-	Display << "r2: "                 << FormatDouble(Stats.R2, 5) << "\n";
-	Display << "Idx. of agr.: "       << FormatDouble(Stats.IndexOfAgreement, 5) << "\n";
-	Display << "KGE: "                << FormatDouble(Stats.KlingGuptaEfficiency, 5) << "\n";
-	Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
+	if(StatSettings.DisplayMeanError) Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 5) << "\n";
+	if(StatSettings.DisplayMAE)       Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 5) << "\n";
+	if(StatSettings.DisplayRMSE)      Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 5) << "\n";
+	if(StatSettings.DisplayNS)        Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 5) << "\n";
+	if(StatSettings.DisplayLogNS)     Display << "log N-S: "            << FormatDouble(Stats.LogNashSutcliffe, 5) << "\n";
+	if(StatSettings.DisplayR2)        Display << "r2: "                 << FormatDouble(Stats.R2, 5) << "\n";
+	if(StatSettings.DisplayIdxAgr)    Display << "Idx. of agr.: "       << FormatDouble(Stats.IndexOfAgreement, 5) << "\n";
+	if(StatSettings.DisplayKGE)       Display << "KGE: "                << FormatDouble(Stats.KlingGuptaEfficiency, 5) << "\n";
+	if(StatSettings.DisplaySRCC)      Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	
@@ -83,11 +83,12 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 		}
 	}
 	
-	for(size_t PercentileIdx = 0; PercentileIdx < NUM_PERCENTILES; ++PercentileIdx)
+	StatsOut.Percentiles.resize(StatSettings.Percentiles.size());
+	for(size_t PercentileIdx = 0; PercentileIdx < StatSettings.Percentiles.size(); ++PercentileIdx)
 	{
 		if(FiniteCount > 0)
 		{
-			size_t Idx = (size_t)std::ceil(PERCENTILES[PercentileIdx] * (double)FiniteCount); // Should not lose precision since we don't usually have millions of timesteps
+			size_t Idx = (size_t)std::ceil(StatSettings.Percentiles[PercentileIdx] * 0.01 * (double)(FiniteCount-1)); // Should not lose precision since we don't usually have millions of timesteps
 			StatsOut.Percentiles[PercentileIdx] = SortedData[Idx];
 		}
 		else

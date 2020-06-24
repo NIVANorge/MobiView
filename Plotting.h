@@ -23,8 +23,8 @@ enum aggregation_type
 	Aggregation_Max,
 };
 
-const size_t NUM_PERCENTILES = 7;
-const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
+//const size_t NUM_PERCENTILES = 7;
+//const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
 
 struct timeseries_stats
 {
@@ -32,7 +32,7 @@ struct timeseries_stats
 	double Max;
 	double Sum;
 	double Median;
-	double Percentiles[NUM_PERCENTILES];
+	std::vector<double> Percentiles;
 	double Mean;
 	double Variance;
 	double StandardDeviation;
@@ -53,6 +53,28 @@ struct residual_stats
 	double KlingGuptaEfficiency;
 	double SpearmansRCC;
 	size_t DataPoints;
+};
+
+struct StatisticsSettings {
+	bool DisplayMin          = true;
+	bool DisplayMax          = true;
+	bool DisplaySum          = true;
+	bool DisplayMedian       = true;
+	bool DisplayMean         = true;
+	bool DisplayVariance     = true;
+	bool DisplayStandardDev  = true;
+	
+	bool DisplayMeanError    = true;
+	bool DisplayMAE          = true;
+	bool DisplayRMSE         = true;
+	bool DisplayNS           = true;
+	bool DisplayLogNS        = true;
+	bool DisplayR2           = true;
+	bool DisplayIdxAgr       = true;
+	bool DisplayKGE          = true;
+	bool DisplaySRCC         = true;
+	
+	std::vector<double> Percentiles = {0.0, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 100.0};
 };
 
 struct plot_data_storage

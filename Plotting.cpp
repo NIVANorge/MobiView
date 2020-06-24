@@ -548,16 +548,18 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 
 void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
 {
-	std::vector<double> &XValues = PlotData.Allocate(NUM_PERCENTILES);
-	std::vector<double> &YValues = PlotData.Allocate(NUM_PERCENTILES);
+	size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
+	
+	std::vector<double> &XValues = PlotData.Allocate(NumPercentiles);
+	std::vector<double> &YValues = PlotData.Allocate(NumPercentiles);
 	
 	QQLabels.Clear();
 	
-	for(size_t Idx = 0; Idx < NUM_PERCENTILES; ++Idx)
+	for(size_t Idx = 0; Idx < NumPercentiles; ++Idx)
 	{
 		XValues[Idx] = ModeledStats.Percentiles[Idx];
 		YValues[Idx] = ObservedStats.Percentiles[Idx];
-		QQLabels << Format("%g", PERCENTILES[Idx]*100.0);
+		QQLabels << Format("%g", Parent->StatSettings.Percentiles[Idx]);
 	}
 	
 	Color GraphColor = PlotColors.Next();
@@ -685,6 +687,8 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *>
 
 void PlotCtrl::RePlot()
 {
+	if(!Parent->ModelDll.IsLoaded()) return;
+	
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
@@ -1224,8 +1228,10 @@ void PlotCtrl::RePlot()
 			{
 				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats);
 				
-				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
-				double Max = std::max(ModeledStats.Percentiles[NUM_PERCENTILES-1], ObservedStats.Percentiles[NUM_PERCENTILES-1]);
+				size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
+				
+				double Min = std::min(ModeledStats.Min, ObservedStats.Min);
+				double Max = std::max(ModeledStats.Max, ObservedStats.Max);
 				
 				String Dum = "";
 				AddLine(Dum, Min, Max, Min, Max);

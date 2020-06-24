@@ -101,6 +101,22 @@ public:
 	void RefreshText();
 };
 
+class EditStatSettingsWindow : public WithEditStatSettingsLayout<TopWindow> {
+public:
+	typedef EditStatSettingsWindow CLASSNAME;
+	
+	EditStatSettingsWindow();
+	
+	MobiView *ParentWindow;
+	
+	void LoadData();
+	void SaveDataAndClose();
+	
+	bool ParseDoubleList(String &ListStr, std::vector<double> &Result);
+};
+
+
+
 class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow> {
 public:
 	typedef ChangeIndexesWindow CLASSNAME;
@@ -186,8 +202,10 @@ public:
 	SearchWindow Search;
 	
 	
-	//void OpenVisualizeBranches();
-	//VisualizeBranches Visualize;
+	void OpenStatSettings();
+	EditStatSettingsWindow EditStatSettings;
+	
+	StatisticsSettings StatSettings;
 	
 	
 	void OpenStructureView();

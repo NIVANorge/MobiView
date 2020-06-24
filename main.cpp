@@ -65,11 +65,10 @@ void MobiView::SubBar(Bar &bar)
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
-	bar.Separator();
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
+	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Separator();
-	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_E);
-	
+	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings)").Key(K_CTRL_T);
 }
 
 MobiView::MobiView() : Plotter(this)
@@ -266,11 +265,43 @@ MobiView::MobiView() : Plotter(this)
 	if((bool)SettingsJson["Maximize"]) Maximize();
 	
 	
+	ValueMap StatsJson = SettingsJson["Statistics"];
+	#define SET_SETTING(Name) \
+		Value Name##Json = StatsJson[#Name]; \
+		if(!IsNull(Name##Json)) \
+		{ \
+			StatSettings.Display##Name = (int)Name##Json; \
+		}
+	
+	#include "SetStatSettings.h"
+	
+	#undef SET_SETTING
+	
+	ValueArray Percentiles = StatsJson["Percentiles"];
+	if(!IsNull(Percentiles) && Percentiles.GetCount() >= 1)
+	{
+		StatSettings.Percentiles.clear();
+		for(Value Perc : Percentiles)
+		{
+			double Val = Perc;  //TODO: Should check that it is a valid value between 0 and 100. Would only be a problem if somebody edited it by hand though
+			StatSettings.Percentiles.push_back(Val);
+		}
+	}
+
+	Value IdxEditWindowDim = SettingsJson["Index set editor window dimensions"];
+	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
+	{
+		ChangeIndexes.SetRect(0, 0, (int)IdxEditWindowDim[0], (int)IdxEditWindowDim[1]);
+	}
+	
+	
+	
 	//Visualize.ParentWindow = this;
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
 	ChangeIndexes.ParentWindow = this;
 	ChangeIndexes.Branches.ParentWindow = this;
+	EditStatSettings.ParentWindow = this;
 }
 
 
@@ -290,6 +321,15 @@ void MobiView::OpenSearch()
 	if(!Search.IsOpen())
 	{
 		Search.Open();
+	}
+}
+
+void MobiView::OpenStatSettings()
+{
+	if(!EditStatSettings.IsOpen())
+	{
+		EditStatSettings.LoadData();
+		EditStatSettings.Open();
 	}
 }
 
@@ -427,6 +467,27 @@ void MobiView::StoreSettings()
 	SettingsJson("Lower horizontal splitter", LowerHorzPos);
 	
 	SettingsJson("Maximize", IsMaximized());
+	
+	JsonArray IdxEditWindowDim;
+	IdxEditWindowDim << ChangeIndexes.GetSize().cx << ChangeIndexes.GetSize().cy;
+	SettingsJson("Index set editor window dimensions", IdxEditWindowDim);
+	
+	
+	
+	Json Statistics;
+	
+	#define SET_SETTING(Name) \
+		Statistics(#Name, StatSettings.Display##Name);
+	
+	#include "SetStatSettings.h"
+	
+	#undef SET_SETTING
+	
+	JsonArray Percentiles;
+	for(double Percentile : StatSettings.Percentiles) Percentiles << Percentile;
+	Statistics("Percentiles", Percentiles);
+	
+	SettingsJson("Statistics", Statistics);
 	
 	SaveFile("settings.json", SettingsJson.ToString());
 	
