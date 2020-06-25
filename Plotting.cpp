@@ -24,7 +24,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	{
 		EIndexList[Idx]->Hide();
 		EIndexList[Idx]->Disable();
-		EIndexList[Idx]->WhenAction = THISBACK(RePlot);
+		EIndexList[Idx]->WhenSel = THISBACK(RePlot);
 		EIndexList[Idx]->MultiSelect();
 
 		EIndexList[Idx]->AddColumn("(no name)");

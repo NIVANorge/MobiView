@@ -175,7 +175,7 @@ MobiView::MobiView() : Plotter(this)
 	EquationSelecter.AddColumn("Equation").HeaderTab();
 	EquationSelecter.AddColumn("F.").HeaderTab();
 	EquationSelecter.AddColumn();
-	EquationSelecter.WhenAction = THISBACK(PlotModeChange);
+	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
 	EquationSelecter.MultiSelect();
 	EquationSelecter.ColumnWidths("85 15 0");
 	EquationSelecter.HeaderObject().HideTab(2);
@@ -193,7 +193,7 @@ MobiView::MobiView() : Plotter(this)
 	
 	InputSelecter.AddColumn("Input");
 	InputSelecter.AddColumn();
-	InputSelecter.WhenAction = THISBACK(PlotModeChange);
+	InputSelecter.WhenSel = THISBACK(PlotModeChange);
 	InputSelecter.MultiSelect();
 	InputSelecter.NoGrid();
 	InputSelecter.HeaderObject().HideTab(1);
