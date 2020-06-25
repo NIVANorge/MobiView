@@ -12,6 +12,8 @@ EditStatSettingsWindow::EditStatSettingsWindow()
 	{
 		this->PercentilesEdit.SetText("0, 5, 15, 25, 50, 75, 85, 95, 100");
 	};
+	
+	PercentilesEdit.WhenEnter = THISBACK(SaveDataAndClose);
 }
 
 

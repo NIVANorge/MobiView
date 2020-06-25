@@ -73,7 +73,7 @@ void SearchWindow::SelectItem()
 	for(int Row = 1; Row < Count; ++Row)  //NOTE: Start at 1 since Row 0 is the name of the model. Causes problems when model name is the same as one of the groups
 	{
 		String CurName = GroupSelect.Get(Row);
-		if(CurName == SelectedGroupName)
+		if(CurName == SelectedGroupName)  //TODO: This may break if a module is named the same thing as a parameter group.
 		{
 			//GroupSelect.ClearSelection(true);
 			GroupSelect.SetFocus();
