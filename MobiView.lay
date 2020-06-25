@@ -127,6 +127,6 @@ LAYOUT(EditStatSettingsLayout, 268, 272)
 	ITEM(EditString, PercentilesEdit, LeftPosZ(4, 260).TopPosZ(208, 24))
 	ITEM(Label, Lab3, SetLabel(t_("Percentiles for the Q-Q plot (at least 1):")).LeftPosZ(4, 260).TopPosZ(188, 19))
 	ITEM(Button, OKButton, SetLabel(t_("OK")).LeftPosZ(180, 84).TopPosZ(236, 28))
-	ITEM(Button, ResetDefaultButton, SetLabel(t_("Reset default perc.")).LeftPosZ(4, 100).TopPosZ(236, 28))
+	ITEM(Button, ResetDefaultButton, SetLabel(t_("Reset default percentiles")).LeftPosZ(4, 136).TopPosZ(236, 28))
 END_LAYOUT
 
