@@ -583,6 +583,7 @@ void MobiView::BuildInterface()
 		{
 			EquationSelecter.Add(Format("%s (V%s)", ModuleNames[ModuleIdx], ModuleVersions[ModuleIdx]), Null, Row);
 			EquationSelecter.SetLineColor(Row, Color(214, 234, 248));
+			EquationSelecter.DisableLine(Row);
 			
 			++Row;
 			for(size_t Idx = 0; Idx < ResultCount; ++Idx)
@@ -615,6 +616,7 @@ void MobiView::BuildInterface()
 	
 	InputSelecter.Add("Model inputs", Null);
 	InputSelecter.SetLineColor(0, Color(214, 234, 248));
+	InputSelecter.DisableLine(0);
 	
 	Row = 1;
 	bool AdditionalSectionStarted = false;
@@ -624,6 +626,7 @@ void MobiView::BuildInterface()
 		{
 			InputSelecter.Add("Additional time series", Null);
 			InputSelecter.SetLineColor(Row, Color(214, 234, 248));
+			InputSelecter.DisableLine(Row);
 			AdditionalSectionStarted = true;
 			++Row;
 		}
