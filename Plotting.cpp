@@ -77,93 +77,104 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 }
 
 
-void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
+void PlotCtrl::GatherCurrentPlotSetup()
 {
-	if(TimestepSize.Type == 0)  //Timestep magnitude measured in seconds.
-	{
-		T += ((int64)Timesteps)*((int64)TimestepSize.Magnitude);
-	}
-	else                        //Timestep magnitude measured in months.
-	{
-		T.month += (int)Timesteps*TimestepSize.Magnitude;
-		while(T.month > 12)
-		{
-			T.month -= 12;
-			T.year++;
-		}
-	}
-}
-
-int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize)
-{
-	//NOTE: This could be quite tricky to get correct unless we can guarantee that T1 hits a
-	//timestep exactly. So that should be ensured by the caller!
+	plot_setup &C = CurrentPlotSetup;
+	C.SelectedResults.clear();
+	C.SelectedInputs.clear();
+	C.SelectedIndexes.clear();
+	C.SelectedIndexes.resize(MAX_INDEX_SETS);
+	C.IndexSetIsActive.clear();
+	C.IndexSetIsActive.resize(MAX_INDEX_SETS);
 	
-	if(TimestepSize.Type == 0)   //Timestep magnitude measured in seconds.
+	if(TimeIntervals.IsEnabled())
 	{
-		return (T2 - T1) / TimestepSize.Magnitude;
+		C.AggregationPeriod  = (aggregation_period)(int)TimeIntervals.GetData();
+		C.AggregationType    = (aggregation_type)(int)Aggregation.GetData();
 	}
-	else                         //Timestep magnitude measured in months.
-	{
-		return ((T2.year - T1.year)*12 + T2.month - T1.month) / TimestepSize.Magnitude;
-	}
-}
-
-int PlotCtrl::GetSmallestStepResolution()
-{
-	//NOTE: To compute the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
-	//4=months, 5=years
-
-	int IntervalType = TimeIntervals.GetData();
-	if(!TimeIntervals.IsEnabled() || IntervalType == 0)       //IntervalType==0 signifies no aggregation
-	{
-		//NOTE: The plot does not display aggregated data, so the unit of the grid line step should be
-		//determined by the model step size.
-		if(Parent->TimestepSize.Type == 0)          //Timestep size is measured in seconds
-		{
-			if(Parent->TimestepSize.Magnitude < 60)         return 0;
-			else if(Parent->TimestepSize.Magnitude < 3600)  return 1;
-			else if(Parent->TimestepSize.Magnitude < 86400) return 2;
-			else                                            return 3;
-		}
-		else                                        //Timestep size is measured in months
-		{
-			if(Parent->TimestepSize.Magnitude < 12) return 4;
-			else                                    return 5;
-		}
-	}
-	else if(IntervalType == 1) return 4;
-	else if(IntervalType == 2) return 5;
+	else
+		C.AggregationPeriod = Aggregation_None;
 	
-	return 0;
-}
-
-void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX)
-{
-	if(TimestepSize.Type == 0)        //Timestep magnitude measured in seconds.
+	C.MajorMode          = (plot_major_mode)(int)PlotMajorMode.GetData();
+	
+	if(YAxisMode.IsEnabled())
+		C.YAxisMode          = (y_axis_mode)(int)YAxisMode.GetData();
+	else
+		C.YAxisMode          = YAxis_Regular;
+	
+	if(ScatterInputs.IsEnabled())
+		C.ScatterInputs = ScatterInputs.Get();
+	else
+		C.ScatterInputs = false;
+	
+	int InputRowCount = Parent->InputSelecter.GetCount();
+	for(int Row = 0; Row < InputRowCount; ++Row)
 	{
-		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))   //TODO: We should unify how we mark header rows with the EquationSelecter
 		{
-			WriteX[Idx] = (double)(StartTime - ReferenceTime) + (double)Idx*(double)TimestepSize.Magnitude;
+			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
+			C.SelectedInputs.push_back(Name);
 		}
 	}
-	else                              //Timestep magnitude measured in months.
+	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
+	if(Timesteps > 0)    //NOTE: To avoid errors if inadvertently an equation is selected even if the model was not run yet
 	{
-		Time CurTime = StartTime;
-		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		int ResultRowCount = Parent->EquationSelecter.GetCount();
+		for(int Row = 0; Row < ResultRowCount; ++Row)
 		{
-			WriteX[Idx] = (double)(CurTime - ReferenceTime);
-			
-			CurTime.month += TimestepSize.Magnitude;
-			while(CurTime.month > 12)
+			if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
 			{
-				CurTime.month -= 12;
-				CurTime.year++;
+				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
+				C.SelectedResults.push_back(Name);
 			}
 		}
 	}
+	
+	C.SelectedIndexes.resize(MAX_INDEX_SETS);
+	for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
+	{
+		if(EIndexList[IndexSet]->IsVisible())
+		{
+			int RowCount = EIndexList[IndexSet]->GetCount();
+			for(int Row = 0; Row < RowCount; ++Row)
+			{
+				if(EIndexList[IndexSet]->IsSelected(Row))
+				{
+					std::string Name = EIndexList[IndexSet]->Get(Row,0).ToString().ToStd();
+					C.SelectedIndexes[IndexSet].push_back(Name);
+				}
+			}
+		}
+	}
+	
+	for(std::string &Name : C.SelectedInputs)
+	{
+		uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
+		std::vector<char *> IndexSets(IndexSetCount);
+		Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+		
+		for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
+		{
+			const char *IndexSet = IndexSets[Idx];
+			size_t Id = Parent->IndexSetNameToId[IndexSet];
+			C.IndexSetIsActive[Id] = true;
+		}
+	}
+	
+	for(std::string &Name : C.SelectedResults)
+	{
+		uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
+		std::vector<char *> IndexSets(IndexSetCount);
+		Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
+		
+		for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
+		{
+			const char *IndexSet = IndexSets[Idx];
+			size_t Id = Parent->IndexSetNameToId[IndexSet];
+			C.IndexSetIsActive[Id] = true;
+		}
+	}
 }
-
 
 
 void PlotCtrl::PlotModeChange()
@@ -172,8 +183,9 @@ void PlotCtrl::PlotModeChange()
 	//TODO: This is called twice on every selection of an input or equation. We should maybe find a way to guard
 	//against doing all the work when the state has not changed. But that is tricky..
 	
+	GatherCurrentPlotSetup();
 	
-	int MajorMode = PlotMajorMode.GetData();
+	plot_major_mode MajorMode = CurrentPlotSetup.MajorMode;
 	
 	ScatterInputs.Disable();
 	YAxisMode.Disable();
@@ -209,8 +221,8 @@ void PlotCtrl::PlotModeChange()
 	
 	if(TimeIntervals.IsEnabled())
 	{
-		int TimeIntervalSelected = TimeIntervals.GetData();
-		if(TimeIntervalSelected == 0)
+		aggregation_period Interval = CurrentPlotSetup.AggregationPeriod;
+		if(Interval == Aggregation_None)
 		{
 			Aggregation.Disable();
 		}
@@ -261,438 +273,35 @@ void PlotCtrl::PlotModeChange()
 		Parent->CalibrationIntervalLabel.Hide();
 	}
 	
-	
-	
-	
-	//TODO: This could be more fine-grained. We don't have to update the index list every time.
+
+	//NOTE: Enable / Disable index selectors that are relevant for the selected time series
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
-		EIndexList[Idx]->Disable();
+		EIndexList[Idx]->Enable(CurrentPlotSetup.IndexSetIsActive[Idx]);
 	}
-	
-	int RowCount = Parent->InputSelecter.GetCount();
-	
-	for(int Row = 0; Row < RowCount; ++Row)
-	{
-		if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))
-		{
-			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
-			
-			uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
-			std::vector<char *> IndexSets(IndexSetCount);
-			Parent->ModelDll.GetInputIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
-			
-			for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-			{
-				const char *IndexSet = IndexSets[Idx];
-				size_t Id = Parent->IndexSetNameToId[IndexSet];
-				EIndexList[Id]->Enable();
-			}
-		}
-	}
-	
-	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
-	if(Timesteps != 0)
-	{
-		int RowCount = Parent->EquationSelecter.GetCount();
-		
-		for(int Row = 0; Row < RowCount; ++Row)
-		{
-			if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
-			{
-				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
-				
-				uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
-				std::vector<char *> IndexSets(IndexSetCount);
-				Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
-				
-				for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
-				{
-					const char *IndexSet = IndexSets[Idx];
-					size_t Id = Parent->IndexSetNameToId[IndexSet];
-					EIndexList[Id]->Enable();
-				}
-			}
-		}
-	}
-	
 	
 	RePlot();
 }
 
 
-int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
-{
-	std::vector<double> &XValues = PlotData.Allocate(0);
-	std::vector<double> &YValues = PlotData.Allocate(0);
-	
-	double Min = DBL_MAX;
-	double Max = DBL_MIN;
-	
-	size_t FiniteCount = 0;
-	for(size_t Idx = 0; Idx < Len; ++Idx)
-	{
-		double D = Data[Idx];
-		if(std::isfinite(D) && !IsNull(D))
-		{
-			FiniteCount++;
-			Min = std::min(D, Min);
-			Max = std::max(D, Max);
-		}
-	}
-		
-	if(Max != Min && FiniteCount > 0) //TODO: epsilon distance instead? But that may not make sense in this case.
-	{
-		double Span = Max - Min;
-		//size_t NBins = 1 + (size_t)std::ceil(std::log2((double)FiniteCount));   //NOTE: Sturges' rule.
-		size_t NBins = 2*(size_t)(std::ceil(std::cbrt((double)FiniteCount)));      //NOTE: Rice's rule.
-		
-		double Stride = Span / (double) NBins;
-		
-		XValues.resize(NBins);
-		YValues.resize(NBins); //This 0-initializes the values, right?
-		
-		for(size_t Idx = 0; Idx < NBins; ++Idx)
-		{
-			XValues[Idx] = Min + (0.5 + (double)Idx)*Stride;
-		}
-		
-		double Scale = 1.0 / (double)FiniteCount;
-		
-		for(size_t Idx = 0; Idx < Len; ++Idx)
-		{
-			double D = Data[Idx];
-			if(std::isfinite(D) && !IsNull(D))
-			{
-				size_t BinIndex = (size_t)((D - Min)/Stride);
-				if(BinIndex == NBins) BinIndex = NBins-1;     //NOTE: Happens if D==Max
-				YValues[BinIndex] += Scale;
-			}
-		}
-		
-		Color GraphColor = PlotColors.Next();
-		double Darken = 0.4;
-		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
-		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
-		
-		return (int)NBins;
-	}
-	else
-	{
-		//TODO?
-		return 0;
-	}
-}
-
-
-void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
-{
-	std::vector<double> &XValues = PlotData.Allocate(SampleCount);
-	std::vector<double> &YValues = PlotData.Allocate(SampleCount);
-	
-	double Stride = (Max - Min) / (double)SampleCount;
-	
-	for(int Point = 0; Point < SampleCount; ++Point)
-	{
-		double Low = Min + (double)Point * Stride;
-		double High = Min + (double)(Point+1)*Stride;
-		
-		XValues[Point] = 0.5*(Low + High);
-		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
-	}
-	
-	Color GraphColor = PlotColors.Next();
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
-}
-
-
-void PlotCtrl::AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, aggregation_type AggregationType, std::vector<double> &XValues, std::vector<double> &YValues)
-{
-	double CurrentAggregate;
-	if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
-		CurrentAggregate = 0.0;
-	else if(AggregationType == Aggregation_Min)
-		CurrentAggregate = DBL_MAX;
-	else if(AggregationType == Aggregation_Max)
-		CurrentAggregate = -DBL_MAX;
-		
-	int    CurrentCount = 0;
-	Time CurrentTime = StartTime;
-	
-	for(int CurrentTimestep = 0; CurrentTimestep < Timesteps; ++CurrentTimestep)
-	{
-		double Val = Data[CurrentTimestep];
-		if(std::isfinite(Val) && !IsNull(Val))
-		{
-			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
-				CurrentAggregate += Val;
-			else if(AggregationType == Aggregation_Min)
-				CurrentAggregate = std::min(Val, CurrentAggregate);
-			else if(AggregationType == Aggregation_Max)
-				CurrentAggregate = std::max(Val, CurrentAggregate);
-			
-			++CurrentCount;
-		}
-		
-		int NextTimestep = CurrentTimestep+1;
-		Time NextTime = CurrentTime;
-		AdvanceTimesteps(NextTime, 1, Parent->TimestepSize);
-		
-		//TODO: Want more aggregation interval types than year or month for models with
-		//non-daily resolutions
-		bool PushAggregate = (NextTimestep == Timesteps) || (NextTime.year != CurrentTime.year);
-		if(IntervalType == 1)
-		{
-			PushAggregate = PushAggregate || (NextTime.month != CurrentTime.month);
-		}
-		if(PushAggregate)
-		{
-			double YVal = CurrentAggregate;
-			if(AggregationType == Aggregation_Mean) YVal /= (double)CurrentCount;
-			
-			if(!std::isfinite(YVal) || CurrentCount == 0) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
-			
-			YValues.push_back(YVal);
-			
-			//TODO: Clean this up eventually:
-			Time Beginning = CurrentTime;
-			Beginning.second = 0;
-			Beginning.minute = 0;
-			Beginning.hour   = 0;
-			Beginning.day    = 1;
-			if(IntervalType == 2) Beginning.month = 1;
-			double XVal = (double)(Beginning - ReferenceTime);
-			
-			XValues.push_back(XVal);
-			
-			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
-				CurrentAggregate = 0.0;
-			else if(AggregationType == Aggregation_Min)
-				CurrentAggregate = DBL_MAX;
-			else if(AggregationType == Aggregation_Max)
-				CurrentAggregate = -DBL_MAX;
-			
-			CurrentCount = 0;
-		}
-		
-		CurrentTime = NextTime;
-	}
-}
-
-
-void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Time &ReferenceTime, Time &StartTime, double MinY, double MaxY)
-{
-	int Timesteps = (int)Len;
-	
-	int IntervalType = TimeIntervals.GetData();
-	aggregation_type AggregationType = (aggregation_type)(int)Aggregation.GetData();
-	
-	Color GraphColor = PlotColors.Next();
-	
-	ScatterDraw *Graph = nullptr;
-	
-	if(IntervalType == 0) //Daily values
-	{
-		//TODO: It may not always be that good of an idea to modify the
-		//incoming data... Though it does not cause a problem now..
-		if(NormalY)
-		{
-			for(size_t Idx = 0; Idx < Len; ++Idx)
-			{
-				if(MaxY > 0.0) Data[Idx] = Data[Idx] / MaxY;
-				else Data[Idx] = 0.0;
-			}
-		}
-		if(LogY)
-		{
-			for(size_t Idx = 0; Idx < Len; ++Idx)
-			{
-				Data[Idx] = std::log10(Data[Idx]);
-			}
-		}
-		
-		double Offset = (double)(StartTime - ReferenceTime);
-		
-		Graph = &Plot.AddSeries(XIn, Data, Len);
-	}
-	else //Monthly values or yearly values
-	{
-		//Would it help to reserve some size for these?
-		std::vector<double> &XValues = PlotData.Allocate(0);
-		std::vector<double> &YValues = PlotData.Allocate(0);
-		
-		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, XValues, YValues);
-		
-		Graph = &Plot.AddSeries(XValues.data(), YValues.data(), XValues.size());
-	}
-	
-	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
-	{
-		Graph->Legend(Legend);
-		Graph->Units(Unit);
-		if(Scatter)
-		{
-			Graph->MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
-			Graph->MarkStyle<CircleMarkPlot>();
-			
-			int Index = Plot.GetCount()-1;
-			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
-		}
-		else
-		{
-			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");
-		}
-	}
-}
-
-void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
-{
-	size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
-	
-	std::vector<double> &XValues = PlotData.Allocate(NumPercentiles);
-	std::vector<double> &YValues = PlotData.Allocate(NumPercentiles);
-	
-	QQLabels.Clear();
-	
-	for(size_t Idx = 0; Idx < NumPercentiles; ++Idx)
-	{
-		XValues[Idx] = ModeledStats.Percentiles[Idx];
-		YValues[Idx] = ObservedStats.Percentiles[Idx];
-		QQLabels << Format("%g", Parent->StatSettings.Percentiles[Idx]);
-	}
-	
-	Color GraphColor = PlotColors.Next();
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
-		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
-		
-	Plot.ShowLegend(false);
-	
-	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
-}
-
-void PlotCtrl::AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor)
-{
-	std::vector<double> &XValues = PlotData.Allocate(2);
-	std::vector<double> &YValues = PlotData.Allocate(2);
-	
-	XValues[0] = X0;
-	XValues[1] = X1;
-	YValues[0] = Y0;
-	YValues[1] = Y1;
-	
-	if(IsNull(GraphColor)) GraphColor = PlotColors.Next();
-	auto& Graph = Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Stroke(1.5, GraphColor).Dash("6 3");
-	if(!IsNull(Legend)) Graph.Legend(Legend);
-	else Graph.ShowSeriesLegend(false);
-}
-
-void PlotCtrl::AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX)
-{
-	double Beta = XYCovar / XVar;
-	double Alpha = YMean - Beta*XMean;
-	
-	double X0 = StartX;
-	double X1 = EndX;
-	double Y0 = Alpha + X0*Beta;
-	double Y1 = Alpha + X1*Beta;
-	
-	AddLine(Legend, X0, X1, Y0, Y1);
-}
-
-void PlotCtrl::AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets,
-	std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps,
-	Time &ReferenceDate, Time &StartDate, double *XIn)
-{
-	if(Level == IndexSets.size())
-	{
-		std::vector<char *> Indexes(CurrentIndexes.size());
-		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-		{
-			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
-		}
-		char **IndexData = Indexes.data();
-		if(CurrentIndexes.size() == 0) IndexData = nullptr;
-		
-		//TODO: Better way to do this: ?
-		std::vector<double> &Data = PlotData.Allocate(Timesteps);
-		
-		String Unit;
-		String Provided = "";
-		
-		if(Mode == 0)
-		{
-			Parent->ModelDll.GetResultSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
-			Unit = Parent->ModelDll.GetResultUnit(Parent->DataSet, Name.data());
-		}
-		else if(Mode == 1)
-		{
-			Parent->ModelDll.GetInputSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
-			Unit = Parent->ModelDll.GetInputUnit(Parent->DataSet, Name.data());
-			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
-			{
-				Provided = " (timeseries not provided)";
-			}
-		}
-		if(Parent->CheckDllUserError()) return;
-		
-		double *Dat = Data.data();
-		size_t Len = Data.size();  //This will always be == Timesteps though?
-		
-		String Legend = Name.data();
-		if(CurrentIndexes.size() > 0)
-		{
-			Legend << " (";
-			for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-			{
-				Legend << CurrentIndexes[Idx].data();
-				if(Idx < CurrentIndexes.size()-1) Legend << ", ";
-			}
-			Legend << ")";
-		}
-		Legend << Provided;
-		
-		timeseries_stats Stats = {};
-		Parent->ComputeTimeseriesStats(Stats, Dat, Len);
-		Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
-		
-		bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get() && Mode == 1);
-		bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
-		bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
-		AddPlot(Legend, Unit, XIn, Dat, Len, Scatter, LogY, NormY, ReferenceDate, StartDate, Stats.Min, Stats.Max);
-		
-		NullifyNans(Dat, Len);
-	}
-	else
-	{
-		char *IndexSetName = IndexSets[Level];
-		size_t Id = Parent->IndexSetNameToId[IndexSetName];
-		
-		int RowCount = EIndexList[Id]->GetCount();
-		
-		//PromptOK(Format("Name: %s, Id: %d, RowCount: %d", IndexSetName, (int)Id, RowCount));
-		
-		for(int Row = 0; Row < RowCount; ++Row)
-		{
-			//PromptOK(EIndexList[Id]->Get(Row, 0).ToString());
-			
-			if(EIndexList[Id]->IsSelected(Row))
-			{
-				CurrentIndexes[Level] = EIndexList[Id]->Get(Row, 0).ToString().ToStd();
-				AddPlotRecursive(Name, Mode, IndexSets, CurrentIndexes, Level + 1, Timesteps, ReferenceDate, StartDate, XIn);
-			}
-		}
-	}
-}
 
 void PlotCtrl::RePlot()
+{
+	//NOTE: This is to allow for expansion with multiple plots later
+	GatherCurrentPlotSetup();
+	BuildPlot(CurrentPlotSetup);
+}
+
+
+void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 {
 	if(!Parent->ModelDll.IsLoaded()) return;
 	
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
-		if(EIndexList[IndexSet]->GetSelectCount() > 1 && EIndexList[IndexSet]->IsEnabled())
+		if(PlotSetup.SelectedIndexes[IndexSet].size() > 1 && PlotSetup.IndexSetIsActive[IndexSet])
 		{
 			MultiIndex = true;
 			break;
@@ -715,7 +324,7 @@ void PlotCtrl::RePlot()
 	
 	Parent->PlotInfo.Clear();
 	
-	int MajorMode = PlotMajorMode.GetData();
+	plot_major_mode MajorMode = PlotSetup.MajorMode;
 	
 	Plot.SetTitle(String(""));
 	
@@ -727,41 +336,12 @@ void PlotCtrl::RePlot()
 	Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeStr);
 	StrToTime(InputStartTime, TimeStr);
 	
-	//PromptOK(Format(InputStartTime,true));
-	
 	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
 	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	
 	int NBinsHistogram = 0;
 	
-	std::vector<std::string> SelectedResults;
-	std::vector<std::string> SelectedInputs;
-	
-	int InputRowCount = Parent->InputSelecter.GetCount();
-	for(int Row = 0; Row < InputRowCount; ++Row)
-	{
-		if(Parent->InputSelecter.IsSelected(Row) && !IsNull(Parent->InputSelecter.Get(Row, 1)))   //TODO: We should unify how we mark header rows with the EquationSelecter
-		{
-			std::string Name = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
-			SelectedInputs.push_back(Name);
-		}
-	}
-	if(ResultTimesteps != 0)
-	{
-		//ResultTimesteps == 0 if the model has not been run yet. In this case it should not be possible to select 
-		// the equation since the selecter is inactive, but we have this check just for safety
-		int ResultRowCount = Parent->EquationSelecter.GetCount();
-		for(int Row = 0; Row < ResultRowCount; ++Row)
-		{
-			if(Parent->EquationSelecter.IsSelected(Row) && Parent->EquationSelecter.GetCtrl(Row, 1) != nullptr)
-			{
-				std::string Name = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
-				SelectedResults.push_back(Name);
-			}
-		}
-	}
-
-	int TimeseriesCount = SelectedInputs.size() + SelectedResults.size();
+	int TimeseriesCount = PlotSetup.SelectedInputs.size() + PlotSetup.SelectedResults.size();
 
 	if(TimeseriesCount == 0) return;
 	
@@ -770,7 +350,7 @@ void PlotCtrl::RePlot()
 		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
 		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 		
-		for(std::string &Name : SelectedInputs)
+		for(std::string &Name : PlotSetup.SelectedInputs)
 		{
 			uint64 IndexSetCount = Parent->ModelDll.GetInputIndexSetsCount(Parent->DataSet, Name.data());
 			std::vector<char *> IndexSets(IndexSetCount);
@@ -778,7 +358,7 @@ void PlotCtrl::RePlot()
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Name, 1, IndexSets, CurrentIndexes, 0, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
+			AddPlotRecursive(Name, IndexSets, CurrentIndexes, 0, true, PlotSetup, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -786,7 +366,7 @@ void PlotCtrl::RePlot()
 		double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
 		ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
 			
-		for(std::string &Name : SelectedResults)
+		for(std::string &Name : PlotSetup.SelectedResults)
 		{
 			uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data());
 			std::vector<char *> IndexSets(IndexSetCount);
@@ -794,7 +374,7 @@ void PlotCtrl::RePlot()
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Name, 0, IndexSets, CurrentIndexes, 0, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
+			AddPlotRecursive(Name, IndexSets, CurrentIndexes, 0, false, PlotSetup, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -814,16 +394,16 @@ void PlotCtrl::RePlot()
 			String Unit;
 		
 			//Time StartTime = ResultStartTime;
-			if(SelectedResults.size() == 1)
+			if(PlotSetup.SelectedResults.size() == 1)
 			{
 				Data.resize(ResultTimesteps);
 				
-				Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], Legend, Unit, Data.data());
+				Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], Legend, Unit, Data.data());
 			}
-			else if(SelectedInputs.size() == 1)
+			else if(PlotSetup.SelectedInputs.size() == 1)
 			{
 				Data.resize(InputTimesteps);
-				Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], Legend, Unit, Data.data(), false);
+				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Legend, Unit, Data.data(), false);
 				//StartTime = InputStartTime;
 			}
 			
@@ -837,13 +417,16 @@ void PlotCtrl::RePlot()
 	else if(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Profile2D)
 	{
 		size_t ProfileIndexSet;
+		size_t IndexCount;
 		int NumberOfIndexSetsWithMultipleIndexesSelected = 0;
 		for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 		{
-			if(EIndexList[IndexSet]->GetSelectCount() > 1 && EIndexList[IndexSet]->IsEnabled())
+			size_t ThisIndexCount = PlotSetup.SelectedIndexes[IndexSet].size();
+			if(ThisIndexCount > 1 && PlotSetup.IndexSetIsActive[IndexSet])
 			{
 				NumberOfIndexSetsWithMultipleIndexesSelected++;
 				ProfileIndexSet = IndexSet;
+				IndexCount = ThisIndexCount;
 			}
 		}
 		
@@ -854,11 +437,7 @@ void PlotCtrl::RePlot()
 		}
 		else
 		{
-			size_t IndexCount = EIndexList[ProfileIndexSet]->GetSelectCount();
-			
-			ProfileLabels.resize(IndexCount);
-			
-			int Mode = SelectedResults.size() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
+			int Mode = PlotSetup.SelectedResults.size() != 0 ? 0 : 1; //I.e. Mode = 0 if it was an equation that was selected, otherwise Mode = 1 if it was an input that was selected
 			
 			Time CurrentStartTime;
 			size_t Timesteps;
@@ -873,61 +452,49 @@ void PlotCtrl::RePlot()
 				CurrentStartTime = InputStartTime;
 			}
 			
-			size_t IdxIdx = 0;
-			int RowCount = EIndexList[ProfileIndexSet]->GetCount();
-			
-			int IntervalType = TimeIntervals.GetData();
-			aggregation_type AggregationType = (aggregation_type)(int)Aggregation.GetData();
+			aggregation_period IntervalType = PlotSetup.AggregationPeriod;
+			aggregation_type AggregationType = PlotSetup.AggregationType;
 			
 			ProfileIndexesCount = IndexCount;
 			//std::assert(IndexCount == PlotData.Data.size());
 			
 			if(Mode == 0)
 			{
-				ProfileLegend = SelectedResults[0].data();
-				ProfileUnit = Parent->ModelDll.GetResultUnit(Parent->DataSet, SelectedResults[0].data());
+				ProfileLegend = PlotSetup.SelectedResults[0].data();
+				ProfileUnit = Parent->ModelDll.GetResultUnit(Parent->DataSet, PlotSetup.SelectedResults[0].data());
 			}
 			else
 			{
-				ProfileLegend = SelectedInputs[0].data();
-				ProfileUnit = Parent->ModelDll.GetInputUnit(Parent->DataSet, SelectedInputs[0].data());
+				ProfileLegend = PlotSetup.SelectedInputs[0].data();
+				ProfileUnit = Parent->ModelDll.GetInputUnit(Parent->DataSet, PlotSetup.SelectedInputs[0].data());
 			}
 			ProfileLegend << " profile";
+			
+			ProfileLabels = PlotSetup.SelectedIndexes[ProfileIndexSet];  //TODO: This storage should be unnecessary, as it should be easy to recover this
 			
 			//TODO: We could use the same data storage in both cases, so that we don't have to
 			//branch here!
 			if(MajorMode == MajorMode_Profile)
 			{
-				for(int Row = 0; Row < RowCount; ++Row)
+				for(std::string &Row : PlotSetup.SelectedIndexes[ProfileIndexSet])
 				{
-					if(EIndexList[ProfileIndexSet]->IsSelected(Row))
+					std::vector<double> &Data = PlotData.Allocate(Timesteps);
+					
+					if(Mode == 0)
+						Parent->GetSingleResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], Data.data(), ProfileIndexSet, Row);
+					else
+						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data.data(), ProfileIndexSet, Row);
+					
+					NullifyNans(Data.data(), Data.size());
+					
+					if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
 					{
-						std::vector<double> &Data = PlotData.Allocate(Timesteps);
+						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
+						std::vector<double> YValues;
 						
-						if(Mode == 0)
-						{
-							Parent->GetSingleResultSeries(Parent->DataSet, SelectedResults[0], Data.data(), ProfileIndexSet, Row);
-						}
-						else
-						{
-							Parent->GetSingleInputSeries(Parent->DataSet, SelectedInputs[0], Data.data(), ProfileIndexSet, Row);
-						}
+						AggregateData(CurrentStartTime, CurrentStartTime, Timesteps, Data.data(), IntervalType, AggregationType, Parent->TimestepSize, XValues, YValues);
 						
-						NullifyNans(Data.data(), Data.size());
-						
-						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
-						
-						if(IntervalType == 1 || IntervalType == 2) //Monthly or yearly aggregation
-						{
-							std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
-							std::vector<double> YValues;
-							
-							AggregateData(CurrentStartTime, CurrentStartTime, Timesteps, Data.data(), IntervalType, AggregationType, XValues, YValues);
-							
-							Data = YValues; //Note: vector copy
-						}
-						
-						++IdxIdx;
+						Data = YValues; //Note: vector copy
 					}
 				}
 				
@@ -938,14 +505,14 @@ void PlotCtrl::RePlot()
 				//TODO: This should be based on the current position of the slider instead unless
 				//we reset the slider!
 				ProfileDisplayTime = CurrentStartTime;
-				if(IntervalType == 1 || IntervalType == 2)
+				if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
 				{
 					//TODO: Clean this up
 					ProfileDisplayTime.second = 0;
 					ProfileDisplayTime.minute = 0;
 					ProfileDisplayTime.hour   = 0;
 					ProfileDisplayTime.day    = 1;
-					if(IntervalType == 2) ProfileDisplayTime.month = 1;
+					if(IntervalType == Aggregation_Yearly) ProfileDisplayTime.month = 1;
 				}
 				TimestepEdit.SetData(ProfileDisplayTime);
 				
@@ -978,7 +545,7 @@ void PlotCtrl::RePlot()
 				[IndexCount, this](String &s, int i, double d)
 				{
 					int Idx = (int)d;
-					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx];
+					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx].data();
 				};
 				
 				TimestepSlider.Enable();
@@ -991,35 +558,28 @@ void PlotCtrl::RePlot()
 				SurfX.Reserve(Timesteps + 1);
 				SurfZ.Reserve(ProfileIndexesCount*Timesteps);
 				
-				for(int Row = 0; Row < RowCount; ++Row)
+				size_t IdxIdx = 0;
+				for(std::string &Row : PlotSetup.SelectedIndexes[ProfileIndexSet])
 				{
-					if(EIndexList[ProfileIndexSet]->IsSelected(Row))
-					{
-						SurfY << (double)IdxIdx;
-						
-						double *Data = (double *)malloc(sizeof(double)*Timesteps);
-						
-						if(Mode == 0)
-						{
-							Parent->GetSingleResultSeries(Parent->DataSet, SelectedResults[0], Data, ProfileIndexSet, Row);
-						}
-						else
-						{
-							Parent->GetSingleInputSeries(Parent->DataSet, SelectedInputs[0], Data, ProfileIndexSet, Row);
-						}
-						
-						NullifyNans(Data, Timesteps);
-						
-						ProfileLabels[IdxIdx] = EIndexList[ProfileIndexSet]->Get(Row, 0).ToString();
-						
-						for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
-						
-						++IdxIdx;
-						
-						free(Data);
-					}
+					SurfY << (double)IdxIdx;
+					
+					double *Data = (double *)malloc(sizeof(double)*Timesteps);
+					
+					if(Mode == 0)
+						Parent->GetSingleResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], Data, ProfileIndexSet, Row);
+					else
+						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data, ProfileIndexSet, Row);
+					
+					NullifyNans(Data, Timesteps);
+					
+					for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
+					
+					++IdxIdx;
+					
+					free(Data);
+					
+					SurfY << (double)IdxIdx;
 				}
-				SurfY << (double)IdxIdx;
 				
 				double *XValues = PlotData.Allocate(Timesteps+1).data();
 				ComputeXValues(InputStartTime, CurrentStartTime, Timesteps+1, Parent->TimestepSize, XValues);
@@ -1039,7 +599,7 @@ void PlotCtrl::RePlot()
 				[IndexCount, this](String &s, int i, double d)
 				{
 					int Idx = (int)d;
-					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx];
+					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx].data();
 				};
 			}
 		}
@@ -1048,16 +608,12 @@ void PlotCtrl::RePlot()
 	{
 		//TODO: Limit to one selected result series. Maybe also allow plotting a observation
 		//comparison.
-		if(SelectedResults.size() > 1 || MultiIndex)
+		if(PlotSetup.SelectedResults.size() > 1 || MultiIndex)
 		{
 			Plot.SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
 		}
 		else
 		{
-			bool LogY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 2);
-			bool NormY = (YAxisMode.IsEnabled() && YAxisMode.GetData() == 1);
-			
-			
 			uint64 BaselineTimesteps = Parent->ModelDll.GetTimesteps(Parent->BaselineDataSet);
 			Parent->ModelDll.GetStartDate(Parent->BaselineDataSet, TimeStr);
 			Time BaselineStartTime;
@@ -1066,7 +622,7 @@ void PlotCtrl::RePlot()
 			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
 			String Unit;
-			Parent->GetSingleSelectedResultSeries(Parent->BaselineDataSet, SelectedResults[0], BS, Unit, Baseline.data());
+			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->BaselineDataSet, PlotSetup.SelectedResults[0], BS, Unit, Baseline.data());
 			NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
@@ -1077,13 +633,13 @@ void PlotCtrl::RePlot()
 			Parent->ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size());
 			Parent->DisplayTimeseriesStats(Stats, BS, Unit);
 			
-			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, LogY, NormY, InputStartTime, BaselineStartTime, Stats.Min, Stats.Max);
+			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, PlotSetup, InputStartTime, BaselineStartTime, Stats.Min, Stats.Max);
 
 			
 			
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
-			Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], CurrentLegend, Unit, Current.data());
+			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], CurrentLegend, Unit, Current.data());
 			NullifyNans(Current.data(), Current.size());
 			
 			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
@@ -1093,23 +649,20 @@ void PlotCtrl::RePlot()
 			Parent->ComputeTimeseriesStats(Stats2, Current.data(), Current.size());
 			Parent->DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
 			
-			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, LogY, NormY, InputStartTime, ResultStartTime, Stats2.Min, Stats2.Max);
+			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, PlotSetup, InputStartTime, ResultStartTime, Stats2.Min, Stats2.Max);
 
 			
 			
 			//TODO: Should we compute any residual statistics here?
 			
-			if(SelectedInputs.size() == 1)
+			if(PlotSetup.SelectedInputs.size() == 1)
 			{
 				//TODO: Should we allow displaying multiple input series here? Probably no
 				//reason to
-				
-				bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
-				
 				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
 				String InputLegend;
 				String Unit;
-				Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
+				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
 				NullifyNans(Obs.data(), Obs.size());
 				
 				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
@@ -1119,7 +672,7 @@ void PlotCtrl::RePlot()
 				Parent->ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size());
 				Parent->DisplayTimeseriesStats(Stats3, InputLegend, Unit);
 				
-				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), Scatter, LogY, NormY, InputStartTime, InputStartTime, Stats3.Min, Stats3.Max);
+				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, PlotSetup, InputStartTime, InputStartTime, Stats3.Min, Stats3.Max);
 			}
 		}
 		
@@ -1128,23 +681,19 @@ void PlotCtrl::RePlot()
 	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
 	{
 		
-		if(SelectedResults.size() != 1 || SelectedInputs.size() != 1 || MultiIndex)
+		if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
 			Plot.SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
 		}
 		else
 		{
-			
-			//PromptOK(Format("Selected %d", Parent->EquationSelecter.GetSelectCount()));
-			
 			Time ResultEndTime = ResultStartTime;
 			AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, Parent->TimestepSize);
 			
 			Time GofStartTime = Parent->CalibrationIntervalStart.GetData();
 			Time GofEndTime   = Parent->CalibrationIntervalEnd.GetData();
 			
-			//PromptOK(Format(GofStartDate));
 			
 			if(IsNull(GofStartTime) || !GofStartTime.IsValid()  || GofStartTime < ResultStartTime   || GofStartTime > ResultEndTime)                                GofStartTime = ResultStartTime;
 			if(IsNull(GofEndTime)   || !GofEndTime.IsValid()    || GofEndTime   < ResultStartTime   || GofEndTime   > ResultEndTime || GofEndTime < GofStartTime)   GofEndTime   = ResultEndTime;
@@ -1165,8 +714,8 @@ void PlotCtrl::RePlot()
 			String ModUnit;
 			String ObsUnit;
 			
-			Parent->GetSingleSelectedResultSeries(Parent->DataSet, SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries.data());
-			Parent->GetSingleSelectedInputSeries(Parent->DataSet, SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries.data(), true);
+			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries.data());
+			Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries.data(), true);
 			
 			for(size_t Idx = 0; Idx < ResultTimesteps; ++Idx)
 			{
@@ -1201,9 +750,8 @@ void PlotCtrl::RePlot()
 					double XMean, XVar, XYCovar;
 					Parent->ComputeTrendStats(ResidualXValues + GofOffset, Residuals.data() + GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
 					
-					bool Scatter = (ScatterInputs.IsEnabled() && ScatterInputs.Get());
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
-					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, Scatter, false, false, InputStartTime, ResultStartTime);
+					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, PlotSetup, InputStartTime, ResultStartTime);
 					
 					NullifyNans(Residuals.data(), Residuals.size());
 					
@@ -1326,7 +874,7 @@ void PlotCtrl::RePlot()
 			
 			const char *MonthNames[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 			
-			int DoStep = GetSmallestStepResolution();
+			int DoStep = GetSmallestStepResolution(PlotSetup.AggregationPeriod, Parent->TimestepSize);
 			
 			//NOTE: Format to be displayed at grid lines
 			if(DoStep == 0)
@@ -1437,7 +985,7 @@ void PlotCtrl::RePlot()
 		if(PlotMajorMode != MajorMode_Profile2D)
 		{
 			Plot.cbModifFormatY.Clear();
-			if(YAxisMode.IsEnabled() && YAxisMode.GetData() == 2) //If we want a logarithmic Y axis
+			if(PlotSetup.YAxisMode == YAxis_Logarithmic)
 			{
 				Plot.cbModifFormatY << [](String &s, int i, double d)
 				{
@@ -1455,6 +1003,359 @@ void PlotCtrl::RePlot()
 	Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
 	
 	Plot.Refresh();
+}
+
+
+int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
+{
+	std::vector<double> &XValues = PlotData.Allocate(0);
+	std::vector<double> &YValues = PlotData.Allocate(0);
+	
+	double Min = DBL_MAX;
+	double Max = DBL_MIN;
+	
+	size_t FiniteCount = 0;
+	for(size_t Idx = 0; Idx < Len; ++Idx)
+	{
+		double D = Data[Idx];
+		if(std::isfinite(D) && !IsNull(D))
+		{
+			FiniteCount++;
+			Min = std::min(D, Min);
+			Max = std::max(D, Max);
+		}
+	}
+		
+	if(Max != Min && FiniteCount > 0) //TODO: epsilon distance instead? But that may not make sense in this case.
+	{
+		double Span = Max - Min;
+		//size_t NBins = 1 + (size_t)std::ceil(std::log2((double)FiniteCount));   //NOTE: Sturges' rule.
+		size_t NBins = 2*(size_t)(std::ceil(std::cbrt((double)FiniteCount)));      //NOTE: Rice's rule.
+		
+		double Stride = Span / (double) NBins;
+		
+		XValues.resize(NBins);
+		YValues.resize(NBins); //This 0-initializes the values, right?
+		
+		for(size_t Idx = 0; Idx < NBins; ++Idx)
+		{
+			XValues[Idx] = Min + (0.5 + (double)Idx)*Stride;
+		}
+		
+		double Scale = 1.0 / (double)FiniteCount;
+		
+		for(size_t Idx = 0; Idx < Len; ++Idx)
+		{
+			double D = Data[Idx];
+			if(std::isfinite(D) && !IsNull(D))
+			{
+				size_t BinIndex = (size_t)((D - Min)/Stride);
+				if(BinIndex == NBins) BinIndex = NBins-1;     //NOTE: Happens if D==Max
+				YValues[BinIndex] += Scale;
+			}
+		}
+		
+		Color GraphColor = PlotColors.Next();
+		double Darken = 0.4;
+		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
+		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
+		
+		return (int)NBins;
+	}
+	else
+	{
+		//TODO?
+		return 0;
+	}
+}
+
+
+void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
+{
+	std::vector<double> &XValues = PlotData.Allocate(SampleCount);
+	std::vector<double> &YValues = PlotData.Allocate(SampleCount);
+	
+	double Stride = (Max - Min) / (double)SampleCount;
+	
+	for(int Point = 0; Point < SampleCount; ++Point)
+	{
+		double Low = Min + (double)Point * Stride;
+		double High = Min + (double)(Point+1)*Stride;
+		
+		XValues[Point] = 0.5*(Low + High);
+		YValues[Point] = 0.5 * (std::erf((High-Mean) / (std::sqrt(2.0)*StdDev)) - std::erf((Low-Mean) / (std::sqrt(2.0)*StdDev)));
+	}
+	
+	Color GraphColor = PlotColors.Next();
+	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
+}
+
+
+void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues)
+{
+	double CurrentAggregate;
+	if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+		CurrentAggregate = 0.0;
+	else if(AggregationType == Aggregation_Min)
+		CurrentAggregate = DBL_MAX;
+	else if(AggregationType == Aggregation_Max)
+		CurrentAggregate = -DBL_MAX;
+		
+	int    CurrentCount = 0;
+	Time CurrentTime = StartTime;
+	
+	for(int CurrentTimestep = 0; CurrentTimestep < Timesteps; ++CurrentTimestep)
+	{
+		double Val = Data[CurrentTimestep];
+		if(std::isfinite(Val) && !IsNull(Val))
+		{
+			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+				CurrentAggregate += Val;
+			else if(AggregationType == Aggregation_Min)
+				CurrentAggregate = std::min(Val, CurrentAggregate);
+			else if(AggregationType == Aggregation_Max)
+				CurrentAggregate = std::max(Val, CurrentAggregate);
+			
+			++CurrentCount;
+		}
+		
+		int NextTimestep = CurrentTimestep+1;
+		Time NextTime = CurrentTime;
+		AdvanceTimesteps(NextTime, 1, TimestepSize);
+		
+		//TODO: Want more aggregation interval types than year or month for models with
+		//non-daily resolutions
+		bool PushAggregate = (NextTimestep == Timesteps) || (NextTime.year != CurrentTime.year);
+		if(IntervalType == Aggregation_Monthly)
+		{
+			PushAggregate = PushAggregate || (NextTime.month != CurrentTime.month);
+		}
+		if(PushAggregate)
+		{
+			double YVal = CurrentAggregate;
+			if(AggregationType == Aggregation_Mean) YVal /= (double)CurrentCount;
+			
+			if(!std::isfinite(YVal) || CurrentCount == 0) YVal = Null; //So that plots show it as empty instead of a line going to infinity.
+			
+			YValues.push_back(YVal);
+			
+			//TODO: Clean this up eventually:
+			Time Beginning = CurrentTime;
+			Beginning.second = 0;
+			Beginning.minute = 0;
+			Beginning.hour   = 0;
+			Beginning.day    = 1;
+			if(IntervalType == Aggregation_Yearly) Beginning.month = 1;
+			double XVal = (double)(Beginning - ReferenceTime);
+			
+			XValues.push_back(XVal);
+			
+			if(AggregationType == Aggregation_Mean || AggregationType == Aggregation_Sum)
+				CurrentAggregate = 0.0;
+			else if(AggregationType == Aggregation_Min)
+				CurrentAggregate = DBL_MAX;
+			else if(AggregationType == Aggregation_Max)
+				CurrentAggregate = -DBL_MAX;
+			
+			CurrentCount = 0;
+		}
+		
+		CurrentTime = NextTime;
+	}
+}
+
+
+void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, const plot_setup &PlotSetup, Time &ReferenceTime, Time &StartTime, double MinY, double MaxY)
+{
+	int Timesteps = (int)Len;
+	
+	aggregation_period IntervalType  = PlotSetup.AggregationPeriod;
+	aggregation_type AggregationType = PlotSetup.AggregationType;
+	y_axis_mode YAxis                = PlotSetup.YAxisMode;
+	
+	Color GraphColor = PlotColors.Next();
+	
+	ScatterDraw *Graph = nullptr;
+	
+	if(IntervalType == Aggregation_None)
+	{
+		//TODO: It may not always be that good of an idea to modify the
+		//incoming data... Though it does not cause a problem now..
+		if(YAxis == YAxis_Normalized)
+		{
+			for(size_t Idx = 0; Idx < Len; ++Idx)
+			{
+				if(MaxY > 0.0) Data[Idx] = Data[Idx] / MaxY;
+				else Data[Idx] = 0.0;
+			}
+		}
+		else if(YAxis == YAxis_Logarithmic)
+		{
+			for(size_t Idx = 0; Idx < Len; ++Idx)
+			{
+				Data[Idx] = std::log10(Data[Idx]);
+			}
+		}
+		
+		double Offset = (double)(StartTime - ReferenceTime);
+		
+		Graph = &Plot.AddSeries(XIn, Data, Len);
+	}
+	else //Monthly values or yearly values
+	{
+		//Would it help to reserve some size for these?
+		std::vector<double> &XValues = PlotData.Allocate(0);
+		std::vector<double> &YValues = PlotData.Allocate(0);
+		
+		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, Parent->TimestepSize, XValues, YValues);
+		
+		Graph = &Plot.AddSeries(XValues.data(), YValues.data(), XValues.size());
+	}
+	
+	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
+	{
+		Graph->Legend(Legend);
+		Graph->Units(Unit);
+		if(IsInput && PlotSetup.ScatterInputs)
+		{
+			Graph->MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
+			Graph->MarkStyle<CircleMarkPlot>();
+			
+			int Index = Plot.GetCount()-1;
+			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
+		}
+		else
+		{
+			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");
+		}
+	}
+}
+
+void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
+{
+	size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
+	
+	std::vector<double> &XValues = PlotData.Allocate(NumPercentiles);
+	std::vector<double> &YValues = PlotData.Allocate(NumPercentiles);
+	
+	QQLabels.Clear();
+	
+	for(size_t Idx = 0; Idx < NumPercentiles; ++Idx)
+	{
+		XValues[Idx] = ModeledStats.Percentiles[Idx];
+		YValues[Idx] = ObservedStats.Percentiles[Idx];
+		QQLabels << Format("%g", Parent->StatSettings.Percentiles[Idx]);
+	}
+	
+	Color GraphColor = PlotColors.Next();
+	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
+		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
+		
+	Plot.ShowLegend(false);
+	
+	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
+}
+
+void PlotCtrl::AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor)
+{
+	std::vector<double> &XValues = PlotData.Allocate(2);
+	std::vector<double> &YValues = PlotData.Allocate(2);
+	
+	XValues[0] = X0;
+	XValues[1] = X1;
+	YValues[0] = Y0;
+	YValues[1] = Y1;
+	
+	if(IsNull(GraphColor)) GraphColor = PlotColors.Next();
+	auto& Graph = Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Stroke(1.5, GraphColor).Dash("6 3");
+	if(!IsNull(Legend)) Graph.Legend(Legend);
+	else Graph.ShowSeriesLegend(false);
+}
+
+void PlotCtrl::AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX)
+{
+	double Beta = XYCovar / XVar;
+	double Alpha = YMean - Beta*XMean;
+	
+	double X0 = StartX;
+	double X1 = EndX;
+	double Y0 = Alpha + X0*Beta;
+	double Y1 = Alpha + X1*Beta;
+	
+	AddLine(Legend, X0, X1, Y0, Y1);
+}
+
+void PlotCtrl::AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSets,
+	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, const plot_setup &PlotSetup, uint64 Timesteps,
+	Time &ReferenceDate, Time &StartDate, double *XIn)
+{
+	if(Level == IndexSets.size())
+	{
+		std::vector<char *> Indexes(CurrentIndexes.size());
+		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+		{
+			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
+		}
+		char **IndexData = Indexes.data();
+		if(CurrentIndexes.size() == 0) IndexData = nullptr;
+		
+		//TODO: Better way to do this: ?
+		std::vector<double> &Data = PlotData.Allocate(Timesteps);
+		
+		String Unit;
+		String Provided = "";
+		
+		if(!IsInput)
+		{
+			Parent->ModelDll.GetResultSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
+			Unit = Parent->ModelDll.GetResultUnit(Parent->DataSet, Name.data());
+		}
+		else
+		{
+			Parent->ModelDll.GetInputSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
+			Unit = Parent->ModelDll.GetInputUnit(Parent->DataSet, Name.data());
+			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
+			{
+				Provided = " (timeseries not provided)";
+			}
+		}
+		if(Parent->CheckDllUserError()) return;
+		
+		double *Dat = Data.data();
+		size_t Len = Data.size();  //This will always be == Timesteps though?
+		
+		String Legend = Name.data();
+		if(CurrentIndexes.size() > 0)
+		{
+			Legend << " (";
+			for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
+			{
+				Legend << CurrentIndexes[Idx].data();
+				if(Idx < CurrentIndexes.size()-1) Legend << ", ";
+			}
+			Legend << ")";
+		}
+		Legend << Provided;
+		
+		timeseries_stats Stats = {};
+		Parent->ComputeTimeseriesStats(Stats, Dat, Len);
+		Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
+		
+		AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, PlotSetup, ReferenceDate, StartDate, Stats.Min, Stats.Max);
+		
+		NullifyNans(Dat, Len);
+	}
+	else
+	{
+		char *IndexSetName = IndexSets[Level];
+		size_t Id = Parent->IndexSetNameToId[IndexSetName];
+	
+		for(const std::string &IndexName : PlotSetup.SelectedIndexes[Id])
+		{
+			CurrentIndexes[Level] = IndexName;
+			AddPlotRecursive(Name, IndexSets, CurrentIndexes, Level + 1, IsInput, PlotSetup, Timesteps, ReferenceDate, StartDate, XIn);
+		}
+	}
 }
 
 
@@ -1558,7 +1459,7 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 	
 	//NOTE: DoStep denotes the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
 	//4=months, 5=years
-	int DoStep = GetSmallestStepResolution();
+	int DoStep = GetSmallestStepResolution(CurrentPlotSetup.AggregationPeriod, Parent->TimestepSize);
 	
 	if(DoStep==0)    //Seconds
 	{
@@ -1740,19 +1641,19 @@ void PlotCtrl::TimestepSliderEvent()
 	
 	// Recompute the displayed date in the "TimestepEdit" based on the new position of the
 	// slider.
-	int IntervalType = TimeIntervals.GetData();
-	if(IntervalType == 0) // Daily values
+	aggregation_period IntervalType = CurrentPlotSetup.AggregationPeriod;
+	if(IntervalType == Aggregation_None)
 	{
 		AdvanceTimesteps(NewTime, Timestep, Parent->TimestepSize);
 	}
-	else if(IntervalType == 1) // Monthly values
+	else if(IntervalType == Aggregation_Monthly)
 	{
 		int Month   = ((NewTime.month + Timestep - 1) % 12) + 1;
 		int YearAdd = (NewTime.month + Timestep - 1) / 12;
 		NewTime.month = Month;
 		NewTime.year += YearAdd;
 	}
-	else if(IntervalType == 2) // Yearly values
+	else if(IntervalType == Aggregation_Yearly)
 	{
 		NewTime.year += Timestep;
 	}
@@ -1801,7 +1702,7 @@ void PlotCtrl::ReplotProfile()
 	Plot.Refresh();
 }
 
-void PlotCtrl::NullifyNans(double *Data, size_t Len)
+void NullifyNans(double *Data, size_t Len)
 {
 	//NOTE: We do this because the ScatterDraw does not draw gaps in the line at NaNs, only at
 	//Null.
@@ -1811,19 +1712,103 @@ void PlotCtrl::NullifyNans(double *Data, size_t Len)
 	}
 }
 
+void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
+{
+	if(TimestepSize.Type == 0)  //Timestep magnitude measured in seconds.
+	{
+		T += ((int64)Timesteps)*((int64)TimestepSize.Magnitude);
+	}
+	else                        //Timestep magnitude measured in months.
+	{
+		T.month += (int)Timesteps*TimestepSize.Magnitude;
+		while(T.month > 12)
+		{
+			T.month -= 12;
+			T.year++;
+		}
+	}
+}
+
+int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize)
+{
+	//NOTE: This could be quite tricky to get correct unless we can guarantee that T1 hits a
+	//timestep exactly. So that should be ensured by the caller!
+	
+	if(TimestepSize.Type == 0)   //Timestep magnitude measured in seconds.
+	{
+		return (T2 - T1) / TimestepSize.Magnitude;
+	}
+	else                         //Timestep magnitude measured in months.
+	{
+		return ((T2.year - T1.year)*12 + T2.month - T1.month) / TimestepSize.Magnitude;
+	}
+}
+
+int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size TimestepSize)
+{
+	//NOTE: To compute the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
+	//4=months, 5=years
+
+	if(IntervalType == Aggregation_None)
+	{
+		//NOTE: The plot does not display aggregated data, so the unit of the grid line step should be
+		//determined by the model step size.
+		if(TimestepSize.Type == 0)          //Timestep size is measured in seconds
+		{
+			if(TimestepSize.Magnitude < 60)         return 0;
+			else if(TimestepSize.Magnitude < 3600)  return 1;
+			else if(TimestepSize.Magnitude < 86400) return 2;
+			else                                    return 3;
+		}
+		else                                        //Timestep size is measured in months
+		{
+			if(TimestepSize.Magnitude < 12) return 4;
+			else                            return 5;
+		}
+	}
+	else if(IntervalType == Aggregation_Monthly) return 4;
+	else if(IntervalType == Aggregation_Yearly)  return 5;
+	
+	return 0;
+}
+
+void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX)
+{
+	if(TimestepSize.Type == 0)        //Timestep magnitude measured in seconds.
+	{
+		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		{
+			WriteX[Idx] = (double)(StartTime - ReferenceTime) + (double)Idx*(double)TimestepSize.Magnitude;
+		}
+	}
+	else                              //Timestep magnitude measured in months.
+	{
+		Time CurTime = StartTime;
+		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
+		{
+			WriteX[Idx] = (double)(CurTime - ReferenceTime);
+			
+			CurTime.month += TimestepSize.Magnitude;
+			while(CurTime.month > 12)
+			{
+				CurTime.month -= 12;
+				CurTime.year++;
+			}
+		}
+	}
+}
 
 
 
 
 
-void MobiView::GetSingleResultSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row)
+void MobiView::GetSingleResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row)
 {
 	uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
 	if(CheckDllUserError()) return;
 	
-	std::vector<std::string> Indexes_String(IndexSets.size());
 	std::vector<char *> Indexes(IndexSets.size());
 	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
 	{
@@ -1832,13 +1817,12 @@ void MobiView::GetSingleResultSeries(void *DataSet, std::string &Name, double *W
 		
 		if(Id == SelectRowFor)
 		{
-			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+			Indexes[Idx] = (char *)Row.data();
 		}
 		else
 		{
-			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
+			Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
 		}
-		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
 	
 	ModelDll.GetResultSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo);
@@ -1846,14 +1830,13 @@ void MobiView::GetSingleResultSeries(void *DataSet, std::string &Name, double *W
 }
 
 
-void MobiView::GetSingleInputSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row)
+void MobiView::GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row)
 {
 	uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
 	ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
 	if(CheckDllUserError()) return;
 	
-	std::vector<std::string> Indexes_String(IndexSets.size());
 	std::vector<char *> Indexes(IndexSets.size());
 	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
 	{
@@ -1862,13 +1845,12 @@ void MobiView::GetSingleInputSeries(void *DataSet, std::string &Name, double *Wr
 		
 		if(Id == SelectRowFor)
 		{
-			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(Row, 0).ToString().ToStd();
+			Indexes[Idx] = (char *)Row.data();
 		}
 		else
 		{
-			Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
+			Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
 		}
-		Indexes[Idx] = (char *)Indexes_String[Idx].data();
 	}
 	
 	ModelDll.GetInputSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo, false);
@@ -1876,7 +1858,7 @@ void MobiView::GetSingleInputSeries(void *DataSet, std::string &Name, double *Wr
 }
 
 
-void MobiView::GetSingleSelectedResultSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo)
+void MobiView::GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo)
 {
 	uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
@@ -1884,15 +1866,13 @@ void MobiView::GetSingleSelectedResultSeries(void *DataSet, std::string &Name, S
 	Unit = ModelDll.GetResultUnit(DataSet, Name.data());
 	if(CheckDllUserError()) return;
 	
-	std::vector<std::string> Indexes_String(IndexSets.size());
 	std::vector<char *> Indexes(IndexSets.size());
 	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
 	{
 		const char *IndexSet = IndexSets[Idx];
 		size_t Id = IndexSetNameToId[IndexSet];
 		
-		Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
-		Indexes[Idx] = (char *)Indexes_String[Idx].data();
+		Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
 	}
 	
 	ModelDll.GetResultSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo);
@@ -1911,7 +1891,7 @@ void MobiView::GetSingleSelectedResultSeries(void *DataSet, std::string &Name, S
 	}
 }
 
-void MobiView::GetSingleSelectedInputSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
+void MobiView::GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
 {
 	uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 	std::vector<char *> IndexSets(IndexSetCount);
@@ -1919,15 +1899,13 @@ void MobiView::GetSingleSelectedInputSeries(void *DataSet, std::string &Name, St
 	Unit = ModelDll.GetInputUnit(DataSet, Name.data());
 	if(CheckDllUserError()) return;
 	
-	std::vector<std::string> Indexes_String(IndexSets.size());
 	std::vector<char *> Indexes(IndexSets.size());
 	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
 	{
 		const char *IndexSet = IndexSets[Idx];
 		size_t Id = IndexSetNameToId[IndexSet];
 		
-		Indexes_String[Idx] = Plotter.EIndexList[Id]->Get(0).ToString().ToStd();
-		Indexes[Idx] = (char *)Indexes_String[Idx].data();
+		Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
 	}
 	
 	ModelDll.GetInputSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo, AlignWithResults);

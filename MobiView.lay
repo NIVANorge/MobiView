@@ -130,3 +130,10 @@ LAYOUT(EditStatSettingsLayout, 268, 272)
 	ITEM(Button, ResetDefaultButton, SetLabel(t_("Reset default percentiles")).LeftPosZ(4, 136).TopPosZ(236, 28))
 END_LAYOUT
 
+LAYOUT(AdditionalPlotViewLayout, 780, 468)
+	ITEM(EditIntSpin, RowNumberSpin, LeftPosZ(712, 64).TopPosZ(4, 19))
+	ITEM(EditIntSpin, ColNumberSpin, LeftPosZ(596, 64).TopPosZ(4, 19))
+	ITEM(Label, ColLabel, SetLabel(t_("Columns:")).LeftPosZ(664, 44).VSizePosZ(4, 445))
+	ITEM(Label, RowLabel, SetLabel(t_("Rows:")).LeftPosZ(560, 32).TopPosZ(4, 19))
+END_LAYOUT
+

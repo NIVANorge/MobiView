@@ -226,12 +226,12 @@ public:
 	void UpdateEquationSelecter();
 	
 	
-	void GetSingleSelectedResultSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo);
-	void GetSingleSelectedInputSeries(void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
+	void GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo);
+	void GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);
 	
-	void GetSingleResultSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row);
-	void GetSingleInputSeries(void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, int Row);
-	
+	void GetSingleResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row);
+	void GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row);
+
 	
 	void RefreshParameterView();
 	void RefreshParameterViewValues();

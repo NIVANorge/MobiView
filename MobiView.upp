@@ -20,6 +20,7 @@ file
 	SetStatSettings.h,
 	main.cpp,
 	Plotting.h,
+	AdditionalPlotView.h,
 	MobiView.lay,
 	Info.rc,
 	star.iml,

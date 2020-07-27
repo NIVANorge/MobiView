@@ -1,7 +1,7 @@
 #ifndef _MobiView_PlotDataStorage_h_
 #define _MobiView_PlotDataStorage_h_
 
-//NOTE: This has to match up to the major mode selecter.
+//NOTE: This has to match up to the major mode selector.
 enum plot_major_mode
 {
 	MajorMode_Regular = 0,
@@ -14,13 +14,27 @@ enum plot_major_mode
 	MajorMode_QQ,
 };
 
-//NOTE: This has to match up to the aggregation selecter.
+//NOTE: This has to match up to the aggregation selector.
 enum aggregation_type
 {
-	Aggregation_Mean,
+	Aggregation_Mean = 0,
 	Aggregation_Sum,
 	Aggregation_Min,
 	Aggregation_Max,
+};
+
+//NOTE: This has to match up to the aggregation period selector.
+enum aggregation_period
+{	Aggregation_None = 0,
+	Aggregation_Monthly,
+	Aggregation_Yearly,
+};
+
+enum y_axis_mode
+{
+	YAxis_Regular = 0,
+	YAxis_Normalized,
+	YAxis_Logarithmic,
 };
 
 //const size_t NUM_PERCENTILES = 7;
@@ -55,7 +69,8 @@ struct residual_stats
 	size_t DataPoints;
 };
 
-struct StatisticsSettings {
+struct StatisticsSettings
+{
 	bool DisplayMin          = true;
 	bool DisplayMax          = true;
 	bool DisplaySum          = true;
@@ -125,10 +140,34 @@ struct plot_colors
 	}
 };
 
+struct plot_setup
+{
+	plot_major_mode    MajorMode;
+	aggregation_type   AggregationType;
+	aggregation_period AggregationPeriod;
+	y_axis_mode        YAxisMode;
+	bool               ScatterInputs;
+	
+	std::vector<std::string> SelectedResults;
+	std::vector<std::string> SelectedInputs;
+	
+	std::vector<bool> IndexSetIsActive;
+	std::vector<std::vector<std::string>> SelectedIndexes;
+};
+
 
 class MobiView;
 
-class PlotCtrl : public WithPlotCtrlLayout<ParentCtrl> {
+void NullifyNans(double *Data, size_t Len);
+void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize);
+int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize);
+int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size TimestepSize);
+void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX);
+
+void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues);
+
+class PlotCtrl : public WithPlotCtrlLayout<ParentCtrl>
+{
 public:
 	typedef PlotCtrl CLASSNAME;
 	
@@ -136,18 +175,17 @@ public:
 	
 	void PlotModeChange();
 	
-	void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, int IntervalType, aggregation_type AggregationType, std::vector<double> &XValues, std::vector<double> &YValues);
-	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool Scatter, bool LogY, bool NormalY, Time &ReferenceTime, Time &StartTime, double MinY = 0.0, double MaxY = 0.0);
+	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, const plot_setup &PlotSetup, Time &ReferenceTime, Time &StartTime, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
 	void AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX);
 	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
-	void AddPlotRecursive(std::string &Name, int Mode, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
+	void AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, const plot_setup &PlotSetup, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
 	void SetBetterGridLinePositions(int Dim);
 	
-	int GetSmallestStepResolution();
+	void BuildPlot(plot_setup &PlotSetup);
 	
 	void RePlot();
 	
@@ -155,14 +193,11 @@ public:
 	void TimestepEditEvent();
 	void ReplotProfile();
 	
-	void NullifyNans(double *Data, size_t Len);
-	
-	
-	
 	void UpdateDateGridLinesX(Vector<double> &LinesOut);
 	
 	
-	
+	plot_setup CurrentPlotSetup;
+	void GatherCurrentPlotSetup();
 	
 	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	
@@ -174,7 +209,7 @@ private:
 	
 	MobiView *Parent;
 	
-	std::vector<String> ProfileLabels;
+	std::vector<std::string> ProfileLabels;
 	String ProfileLegend;
 	String ProfileUnit;
 	Time ProfileDisplayTime; //NOTE: Only used when in profile mode.
