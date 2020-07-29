@@ -153,6 +153,9 @@ struct plot_setup
 	
 	std::vector<bool> IndexSetIsActive;
 	std::vector<std::vector<std::string>> SelectedIndexes;
+	
+	
+	int ProfileTimestep;
 };
 
 
@@ -166,66 +169,69 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 
 void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues);
 
-class PlotCtrl : public WithPlotCtrlLayout<ParentCtrl>
+
+void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, StatisticsSettings &StatSettings);
+void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len);
+void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
+
+
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
+void DisplayResidualStats(residual_stats &Stats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
+
+class PlotCtrl;
+
+class MyPlot : public ScatterCtrl
 {
 public:
-	typedef PlotCtrl CLASSNAME;
 	
-	PlotCtrl(MobiView* Parent);
+	MyPlot();
 	
-	void PlotModeChange();
+	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo);
 	
-	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, const plot_setup &PlotSetup, Time &ReferenceTime, Time &StartTime, double MinY = 0.0, double MaxY = 0.0);
+	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
-	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats);
+	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
 	void AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX);
 	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
-	void AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, const plot_setup &PlotSetup, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
-	void SetBetterGridLinePositions(int Dim);
 	
-	void BuildPlot(plot_setup &PlotSetup);
+	void ClearAll();
 	
-	void RePlot();
+	void AddPlotRecursive(MobiView *Parent, DocEdit &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
-	void TimestepSliderEvent();
-	void TimestepEditEvent();
+	
 	void ReplotProfile();
 	
-	void UpdateDateGridLinesX(Vector<double> &LinesOut);
 	
+	void SetBetterGridLinePositions(int Dim);
+	void UpdateDateGridLinesX(Vector<double> &LinesOut, Time InputStartTime, timestep_size TimestepSize);
 	
-	plot_setup CurrentPlotSetup;
-	void GatherCurrentPlotSetup();
-	
-	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
-	
+
+	//TODO: Move to private when that is possible!
 	plot_data_storage PlotData;
+	plot_colors PlotColors;
 	
-	bool PlotWasAutoResized = false;
-	
-private:
-	
-	MobiView *Parent;
-	
+	//NOTE: Only used when in profile mode.
 	std::vector<std::string> ProfileLabels;
 	String ProfileLegend;
 	String ProfileUnit;
-	Time ProfileDisplayTime; //NOTE: Only used when in profile mode.
 	size_t ProfileIndexesCount;
 	
+	plot_setup PlotSetup;
+	
+	bool PlotWasAutoResized = false;
+private:
 	Vector<String> QQLabels;
-	
-	plot_colors PlotColors;
-	
-	Time InputStartTime;
 	
 	Vector<double> SurfX;
 	Vector<double> SurfY;
 	Vector<double> SurfZ;
 	TableDataVector SurfData;
 };
+
+
+
 
 
 #endif

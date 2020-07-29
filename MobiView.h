@@ -6,29 +6,25 @@
 #include <CtrlLib/CtrlLib.h>
 #include <ScatterCtrl/ScatterCtrl.h>
 
+#include <map>
+#include <vector>
 
 
+#define MAX_INDEX_SETS 6
 
 
 #include "StarOption.h"
 
 using namespace Upp;
 
+#include "DllInterface.h"
+#include "Plotting.h"
+
 #define LAYOUTFILE <MobiView/MobiView.lay>
 #include <CtrlCore/lay.h>
 
-#include <map>
 
-#include <vector>
-
-#include "DllInterface.h"
-
-
-
-
-#define MAX_INDEX_SETS 6
-
-#include "Plotting.h"
+#include "PlotCtrl.h"
 
 
 //TODO: This stuff should really be in a common file with the main Mobius code.
@@ -146,6 +142,39 @@ public:
 	void BuildConnectionEditFromDataset();
 };
 
+#define MAX_ADDITIONAL_PLOTS 10
+
+class MiniPlot : public WithMiniPlotLayout<ParentCtrl>
+{
+public:
+	typedef MiniPlot CLASSNAME;
+	
+	MiniPlot();
+};
+
+class AdditionalPlotView : public WithAdditionalPlotViewLayout<TopWindow>
+{
+public:
+	typedef AdditionalPlotView CLASSNAME;
+	
+	AdditionalPlotView();
+	
+	void CopyMainPlot(int Which);
+	
+	void BuildAll();
+	void ClearAll();
+	
+	MobiView *ParentWindow;
+	
+	void NumRowsChanged();
+	void UpdateLinkStatus();
+	
+private:
+	Splitter VerticalSplitter;
+	
+	MiniPlot Plots[MAX_ADDITIONAL_PLOTS];
+};
+
 
 class MobiView : public TopWindow {
 	
@@ -215,6 +244,8 @@ public:
 	void OpenChangeIndexes();
 	ChangeIndexesWindow ChangeIndexes;
 	
+	void OpenAdditionalPlotView();
+	AdditionalPlotView OtherPlots;
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
 	
@@ -223,6 +254,7 @@ public:
 	
 	
 	void PlotModeChange();
+	void PlotRebuild();
 	void UpdateEquationSelecter();
 	
 	
@@ -242,18 +274,6 @@ public:
 	
 	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
 	void SaveToCsv();
-	
-	
-	//TODO: The computation functions don't need to be member functions of this class?
-	void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len);
-	void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len);
-	void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
-	
-	void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit);
-	void DisplayResidualStats(residual_stats &Stats, String &Name);
-	
-	
-	
 	
 	
 

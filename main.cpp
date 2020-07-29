@@ -60,15 +60,15 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Save(), THISBACK(SaveParameters)).Tip("Save parameters").Key(K_CTRL_S);
 	bar.Add(IconImg::SaveAs(), THISBACK(SaveParametersAs)).Tip("Save parameters as").Key(K_ALT_S);
 	bar.Add(IconImg::Search(), THISBACK(OpenSearch)).Tip("Search parameters").Key(K_CTRL_F);
-	bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes").Key(K_CTRL_E);
-	//bar.Add(IconImg::ViewReaches(), THISBACK(OpenVisualizeBranches)).Tip("Visualize reach branches").Key(K_CTRL_R);
+	bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
-	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline").Key(K_CTRL_B);
+	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
+	bar.Add(IconImg::ViewMorePlots(), THISBACK(OpenAdditionalPlotView)).Tip("Open additional plot view");
 	bar.Separator();
-	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings)").Key(K_CTRL_T);
+	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings)");
 }
 
 MobiView::MobiView() : Plotter(this)
@@ -214,8 +214,9 @@ MobiView::MobiView() : Plotter(this)
 	CalibrationIntervalStart.Hide();
 	CalibrationIntervalEnd.Hide();
 	CalibrationIntervalLabel.Hide();
-	CalibrationIntervalStart.WhenAction << [this](){ Plotter.RePlot(); };
-	CalibrationIntervalEnd.WhenAction   << [this](){ Plotter.RePlot(); };
+	
+	CalibrationIntervalStart.WhenAction = THISBACK(PlotRebuild);
+	CalibrationIntervalEnd.WhenAction   = THISBACK(PlotRebuild);
 	
 	
 	
@@ -295,20 +296,30 @@ MobiView::MobiView() : Plotter(this)
 	}
 	
 	
-	
-	//Visualize.ParentWindow = this;
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
 	ChangeIndexes.ParentWindow = this;
 	ChangeIndexes.Branches.ParentWindow = this;
 	EditStatSettings.ParentWindow = this;
+	OtherPlots.ParentWindow = this;
 }
 
 
 void MobiView::PlotModeChange()
 {
+	//NOTE: This is when changing any of the controls that affect the main plot.
 	Plotter.PlotModeChange();
 }
+
+void MobiView::PlotRebuild()
+{
+	Plotter.RePlot();
+	if(OtherPlots.IsOpen())
+	{
+		OtherPlots.BuildAll();
+	}
+}
+
 
 void MobiView::OpenSearch()
 {
@@ -333,21 +344,15 @@ void MobiView::OpenStatSettings()
 	}
 }
 
-/*
-void MobiView::OpenVisualizeBranches()
+
+void MobiView::OpenAdditionalPlotView()
 {
-	if(!ModelDll.IsLoaded() || !DataSet)
+	if(!OtherPlots.IsOpen())
 	{
-		Log("Can't visualize branch network before a dataset is loaded.");
-		return;
-	}
-	
-	if(!Visualize.IsOpen())
-	{
-		Visualize.Open();
+		OtherPlots.Open();
+		OtherPlots.BuildAll();
 	}
 }
-*/
 
 void MobiView::OpenStructureView()
 {
@@ -518,9 +523,8 @@ void MobiView::CleanInterface()
 	
 	IndexSetNameToId.clear();
 	
-	Plotter.Plot.RemoveAllSeries();
-	Plotter.PlotData.Clear();
-	Plotter.PlotWasAutoResized = false;
+	Plotter.MainPlot.ClearAll();
+	OtherPlots.ClearAll();
 	
 	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
 }
@@ -864,7 +868,7 @@ void MobiView::RunModel()
 	
 	EquationSelecter.Enable();
 	
-	PlotModeChange(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
+	PlotRebuild(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
 	
 	RefreshParameterViewValues(); //NOTE: In case there are computed parameters that are displayed.
 	

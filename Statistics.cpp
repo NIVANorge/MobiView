@@ -5,7 +5,7 @@
 #include "MobiView.h"
 #include <numeric>
 
-void MobiView::DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit)
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
 {
 	String Display = Name + " [" + Unit + "]:\n";
 	
@@ -23,7 +23,7 @@ void MobiView::DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, Str
 	PlotInfo.SetCursor(INT64_MAX);
 }
 
-void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
+void DisplayResidualStats(residual_stats &Stats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
 {
 	String Display = Name;
 	
@@ -45,7 +45,7 @@ void MobiView::DisplayResidualStats(residual_stats &Stats, String &Name)
 }
 
 
-void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len)
+void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, StatisticsSettings &StatSettings)
 {
 	double Sum = 0.0;
 	size_t FiniteCount = 0;
@@ -130,7 +130,7 @@ void MobiView::ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, 
 }
 
 
-void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len)
+void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len)
 {
 	double Sum = 0.0;
 	double SumAbs = 0.0;
@@ -277,7 +277,7 @@ void MobiView::ComputeResidualStats(residual_stats &StatsOut, double *Obs, doubl
 	StatsOut.SpearmansRCC = 1.0 - 6.0 * SumSquareRankDiff / (FC * (FC*FC - 1.0));
 }
 
-void MobiView::ComputeTrendStats(double *XData, double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)
+void ComputeTrendStats(double *XData, double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)
 {
 	double SumX = 0.0;
 	size_t FiniteCount = 0;

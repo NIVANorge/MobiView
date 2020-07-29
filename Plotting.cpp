@@ -30,20 +30,6 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 		EIndexList[Idx]->AddColumn("(no name)");
 	}
 	
-	Plot.SetFastViewX(true);
-	Plot.SetSequentialXAll(true);
-	
-	Size PlotReticleSize = GetTextSize("00000", Plot.GetReticleFont());
-	Size PlotUnitSize    = GetTextSize("[dummy]", Plot.GetLabelsFont());
-	Plot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
-	Plot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
-	
-	Plot.SetGridDash("");
-	Color Grey(180, 180, 180);
-	Plot.SetGridColor(Grey);
-
-	//Plot.Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
-
 
 	//Plot mode buttons and controls:
 	TimestepSlider.Range(10); //To be overwritten later.
@@ -71,15 +57,33 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	YAxisMode.SetData(0);
 	YAxisMode.Disable();
 	YAxisMode.WhenAction << THISBACK(PlotModeChange);
-	
-	Plot.RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
-	Plot.AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
 }
 
 
-void PlotCtrl::GatherCurrentPlotSetup()
+MyPlot::MyPlot()
 {
-	plot_setup &C = CurrentPlotSetup;
+	
+	this->SetFastViewX(true);
+	this->SetSequentialXAll(true);
+	
+	Size PlotReticleSize = GetTextSize("00000", this->GetReticleFont());
+	Size PlotUnitSize    = GetTextSize("[dummy]", this->GetLabelsFont());
+	this->SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
+	this->SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+	
+	this->SetGridDash("");
+	Color Grey(180, 180, 180);
+	this->SetGridColor(Grey);
+
+	//this->Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
+	
+	this->RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
+	this->AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
+}
+
+
+void PlotCtrl::GatherCurrentPlotSetup(plot_setup &C)
+{
 	C.SelectedResults.clear();
 	C.SelectedInputs.clear();
 	C.SelectedIndexes.clear();
@@ -183,9 +187,9 @@ void PlotCtrl::PlotModeChange()
 	//TODO: This is called twice on every selection of an input or equation. We should maybe find a way to guard
 	//against doing all the work when the state has not changed. But that is tricky..
 	
-	GatherCurrentPlotSetup();
+	GatherCurrentPlotSetup(MainPlot.PlotSetup);
 	
-	plot_major_mode MajorMode = CurrentPlotSetup.MajorMode;
+	plot_major_mode MajorMode = MainPlot.PlotSetup.MajorMode;
 	
 	ScatterInputs.Disable();
 	YAxisMode.Disable();
@@ -213,15 +217,9 @@ void PlotCtrl::PlotModeChange()
 		TimeIntervals.Enable();
 	}
 	
-	Plot.SetMouseHandling(true, false);
-	if(MajorMode == MajorMode_Profile || MajorMode == MajorMode_Histogram || MajorMode == MajorMode_ResidualHistogram)
-	{
-		Plot.SetMouseHandling(false, false);
-	}
-	
 	if(TimeIntervals.IsEnabled())
 	{
-		aggregation_period Interval = CurrentPlotSetup.AggregationPeriod;
+		aggregation_period Interval = MainPlot.PlotSetup.AggregationPeriod;
 		if(Interval == Aggregation_None)
 		{
 			Aggregation.Disable();
@@ -241,11 +239,12 @@ void PlotCtrl::PlotModeChange()
 	
 	if(MajorMode == MajorMode_Residuals || MajorMode == MajorMode_ResidualHistogram || MajorMode == MajorMode_QQ)
 	{
+
 		Parent->PlotInfo.HSizePos().VSizePos(0, 25);
 		Parent->CalibrationIntervalStart.Show();
 		Parent->CalibrationIntervalEnd.Show();
 		Parent->CalibrationIntervalLabel.Show();
-		
+	
 		Time StartTime = Parent->CalibrationIntervalStart.GetData();
 		Time EndTime   = Parent->CalibrationIntervalStart.GetData();
 		
@@ -278,7 +277,7 @@ void PlotCtrl::PlotModeChange()
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
-		EIndexList[Idx]->Enable(CurrentPlotSetup.IndexSetIsActive[Idx]);
+		EIndexList[Idx]->Enable(MainPlot.PlotSetup.IndexSetIsActive[Idx]);
 	}
 	
 	RePlot();
@@ -289,13 +288,20 @@ void PlotCtrl::PlotModeChange()
 void PlotCtrl::RePlot()
 {
 	//NOTE: This is to allow for expansion with multiple plots later
-	GatherCurrentPlotSetup();
-	BuildPlot(CurrentPlotSetup);
+	GatherCurrentPlotSetup(MainPlot.PlotSetup);
+	MainPlot.BuildPlot(Parent, this, true, Parent->PlotInfo);
 }
 
 
-void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
+void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo)
 {
+	if(PlotSetup.SelectedIndexes.size() == 0) return;
+	
+	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
+	//specifics that we need. However, it is a little tricky to let go of that dependency.
+	
+	//TODO: We should really really remove the Control from here...
+	
 	if(!Parent->ModelDll.IsLoaded()) return;
 	
 	bool MultiIndex = false;
@@ -308,25 +314,25 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		}
 	}
 
-	Plot.RemoveAllSeries(); //TODO: We could see if we want to cache some series and not re-extract everything every time.
-	PlotData.Clear();
+	this->RemoveAllSeries();
 	PlotColors.Reset();
+	PlotData.Clear();
 	
-	Plot.RemoveSurf();
+	this->RemoveSurf();
 	SurfX.Clear();
 	SurfY.Clear();
 	SurfZ.Clear();
 	
-	Plot.ShowLegend(true);
+	this->ShowLegend(true);
 	
-	Plot.SetLabelX(" ");
-	Plot.SetLabelY(" ");
+	this->SetLabelX(" ");
+	this->SetLabelY(" ");
 	
-	Parent->PlotInfo.Clear();
+	PlotInfo.Clear();
 	
-	plot_major_mode MajorMode = PlotSetup.MajorMode;
+	plot_major_mode PlotMajorMode = PlotSetup.MajorMode;
 	
-	Plot.SetTitle(String(""));
+	this->SetTitle(String(""));
 	
 	char TimeStr[256];
 	Parent->ModelDll.GetStartDate(Parent->DataSet, TimeStr);
@@ -334,6 +340,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 	StrToTime(ResultStartTime, TimeStr);
 
 	Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeStr);
+	Time InputStartTime;
 	StrToTime(InputStartTime, TimeStr);
 	
 	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
@@ -358,7 +365,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Name, IndexSets, CurrentIndexes, 0, true, PlotSetup, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -374,7 +381,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Name, IndexSets, CurrentIndexes, 0, false, PlotSetup, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, false, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -385,7 +392,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		if(TimeseriesCount > 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			Plot.SetTitle(String("In histogram mode you can only have one timeseries selected, for one index combination"));
+			this->SetTitle(String("In histogram mode you can only have one timeseries selected, for one index combination"));
 		}
 		else
 		{
@@ -410,8 +417,8 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
-			Parent->ComputeTimeseriesStats(Stats, Data.data(), Data.size());
-			Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
+			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), Parent->StatSettings);
+			DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo);
 		}
 	}
 	else if(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Profile2D)
@@ -433,7 +440,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		if(TimeseriesCount != 1 || NumberOfIndexSetsWithMultipleIndexesSelected != 1)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			Plot.SetTitle(String("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected"));
+			this->SetTitle(String("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected"));
 		}
 		else
 		{
@@ -474,7 +481,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			
 			//TODO: We could use the same data storage in both cases, so that we don't have to
 			//branch here!
-			if(MajorMode == MajorMode_Profile)
+			if(PlotMajorMode == MajorMode_Profile)
 			{
 				for(std::string &Row : PlotSetup.SelectedIndexes[ProfileIndexSet])
 				{
@@ -500,22 +507,30 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 				
 				size_t DataLength = PlotData.Data[0].size();
 			
-				TimestepSlider.Range((int)DataLength - 1);
-				
+			
+
 				//TODO: This should be based on the current position of the slider instead unless
 				//we reset the slider!
-				ProfileDisplayTime = CurrentStartTime;
-				if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
+				if(IsMainPlot)
 				{
-					//TODO: Clean this up
-					ProfileDisplayTime.second = 0;
-					ProfileDisplayTime.minute = 0;
-					ProfileDisplayTime.hour   = 0;
-					ProfileDisplayTime.day    = 1;
-					if(IntervalType == Aggregation_Yearly) ProfileDisplayTime.month = 1;
+					Control->ProfileDisplayTime = CurrentStartTime;
+					if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
+					{
+						//TODO: Clean this up
+						Control->ProfileDisplayTime.second = 0;
+						Control->ProfileDisplayTime.minute = 0;
+						Control->ProfileDisplayTime.hour   = 0;
+						Control->ProfileDisplayTime.day    = 1;
+						if(IntervalType == Aggregation_Yearly) Control->ProfileDisplayTime.month = 1;
+					}
+					Control->TimestepEdit.SetData(Control->ProfileDisplayTime);
+					
+					Control->TimestepSlider.Range((int)DataLength - 1);
+					Control->TimestepSlider.Enable();
+					
+					PlotSetup.ProfileTimestep = Control->TimestepSlider.GetData();
 				}
-				TimestepEdit.SetData(ProfileDisplayTime);
-				
+
 				std::vector<double> &XValues = PlotData.Allocate(IndexCount);
 				std::vector<double> &YValues = PlotData.Allocate(IndexCount);
 				
@@ -534,21 +549,21 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 					XValues[Idx] = (double)Idx + 0.5;
 				}
 				
-				Plot.SetXYMin(0.0, 0.0);
-				Plot.SetRange((double)IndexCount, YMax);
-				Plot.SetMajorUnits(1.0);
-				Plot.SetMinUnits(0.5);
+				this->SetXYMin(0.0, 0.0);
+				this->SetRange((double)IndexCount, YMax);
+				this->SetMajorUnits(1.0);
+				this->SetMinUnits(0.5);
 				
-				Plot.cbModifFormatXGridUnits.Clear();
-				Plot.cbModifFormatX.Clear();
-				Plot.cbModifFormatX <<
+				this->cbModifFormatXGridUnits.Clear();
+				this->cbModifFormatX.Clear();
+				this->cbModifFormatX <<
 				[IndexCount, this](String &s, int i, double d)
 				{
 					int Idx = (int)d;
-					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx].data();
+					if(d >= 0 && d < IndexCount) s = ProfileLabels[Idx].data();
 				};
 				
-				TimestepSlider.Enable();
+				
 				ReplotProfile();
 			}
 			else // MajorMode == MajorMode_Profile2D
@@ -588,18 +603,18 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 				
 				SurfData.Init(SurfZ, SurfX, SurfY, TableInterpolate::NO, true);
 
-				Plot.AddSurf(SurfData).ZoomToFitZ();//.Legend(ProfileLegend);
+				this->AddSurf(SurfData).ZoomToFitZ();//.Legend(ProfileLegend);
 				
-				Plot.ZoomToFit(false, true); //Apparently we have to do this before SetMajorUnits, or things get weird.
-				Plot.SetMajorUnits(Null, 1.0);
+				this->ZoomToFit(false, true); //Apparently we have to do this before SetMajorUnits, or things get weird.
+				this->SetMajorUnits(Null, 1.0);
 
-				Plot.cbModifFormatYGridUnits.Clear();
-				Plot.cbModifFormatY.Clear();
-				Plot.cbModifFormatY <<
+				this->cbModifFormatYGridUnits.Clear();
+				this->cbModifFormatY.Clear();
+				this->cbModifFormatY <<
 				[IndexCount, this](String &s, int i, double d)
 				{
 					int Idx = (int)d;
-					if(d >= 0 && d < IndexCount) s = this->ProfileLabels[Idx].data();
+					if(d >= 0 && d < IndexCount) s = ProfileLabels[Idx].data();
 				};
 			}
 		}
@@ -610,7 +625,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		//comparison.
 		if(PlotSetup.SelectedResults.size() > 1 || MultiIndex)
 		{
-			Plot.SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
+			this->SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
 		}
 		else
 		{
@@ -630,10 +645,10 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			ComputeXValues(InputStartTime, BaselineStartTime, BaselineTimesteps, Parent->TimestepSize, BaselineXValues);
 			
 			timeseries_stats Stats = {};
-			Parent->ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size());
-			Parent->DisplayTimeseriesStats(Stats, BS, Unit);
+			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), Parent->StatSettings);
+			DisplayTimeseriesStats(Stats, BS, Unit, Parent->StatSettings, PlotInfo);
 			
-			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, PlotSetup, InputStartTime, BaselineStartTime, Stats.Min, Stats.Max);
+			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, InputStartTime, BaselineStartTime, Parent->TimestepSize, Stats.Min, Stats.Max);
 
 			
 			
@@ -646,10 +661,10 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
 			
 			timeseries_stats Stats2 = {};
-			Parent->ComputeTimeseriesStats(Stats2, Current.data(), Current.size());
-			Parent->DisplayTimeseriesStats(Stats2, CurrentLegend, Unit);
+			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), Parent->StatSettings);
+			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit, Parent->StatSettings, PlotInfo);
 			
-			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, PlotSetup, InputStartTime, ResultStartTime, Stats2.Min, Stats2.Max);
+			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, InputStartTime, ResultStartTime, Parent->TimestepSize, Stats2.Min, Stats2.Max);
 
 			
 			
@@ -669,10 +684,10 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 				
 				timeseries_stats Stats3 = {};
-				Parent->ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size());
-				Parent->DisplayTimeseriesStats(Stats3, InputLegend, Unit);
+				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings);
+				DisplayTimeseriesStats(Stats3, InputLegend, Unit, Parent->StatSettings, PlotInfo);
 				
-				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, PlotSetup, InputStartTime, InputStartTime, Stats3.Min, Stats3.Max);
+				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
 			}
 		}
 		
@@ -684,7 +699,7 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			Plot.SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
+			this->SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
 		}
 		else
 		{
@@ -725,17 +740,17 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ModeledStats = {};
-			Parent->ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps);
-			Parent->DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit);
+			ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps, Parent->StatSettings);
+			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit, Parent->StatSettings, PlotInfo);
 			
 			timeseries_stats ObservedStats = {};
-			Parent->ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps);
-			Parent->DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit);
+			ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps, Parent->StatSettings);
+			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit, Parent->StatSettings, PlotInfo);
 			
 			residual_stats ResidualStats = {};
-			Parent->ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps);
+			ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps);
 			String GOF = "Goodness of fit: ";
-			Parent->DisplayResidualStats(ResidualStats, GOF);
+			DisplayResidualStats(ResidualStats, GOF, Parent->StatSettings, PlotInfo);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{
@@ -748,10 +763,10 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 					ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResidualXValues);
 					
 					double XMean, XVar, XYCovar;
-					Parent->ComputeTrendStats(ResidualXValues + GofOffset, Residuals.data() + GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
+					ComputeTrendStats(ResidualXValues + GofOffset, Residuals.data() + GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
 					
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
-					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, PlotSetup, InputStartTime, ResultStartTime);
+					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, InputStartTime, ResultStartTime, Parent->TimestepSize);
 					
 					NullifyNans(Residuals.data(), Residuals.size());
 					
@@ -768,13 +783,13 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				Parent->ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps);
+				ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, Parent->StatSettings);
 				
 				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
 			}
 			else if(PlotMajorMode == MajorMode_QQ)
 			{
-				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats);
+				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats, Parent->StatSettings);
 				
 				size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
 				
@@ -787,33 +802,33 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		}
 	}
 	
-	Plot.SetGridLinesX.Clear();
+	this->SetGridLinesX.Clear();
 	
-	if(Plot.GetCount() > 0 || (PlotMajorMode == MajorMode_Profile2D && SurfZ.size() > 0))
+	if(this->GetCount() > 0 || (PlotMajorMode == MajorMode_Profile2D && SurfZ.size() > 0))
 	{
 		if(PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram)
 		{
-			Plot.cbModifFormatXGridUnits.Clear();
-			Plot.cbModifFormatX.Clear();
+			this->cbModifFormatXGridUnits.Clear();
+			this->cbModifFormatX.Clear();
 			//NOTE: Histograms require different zooming.
-			Plot.ZoomToFit(true, true);
+			this->ZoomToFit(true, true);
 			PlotWasAutoResized = false;
 			
-			double XRange = Plot.GetXRange();
-			double XMin   = Plot.GetXMin();
+			double XRange = this->GetXRange();
+			double XMin   = this->GetXMin();
 			
 			//NOTE: The auto-resize cuts out half of each outer bar, so we fix that
 			double Stride = XRange / (double)(NBinsHistogram-1);
 			XMin   -= 0.5*Stride;
 			XRange += Stride;
-			Plot.SetXYMin(XMin);
-			Plot.SetRange(XRange);
+			this->SetXYMin(XMin);
+			this->SetRange(XRange);
 			
 			int LineSkip = NBinsHistogram / 30 + 1;
 			
-			Plot.SetGridLinesX << [NBinsHistogram, Stride, LineSkip](Vector<double> &LinesOut)
+			this->SetGridLinesX << [NBinsHistogram, Stride, LineSkip](Vector<double> &LinesOut)
 			{
-				double At = 0.0;//Plot.GetXMin();
+				double At = 0.0;//this->GetXMin();
 				for(int Idx = 0; Idx < NBinsHistogram; ++Idx)
 				{
 					LinesOut << At;
@@ -823,16 +838,16 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		}
 		else if(PlotMajorMode == MajorMode_QQ)
 		{
-			Plot.cbModifFormatXGridUnits.Clear();
-			Plot.cbModifFormatX.Clear();
+			this->cbModifFormatXGridUnits.Clear();
+			this->cbModifFormatX.Clear();
 			//NOTE: Histograms require completely different zooming.
-			Plot.ZoomToFit(true, true);
+			this->ZoomToFit(true, true);
 			PlotWasAutoResized = false;
 			
-			double YRange = Plot.GetYRange();
-			double YMin   = Plot.GetYMin();
-			double XRange = Plot.GetXRange();
-			double XMin   = Plot.GetXMin();
+			double YRange = this->GetYRange();
+			double YMin   = this->GetYMin();
+			double XRange = this->GetXRange();
+			double XMin   = this->GetXMin();
 			
 			//NOTE: Make it so that the extremal points are not on the border
 			double ExtendY = YRange * 0.1;
@@ -842,8 +857,8 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			XRange += 2.0 * ExtendX;
 			XMin -= ExtendX;
 			
-			Plot.SetRange(XRange, YRange);
-			Plot.SetXYMin(XMin, YMin);
+			this->SetRange(XRange, YRange);
+			this->SetXYMin(XMin, YMin);
 		}
 		else if(PlotMajorMode == MajorMode_Profile)
 		{
@@ -851,24 +866,24 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		}
 		else
 		{
-			Plot.cbModifFormatXGridUnits.Clear();
-			Plot.cbModifFormatX.Clear();
-			Plot.ZoomToFit(false, true);
+			this->cbModifFormatXGridUnits.Clear();
+			this->cbModifFormatX.Clear();
+			this->ZoomToFit(false, true);
 			
-			Plot.SetGridLinesX = THISBACK(UpdateDateGridLinesX);
+			this->SetGridLinesX << [this, InputStartTime, Parent](Vector<double> &V){UpdateDateGridLinesX(V, InputStartTime, Parent->TimestepSize);}; //TODO: Reset to THISBACK when appropriate
 			
-			double YRange = Plot.GetYRange();
-			double YMin   = Plot.GetYMin();
+			double YRange = this->GetYRange();
+			double YMin   = this->GetYMin();
 			if(YMin > 0.0)
 			{
 				double NewRange = YRange + YMin;
-				Plot.SetRange(Plot.GetXRange(), NewRange);
-				Plot.SetXYMin(Plot.GetXMin(), 0.0);
+				this->SetRange(this->GetXRange(), NewRange);
+				this->SetXYMin(this->GetXMin(), 0.0);
 			}
 			
 			if(!PlotWasAutoResized)
 			{
-				Plot.ZoomToFit(true, false);
+				this->ZoomToFit(true, false);
 				PlotWasAutoResized = true;
 			}
 			
@@ -879,10 +894,10 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			//NOTE: Format to be displayed at grid lines
 			if(DoStep == 0)
 			{
-				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
+				this->cbModifFormatXGridUnits << [this, MonthNames, InputStartTime](String &s, int i, double d)
 				{
 					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point imprecition unless we do this
-					Time D2 = this->InputStartTime + (int64)dd;
+					Time D2 = InputStartTime + (int64)dd;
 					s << Format("%02d:%02d:%02d", D2.hour, D2.minute, D2.second);
 					if(D2.hour==0 && D2.minute==0 && D2.second==0)
 					{
@@ -897,9 +912,9 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			}
 			else if(DoStep == 1 || DoStep == 2)
 			{
-				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
+				this->cbModifFormatXGridUnits << [this, MonthNames, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					Time D2 = InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s << Format("%02d:%02d", D2.hour, D2.minute);
 					if(D2.hour==0 && D2.minute==0)
 					{
@@ -914,9 +929,9 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			}
 			else if(DoStep == 3)
 			{
-				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
+				this->cbModifFormatXGridUnits << [this, MonthNames, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					Time D2 = InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s << Format("%d.", D2.day);
 					if(D2.day == 1) s << " " << MonthNames[D2.month-1];
 					if(D2.month == 1 && D2.day == 1) s << Format("\n%d", D2.year);
@@ -924,18 +939,18 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			}
 			else if(DoStep == 4)
 			{
-				Plot.cbModifFormatXGridUnits << [this, MonthNames](String &s, int i, double d)
+				this->cbModifFormatXGridUnits << [this, MonthNames, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					Time D2 = InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					if(D2.month == 1) s << Format("%s\n%d", MonthNames[D2.month-1], D2.year);
 					else              s << MonthNames[D2.month-1];
 				};
 			}
 			else if(DoStep == 5)
 			{
-				Plot.cbModifFormatXGridUnits << [this](String &s, int i, double d)
+				this->cbModifFormatXGridUnits << [this, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
+					Time D2 = InputStartTime + (int64)(d + 0.5); //NOTE: The +0.5 is to avoid flickering when panning
 					s = Format("%d", D2.year);
 				};
 			}
@@ -943,51 +958,51 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 			//NOTE: Format to be displayed at popup or data table
 			if(DoStep == 0 || DoStep == 1 || DoStep == 2)
 			{
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				this->cbModifFormatX << [this, InputStartTime](String &s, int i, double d)
 				{
 					double dd = d <= 0.0 ? d - 0.01 : d + 0.01;   //NOTE: For weird reasons we get floating point imprecition unless we do this
-					Time D2 = this->InputStartTime + (int64)dd;
+					Time D2 = InputStartTime + (int64)dd;
 					s = Format(D2);
 				};
 			}
 			else if(DoStep == 3)
 			{
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				this->cbModifFormatX << [this, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5);
+					Time D2 = InputStartTime + (int64)(d + 0.5);
 					Date D3(D2.year, D2.month, D2.day);
 					s = Format(D3);
 				};
 			}
 			else if(DoStep == 4)
 			{
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				this->cbModifFormatX << [this, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5);
+					Time D2 = InputStartTime + (int64)(d + 0.5);
 					s = Format("%d-%d", D2.year, D2.month);
 				};
 			}
 			else if(DoStep == 5)
 			{
-				Plot.cbModifFormatX << [this](String &s, int i, double d)
+				this->cbModifFormatX << [this, InputStartTime](String &s, int i, double d)
 				{
-					Time D2 = this->InputStartTime + (int64)(d + 0.5);
+					Time D2 = InputStartTime + (int64)(d + 0.5);
 					s = Format("%d", D2.year);
 				};
 			}
 		}
 		
-		if(Plot.GetShowLegend() && PlotMajorMode != MajorMode_Profile2D)
+		if(this->GetShowLegend() && PlotMajorMode != MajorMode_Profile2D)
 		{
-			Plot.SetRange(Plot.GetXRange(), Plot.GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
+			this->SetRange(this->GetXRange(), this->GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
 		}
 		
 		if(PlotMajorMode != MajorMode_Profile2D)
 		{
-			Plot.cbModifFormatY.Clear();
-			if(PlotSetup.YAxisMode == YAxis_Logarithmic)
+			this->cbModifFormatY.Clear();
+			if(this->PlotSetup.YAxisMode == YAxis_Logarithmic)
 			{
-				Plot.cbModifFormatY << [](String &s, int i, double d)
+				this->cbModifFormatY << [](String &s, int i, double d)
 				{
 					s = FormatDoubleExp(pow(10., d), 2);
 				};
@@ -999,14 +1014,17 @@ void PlotCtrl::BuildPlot(plot_setup &PlotSetup)
 		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
 	}
 	
-	Size PlotSize = Plot.GetSize();
-	Plot.SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
+	bool AllowScrollX = !(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram);
+	this->SetMouseHandling(AllowScrollX, false);
 	
-	Plot.Refresh();
+	Size PlotSize = this->GetSize();
+	this->SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
+	
+	this->Refresh();
 }
 
 
-int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
+int MyPlot::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
 {
 	std::vector<double> &XValues = PlotData.Allocate(0);
 	std::vector<double> &YValues = PlotData.Allocate(0);
@@ -1058,7 +1076,7 @@ int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 		Color GraphColor = PlotColors.Next();
 		double Darken = 0.4;
 		Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
-		Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
+		this->AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).PlotStyle<BarSeriesPlot>().BarWidth(0.5*Stride).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units("", Unit);
 		
 		return (int)NBins;
 	}
@@ -1070,7 +1088,7 @@ int PlotCtrl::AddHistogram(String &Legend, String &Unit, double *Data, size_t Le
 }
 
 
-void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
+void MyPlot::AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev)
 {
 	std::vector<double> &XValues = PlotData.Allocate(SampleCount);
 	std::vector<double> &YValues = PlotData.Allocate(SampleCount);
@@ -1087,7 +1105,7 @@ void PlotCtrl::AddNormalApproximation(String &Legend, int SampleCount, double Mi
 	}
 	
 	Color GraphColor = PlotColors.Next();
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
+	this->AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
 
@@ -1165,7 +1183,7 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 }
 
 
-void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, const plot_setup &PlotSetup, Time &ReferenceTime, Time &StartTime, double MinY, double MaxY)
+void MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY)
 {
 	int Timesteps = (int)Len;
 	
@@ -1199,7 +1217,7 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 		
 		double Offset = (double)(StartTime - ReferenceTime);
 		
-		Graph = &Plot.AddSeries(XIn, Data, Len);
+		Graph = &this->AddSeries(XIn, Data, Len);
 	}
 	else //Monthly values or yearly values
 	{
@@ -1207,9 +1225,9 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 		std::vector<double> &XValues = PlotData.Allocate(0);
 		std::vector<double> &YValues = PlotData.Allocate(0);
 		
-		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, Parent->TimestepSize, XValues, YValues);
+		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, TimestepSize, XValues, YValues);
 		
-		Graph = &Plot.AddSeries(XValues.data(), YValues.data(), XValues.size());
+		Graph = &this->AddSeries(XValues.data(), YValues.data(), XValues.size());
 	}
 	
 	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
@@ -1221,8 +1239,8 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 			Graph->MarkBorderColor(GraphColor).Stroke(0.0, GraphColor).Opacity(0.5);
 			Graph->MarkStyle<CircleMarkPlot>();
 			
-			int Index = Plot.GetCount()-1;
-			Plot.SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
+			int Index = this->GetCount()-1;
+			this->SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
 		}
 		else
 		{
@@ -1231,64 +1249,13 @@ void PlotCtrl::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, 
 	}
 }
 
-void PlotCtrl::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats)
-{
-	size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
-	
-	std::vector<double> &XValues = PlotData.Allocate(NumPercentiles);
-	std::vector<double> &YValues = PlotData.Allocate(NumPercentiles);
-	
-	QQLabels.Clear();
-	
-	for(size_t Idx = 0; Idx < NumPercentiles; ++Idx)
-	{
-		XValues[Idx] = ModeledStats.Percentiles[Idx];
-		YValues[Idx] = ObservedStats.Percentiles[Idx];
-		QQLabels << Format("%g", Parent->StatSettings.Percentiles[Idx]);
-	}
-	
-	Color GraphColor = PlotColors.Next();
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
-		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
-		
-	Plot.ShowLegend(false);
-	
-	Plot.SetLabels(ModName, ObsName); //TODO: This does not work!
-}
-
-void PlotCtrl::AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor)
-{
-	std::vector<double> &XValues = PlotData.Allocate(2);
-	std::vector<double> &YValues = PlotData.Allocate(2);
-	
-	XValues[0] = X0;
-	XValues[1] = X1;
-	YValues[0] = Y0;
-	YValues[1] = Y1;
-	
-	if(IsNull(GraphColor)) GraphColor = PlotColors.Next();
-	auto& Graph = Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Stroke(1.5, GraphColor).Dash("6 3");
-	if(!IsNull(Legend)) Graph.Legend(Legend);
-	else Graph.ShowSeriesLegend(false);
-}
-
-void PlotCtrl::AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX)
-{
-	double Beta = XYCovar / XVar;
-	double Alpha = YMean - Beta*XMean;
-	
-	double X0 = StartX;
-	double X1 = EndX;
-	double Y0 = Alpha + X0*Beta;
-	double Y1 = Alpha + X1*Beta;
-	
-	AddLine(Legend, X0, X1, Y0, Y1);
-}
-
-void PlotCtrl::AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSets,
-	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, const plot_setup &PlotSetup, uint64 Timesteps,
+void MyPlot::AddPlotRecursive(MobiView *Parent, DocEdit &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
+	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps,
 	Time &ReferenceDate, Time &StartDate, double *XIn)
 {
+	//TODO: We would ideally decouple this from having a MobiView * pointer, but there is so
+	//much that depends on that right now.
+	
 	if(Level == IndexSets.size())
 	{
 		std::vector<char *> Indexes(CurrentIndexes.size());
@@ -1338,10 +1305,10 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSet
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		Parent->ComputeTimeseriesStats(Stats, Dat, Len);
-		Parent->DisplayTimeseriesStats(Stats, Legend, Unit);
+		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings);
+		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo);
 		
-		AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, PlotSetup, ReferenceDate, StartDate, Stats.Min, Stats.Max);
+		AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max);
 		
 		NullifyNans(Dat, Len);
 	}
@@ -1353,26 +1320,83 @@ void PlotCtrl::AddPlotRecursive(std::string &Name, std::vector<char *> &IndexSet
 		for(const std::string &IndexName : PlotSetup.SelectedIndexes[Id])
 		{
 			CurrentIndexes[Level] = IndexName;
-			AddPlotRecursive(Name, IndexSets, CurrentIndexes, Level + 1, IsInput, PlotSetup, Timesteps, ReferenceDate, StartDate, XIn);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, Level + 1, IsInput, Timesteps, ReferenceDate, StartDate, XIn);
 		}
 	}
 }
 
 
-void PlotCtrl::SetBetterGridLinePositions(int Dim)
+
+
+void MyPlot::AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings)
+{
+	size_t NumPercentiles = StatSettings.Percentiles.size();
+	
+	std::vector<double> &XValues = PlotData.Allocate(NumPercentiles);
+	std::vector<double> &YValues = PlotData.Allocate(NumPercentiles);
+	
+	QQLabels.Clear();
+	
+	for(size_t Idx = 0; Idx < NumPercentiles; ++Idx)
+	{
+		XValues[Idx] = ModeledStats.Percentiles[Idx];
+		YValues[Idx] = ObservedStats.Percentiles[Idx];
+		QQLabels << Format("%g", StatSettings.Percentiles[Idx]);
+	}
+	
+	Color GraphColor = PlotColors.Next();
+	this->AddSeries(XValues.data(), YValues.data(), XValues.size()).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("").Units(ModUnit, ModUnit)
+		.AddLabelSeries(QQLabels, 10, 0, StdFont().Height(15), ALIGN_CENTER);
+		
+	this->ShowLegend(false);
+	
+	this->SetLabels(ModName, ObsName); //TODO: This does not work!
+}
+
+void MyPlot::AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor)
+{
+	std::vector<double> &XValues = PlotData.Allocate(2);
+	std::vector<double> &YValues = PlotData.Allocate(2);
+	
+	XValues[0] = X0;
+	XValues[1] = X1;
+	YValues[0] = Y0;
+	YValues[1] = Y1;
+	
+	if(IsNull(GraphColor)) GraphColor = PlotColors.Next();
+	auto& Graph = this->AddSeries(XValues.data(), YValues.data(), XValues.size()).NoMark().Stroke(1.5, GraphColor).Dash("6 3");
+	if(!IsNull(Legend)) Graph.Legend(Legend);
+	else Graph.ShowSeriesLegend(false);
+}
+
+void MyPlot::AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX)
+{
+	double Beta = XYCovar / XVar;
+	double Alpha = YMean - Beta*XMean;
+	
+	double X0 = StartX;
+	double X1 = EndX;
+	double Y0 = Alpha + X0*Beta;
+	double Y1 = Alpha + X1*Beta;
+	
+	AddLine(Legend, X0, X1, Y0, Y1);
+}
+
+
+void MyPlot::SetBetterGridLinePositions(int Dim)
 {
 	double Min;
 	double Range;
 	
 	if(Dim == 0)
 	{
-		Min = Plot.GetXMin();
-		Range = Plot.GetXRange();
+		Min = this->GetXMin();
+		Range = this->GetXRange();
 	}
 	else
 	{
-		Min = Plot.GetYMin();
-		Range = Plot.GetYRange();
+		Min = this->GetYMin();
+		Range = this->GetYRange();
 	}
 	
 	double LogRange = std::log10(Range);
@@ -1390,17 +1414,17 @@ void PlotCtrl::SetBetterGridLinePositions(int Dim)
 	Min = std::floor(Min / Stride)*Stride;
 	int Count = (int)std::ceil(Range / Stride);
 	
-	//Plot.SetMinUnits(Null, Min);  //We would prefer to do this, but for some reason it works
+	//MainPlot.SetMinUnits(Null, Min);  //We would prefer to do this, but for some reason it works
 	//poorly when there are negative values...
 	if(Dim == 0)
 	{
-		Plot.SetXYMin(Min, Null);
-		Plot.SetMajorUnits(Stride, Null);
+		this->SetXYMin(Min, Null);
+		this->SetMajorUnits(Stride, Null);
 	}
 	else
 	{
-		Plot.SetXYMin(Null, Min);
-		Plot.SetMajorUnits(Null, Stride);
+		this->SetXYMin(Null, Min);
+		this->SetMajorUnits(Null, Stride);
 	}
 }
 
@@ -1442,7 +1466,7 @@ int RoundStep24(int Step)
 }
 
 
-void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
+void MyPlot::UpdateDateGridLinesX(Vector<double> &LinesOut, Time InputStartTime, timestep_size TimestepSize)
 {
 	//InputStartTime  corresponds to  X=0. X resolution is always measured in seconds
 	
@@ -1451,16 +1475,16 @@ void PlotCtrl::UpdateDateGridLinesX(Vector<double> &LinesOut)
 	
 	int DesiredGridLineNum = 10;  //TODO: Make it sensitive to plot size
 	
-	double XMin = Plot.GetXMin();
-	double XRange = Plot.GetXRange();
+	double XMin = this->GetXMin();
+	double XRange = this->GetXRange();
 	
 	Time FirstTime = InputStartTime + (int64)XMin;
 	Time LastTime  = FirstTime + (int64)XRange;
 	
 	//NOTE: DoStep denotes the unit that we try to use for spacing the grid lines. 0=seconds, 1=minutes, 2=hours, 3=days,
 	//4=months, 5=years
-	int DoStep = GetSmallestStepResolution(CurrentPlotSetup.AggregationPeriod, Parent->TimestepSize);
-	
+	int DoStep = GetSmallestStepResolution(PlotSetup.AggregationPeriod, TimestepSize);
+
 	if(DoStep==0)    //Seconds
 	{
 		int64 SecondRange = (LastTime - FirstTime);
@@ -1641,7 +1665,7 @@ void PlotCtrl::TimestepSliderEvent()
 	
 	// Recompute the displayed date in the "TimestepEdit" based on the new position of the
 	// slider.
-	aggregation_period IntervalType = CurrentPlotSetup.AggregationPeriod;
+	aggregation_period IntervalType = MainPlot.PlotSetup.AggregationPeriod;
 	if(IntervalType == Aggregation_None)
 	{
 		AdvanceTimesteps(NewTime, Timestep, Parent->TimestepSize);
@@ -1659,48 +1683,57 @@ void PlotCtrl::TimestepSliderEvent()
 	}
 	TimestepEdit.SetData(NewTime);
 	
-	
-	ReplotProfile();
+	MainPlot.PlotSetup.ProfileTimestep = Timestep;
+	MainPlot.ReplotProfile();
 }
 
 void PlotCtrl::TimestepEditEvent()
 {
-	//NOTE: This can only happen if we are in daily mode since the edit is disabled otherwise.
+	//NOTE: This can only happen if we are in non-aggregated mode since the edit is disabled otherwise.
 	//If this changes, this code has to be rethought.
-	
-	//TODO: Fix this again later!!!
 	
 	Time CurrentTime = TimestepEdit.GetData();
 	int Timestep = TimestepsBetween(ProfileDisplayTime, CurrentTime, Parent->TimestepSize);
 	TimestepSlider.SetData(Timestep);
-	ReplotProfile();
+	
+	MainPlot.PlotSetup.ProfileTimestep = Timestep;
+	MainPlot.ReplotProfile();
 }
 
 
-void PlotCtrl::ReplotProfile()
+void MyPlot::ReplotProfile()
 {
-	Plot.RemoveAllSeries();
-	
-	int Timestep = TimestepSlider.GetData();
+	this->RemoveAllSeries();
 	
 	std::vector<double> &XValues = PlotData.Data[ProfileIndexesCount];
 	std::vector<double> &YValues = PlotData.Data[ProfileIndexesCount+1];
 	
 	for(size_t Idx = 0; Idx < ProfileIndexesCount; ++Idx)
 	{
-		YValues[Idx] = PlotData.Data[Idx][Timestep];
+		YValues[Idx] = PlotData.Data[Idx][PlotSetup.ProfileTimestep];
 	}
 	
 	Color &GraphColor = PlotColors.PlotColors[0];
 	double Darken = 0.4;
 	Color BorderColor((int)(((double)GraphColor.GetR())*Darken), (int)(((double)GraphColor.GetG())*Darken), (int)(((double)GraphColor.GetB())*Darken));
-	Plot.AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
+	this->AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(ProfileLegend).PlotStyle<BarSeriesPlot>().BarWidth(0.5).NoMark().Fill(GraphColor).Stroke(1.0, BorderColor).Units(ProfileUnit);
 	
-	Plot.SetLabelX(" ");
-	Plot.SetLabelY(" ");
+	this->SetLabelX(" ");
+	this->SetLabelY(" ");
 	
-	Plot.Refresh();
+	this->Refresh();
 }
+
+
+void MyPlot::ClearAll()
+{
+	this->RemoveAllSeries();
+	this->RemoveSurf();
+	PlotData.Clear();
+	PlotWasAutoResized = false;
+}
+
+
 
 void NullifyNans(double *Data, size_t Len)
 {
