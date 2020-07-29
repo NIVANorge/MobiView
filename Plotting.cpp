@@ -592,9 +592,8 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 					++IdxIdx;
 					
 					free(Data);
-					
-					SurfY << (double)IdxIdx;
 				}
+				SurfY << (double)IdxIdx;
 				
 				double *XValues = PlotData.Allocate(Timesteps+1).data();
 				ComputeXValues(InputStartTime, CurrentStartTime, Timesteps+1, Parent->TimestepSize, XValues);
