@@ -105,8 +105,8 @@ LAYOUT(AdditionalPlotViewLayout, 408, 320)
 END_LAYOUT
 
 LAYOUT(MiniPlotLayout, 436, 100)
-	ITEM(MyPlot, Plot, HSizePosZ(0, 176).VSizePosZ(0, 16))
-	ITEM(DocEdit, PlotInfo, RightPosZ(0, 176).VSizePosZ(0, 0))
-	ITEM(Button, CopyMain, SetLabel(t_("<")).RightPosZ(176, 16).BottomPosZ(1, 15))
+	ITEM(MyPlot, Plot, HSizePosZ(0, 176).VSizePosZ(0, 0))
+	ITEM(DocEdit, PlotInfo, RightPosZ(0, 176).VSizePosZ(0, 16))
+	ITEM(Button, CopyMain, SetLabel(t_("fetch")).RightPosZ(144, 32).BottomPosZ(1, 15))
 END_LAYOUT
 

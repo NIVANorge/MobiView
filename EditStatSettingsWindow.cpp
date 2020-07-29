@@ -61,7 +61,7 @@ void EditStatSettingsWindow::SaveDataAndClose()
 		Stat.Percentiles = Percentiles;
 		
 		Close();
-		ParentWindow->Plotter.RePlot(); // To reflect the new settings!
+		ParentWindow->PlotRebuild(); // To reflect the new settings!
 	}
 	else
 	{

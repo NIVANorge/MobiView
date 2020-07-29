@@ -295,6 +295,13 @@ MobiView::MobiView() : Plotter(this)
 		ChangeIndexes.SetRect(0, 0, (int)IdxEditWindowDim[0], (int)IdxEditWindowDim[1]);
 	}
 	
+	Value AdditionalPlotViewDim = SettingsJson["Additional plot view dimensions"];
+	if(AdditionalPlotViewDim.GetCount() == 2 && (int)AdditionalPlotViewDim[0] > 0 && (int)AdditionalPlotViewDim[1] > 0)
+	{
+		OtherPlots.SetRect(0, 0, (int)AdditionalPlotViewDim[0], (int)AdditionalPlotViewDim[1]);
+	}
+	
+	
 	
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
@@ -477,6 +484,9 @@ void MobiView::StoreSettings()
 	IdxEditWindowDim << ChangeIndexes.GetSize().cx << ChangeIndexes.GetSize().cy;
 	SettingsJson("Index set editor window dimensions", IdxEditWindowDim);
 	
+	JsonArray AdditionalPlotViewDim;
+	AdditionalPlotViewDim << OtherPlots.GetSize().cx << OtherPlots.GetSize().cy;
+	SettingsJson("Additional plot view dimensions", AdditionalPlotViewDim);
 	
 	
 	Json Statistics;
