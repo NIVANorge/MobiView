@@ -11,7 +11,6 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 
 ### Needed improvements (TODO list):
 - Make plot aggregations for minute, hour, day available for models with a timestep size where this makes sense.
-- More goodness of fit stats (?), though we do have quite a lot of them now.
 
 Optional:
 - Equation search similar to parameter search?
