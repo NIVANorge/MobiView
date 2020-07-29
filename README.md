@@ -10,13 +10,12 @@ MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library
 
 
 ### Needed improvements (TODO list):
-- Allow opening separate windows with multiple plots side by side (with locked x-axises)
 - Make plot aggregations for minute, hour, day available for models with a timestep size where this makes sense.
 - More goodness of fit stats (?), though we do have quite a lot of them now.
 
 Optional:
 - Equation search similar to parameter search?
-- Have model-specific plot setups similar to the old INCAs, where for instance for INCA-P there is a simple button to open a new window with a bar plot summary of e.g. all the phosphorous processes in land. This would save a few clicks for people who are always going to be looking at very specific plot setups, and it can be useful to look at multiple plots at once.
+- Allow saving various plot setups per model that can quickly be loaded in the AdditionalPlotView window.
 - Do the model run in a separate thread, so that the GUI does not freeze during a model run, and so that you could potentially kill the model run if it seems to have encountered unrealistic values (or NaNs) and thus is taking too long. But this is tricky as it would require locking down the dataset (or running a copy of it and then writing back the results to the original one when it is done).
 - Inbuilt autocalibration tools.
 
