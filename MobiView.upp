@@ -14,7 +14,6 @@ file
 	Plotting.cpp,
 	StarOption.cpp,
 	StarOption.h,
-	MobiView.iml,
 	StructureViewWindow.cpp,
 	ChangeIndexesWindow.cpp,
 	SetStatSettings.h,
@@ -24,6 +23,7 @@ file
 	AdditionalPlotView.cpp,
 	MobiView.lay,
 	Info.rc,
+	MobiView.iml,
 	star.iml,
 	images.iml;
 

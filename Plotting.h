@@ -1,7 +1,7 @@
 #ifndef _MobiView_PlotDataStorage_h_
 #define _MobiView_PlotDataStorage_h_
 
-//NOTE: This has to match up to the major mode selector.
+//NOTE: This has to match up to the aggregation selector.
 enum plot_major_mode
 {
 	MajorMode_Regular = 0,
@@ -30,6 +30,7 @@ enum aggregation_period
 	Aggregation_Yearly,
 };
 
+//NOTE: This has to match up to the y axis mode selector.
 enum y_axis_mode
 {
 	YAxis_Regular = 0,
@@ -37,8 +38,6 @@ enum y_axis_mode
 	YAxis_Logarithmic,
 };
 
-//const size_t NUM_PERCENTILES = 7;
-//const double PERCENTILES[NUM_PERCENTILES] = {0.05, 0.15, 0.25, 0.5, 0.75, 0.85, 0.95};
 
 struct timeseries_stats
 {

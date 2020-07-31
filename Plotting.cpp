@@ -712,7 +712,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 			if(IsNull(GofStartTime) || !GofStartTime.IsValid()  || GofStartTime < ResultStartTime   || GofStartTime > ResultEndTime)                                GofStartTime = ResultStartTime;
 			if(IsNull(GofEndTime)   || !GofEndTime.IsValid()    || GofEndTime   < ResultStartTime   || GofEndTime   > ResultEndTime || GofEndTime < GofStartTime)   GofEndTime   = ResultEndTime;
 			
-			//TODO! Make sure these become correct!!
 			//TODO! Should probably ensure that GofStartTime matches an exact timestep.
 			
 			int64 GofTimesteps = TimestepsBetween(GofStartTime, GofEndTime, Parent->TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.

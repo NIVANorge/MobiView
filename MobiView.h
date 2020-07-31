@@ -166,13 +166,20 @@ public:
 	
 	MobiView *ParentWindow;
 	
-	void NumRowsChanged();
+	void NumRowsChanged(bool Rebuild = true);
 	void UpdateLinkStatus();
+	
+	void WriteToJson();
+	void LoadFromJson();
 	
 private:
 	Splitter VerticalSplitter;
 	
 	MiniPlot Plots[MAX_ADDITIONAL_PLOTS];
+	
+	ToolBar Tool;
+	
+	void SubBar(Bar &bar);
 };
 
 
