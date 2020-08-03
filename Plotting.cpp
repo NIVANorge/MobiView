@@ -181,6 +181,53 @@ void PlotCtrl::GatherCurrentPlotSetup(plot_setup &C)
 }
 
 
+void PlotCtrl::SetMainPlotSetup(plot_setup &C)
+{
+	//MainPlot.PlotSetup = C;  //NOTE: Not necessary, since it will then be regathered
+	//automatically.
+	
+	PlotMajorMode.SetData((int)C.MajorMode);
+	ScatterInputs.SetData((int)C.ScatterInputs);
+	YAxisMode.SetData((int)C.YAxisMode);
+	TimeIntervals.SetData((int)C.AggregationPeriod);
+	Aggregation.SetData((int)C.AggregationType);
+	TimestepSlider.SetData((int)C.ProfileTimestep);
+	
+	for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
+	{
+		EIndexList[IndexSet]->ClearSelection(false);
+		int RowCount = EIndexList[IndexSet]->GetCount();
+		for(int Row = 0; Row < RowCount; ++Row)
+		{
+			std::string Index = EIndexList[IndexSet]->Get(Row, 0).ToString().ToStd();
+			if(std::find(C.SelectedIndexes[IndexSet].begin(), C.SelectedIndexes[IndexSet].end(), Index) != C.SelectedIndexes[IndexSet].end())
+				EIndexList[IndexSet]->Select(Row);
+		}
+	}
+	
+	Parent->EquationSelecter.ClearSelection(false);
+	int ERowCount = Parent->EquationSelecter.GetCount();
+	for(int Row = 0; Row < ERowCount; ++Row)
+	{
+		std::string Equation = Parent->EquationSelecter.Get(Row, 0).ToString().ToStd();
+		if(std::find(C.SelectedResults.begin(), C.SelectedResults.end(), Equation) != C.SelectedResults.end())
+			Parent->EquationSelecter.Select(Row);
+	}
+	
+	Parent->InputSelecter.ClearSelection(false);
+	int IRowCount = Parent->InputSelecter.GetCount();
+	for(int Row = 0; Row < IRowCount; ++Row)
+	{
+		std::string Input = Parent->InputSelecter.Get(Row, 0).ToString().ToStd();
+		if(std::find(C.SelectedInputs.begin(), C.SelectedInputs.end(), Input) != C.SelectedInputs.end())
+			Parent->InputSelecter.Select(Row);
+	}
+	
+	
+	PlotModeChange();
+}
+
+
 void PlotCtrl::PlotModeChange()
 {
 	

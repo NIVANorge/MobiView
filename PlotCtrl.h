@@ -16,6 +16,7 @@ public:
 	void TimestepEditEvent();
 	
 	void GatherCurrentPlotSetup(plot_setup &PlotSetup);
+	void SetMainPlotSetup(plot_setup &PlotSetup);
 	
 	ArrayCtrl *EIndexList[MAX_INDEX_SETS];
 	

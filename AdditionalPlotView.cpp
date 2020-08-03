@@ -37,6 +37,10 @@ AdditionalPlotView::AdditionalPlotView()
 	for(int Row = 0; Row < MAX_ADDITIONAL_PLOTS; ++Row)
 	{
 		Plots[Row].CopyMain.WhenPush << [this, Row](){ CopyMainPlot(Row); };
+		Plots[Row].PushMain.WhenPush << [this, Row](){
+			this->ParentWindow->Plotter.SetMainPlotSetup(Plots[Row].Plot.PlotSetup);
+		};
+		
 		
 		Plots[Row].PlotInfo.SetEditable(false);
 		Plots[Row].PlotInfo.SetColor(TextCtrl::PAPER_READONLY, Plots[Row].PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
