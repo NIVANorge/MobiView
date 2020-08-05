@@ -231,8 +231,7 @@ void PlotCtrl::SetMainPlotSetup(plot_setup &C)
 void PlotCtrl::PlotModeChange()
 {
 	
-	//TODO: This is called twice on every selection of an input or equation. We should maybe find a way to guard
-	//against doing all the work when the state has not changed. But that is tricky..
+	if(Parent->DataSet==0 || !Parent->ModelDll.IsLoaded()) return;
 	
 	GatherCurrentPlotSetup(MainPlot.PlotSetup);
 	
@@ -342,14 +341,37 @@ void PlotCtrl::RePlot()
 
 void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo)
 {
-	if(PlotSetup.SelectedIndexes.size() == 0) return;
-	
 	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
 	//specifics that we need. However, it is a little tricky to let go of that dependency.
 	
 	//TODO: We should really really remove the Control from here...
 	
-	if(!Parent->ModelDll.IsLoaded()) return;
+	if(Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
+	{
+		this->SetTitle("Unable to generate a plot since no model is loaded");
+		return;
+	}
+	
+	if(PlotSetup.SelectedIndexes.size() == 0) return;
+	
+	for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
+	{
+		if(PlotSetup.SelectedIndexes[IndexSet].size() == 0 && PlotSetup.IndexSetIsActive[IndexSet])
+		{
+			this->SetTitle("At least one index has to be set for each of the active index sets");
+			return;
+		}
+	}
+	
+	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
+	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
+	
+	//NOTE: To avoid a crash. However, we should maybe allow plotting inputs? Would complicate the code though
+	if(PlotSetup.SelectedResults.size() > 0 && ResultTimesteps == 0)
+	{
+		this->SetTitle("Unable to generate a plot since the model has not been run");
+		return;
+	}
 	
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
@@ -389,10 +411,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 	Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeStr);
 	Time InputStartTime;
 	StrToTime(InputStartTime, TimeStr);
-	
-	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
-	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
-	
+
 	int NBinsHistogram = 0;
 	
 	int TimeseriesCount = PlotSetup.SelectedInputs.size() + PlotSetup.SelectedResults.size();

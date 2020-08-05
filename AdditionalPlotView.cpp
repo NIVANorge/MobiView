@@ -127,6 +127,7 @@ void SerializePlotSetup(Json &SetupJson, plot_setup &Setup)
 	SetupJson("AggregationPeriod", (int)Setup.AggregationPeriod);
 	SetupJson("YAxisMode", (int)Setup.YAxisMode);
 	SetupJson("ProfileTimestep", Setup.ProfileTimestep);
+	SetupJson("ScatterInputs", Setup.ScatterInputs);
 	
 	JsonArray ResultArr;
 	for(std::string &R : Setup.SelectedResults)
