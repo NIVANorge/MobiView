@@ -38,6 +38,7 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(SetIndexes);
 	LoadProcedure(SetBranchIndexes);
 	LoadProcedure(EncounteredError);
+	LoadProcedure(EncounteredWarning);
 	LoadProcedure(GetModelName);
 	LoadProcedure(RunModel);
 	LoadProcedure(CopyDataSet);
