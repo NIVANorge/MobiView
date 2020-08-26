@@ -272,11 +272,12 @@ public:
 	void GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row);
 
 	
-	void RefreshParameterView();
-	void RefreshParameterViewValues();
+	void ExpandIndexSetClicked(size_t IndexSet);
+	void RefreshParameterView(bool RefreshValuesOnly = false);
+	//void RefreshParameterViewValues();
 	
-	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, int Col, bool EditAsRow);
-	void ParameterEditAccepted(int Row, int Col, bool EditAsRow);
+	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal);
+	void ParameterEditAccepted(int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal);
 	
 	
 	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
@@ -297,6 +298,7 @@ public:
 	Label     *IndexSetName[MAX_INDEX_SETS]; //TODO: Allow dynamic amount of index sets, not just 6. But how?
 	DropList  *IndexList[MAX_INDEX_SETS];
 	Option    *IndexLock[MAX_INDEX_SETS];
+	Option    *IndexExpand[MAX_INDEX_SETS];
 	
 	std::map<std::string, size_t> IndexSetNameToId;
 	

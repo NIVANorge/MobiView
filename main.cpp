@@ -140,7 +140,7 @@ MobiView::MobiView() : Plotter(this)
 	
 	Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
-	ParameterGroupSelecter.WhenSel = THISBACK(RefreshParameterView);
+	ParameterGroupSelecter.WhenSel << [this](){ RefreshParameterView(false); };
 	
 	IndexSetName[0] = &Params.IndexSetName1;
 	IndexSetName[1] = &Params.IndexSetName2;
@@ -163,14 +163,23 @@ MobiView::MobiView() : Plotter(this)
 	IndexLock[4]    = &Params.IndexLock5;
 	IndexLock[5]    = &Params.IndexLock6;
 	
+	IndexExpand[0]    = &Params.IndexExpand1;
+	IndexExpand[1]    = &Params.IndexExpand2;
+	IndexExpand[2]    = &Params.IndexExpand3;
+	IndexExpand[3]    = &Params.IndexExpand4;
+	IndexExpand[4]    = &Params.IndexExpand5;
+	IndexExpand[5]    = &Params.IndexExpand6;
+	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		IndexSetName[Idx]->Hide();
 		IndexList[Idx]->Hide();
 		IndexList[Idx]->Disable();
-		IndexList[Idx]->WhenAction = THISBACK(RefreshParameterView);
+		IndexList[Idx]->WhenAction << [this](){ RefreshParameterView(false); };
 		
 		IndexLock[Idx]->Hide();
+		IndexExpand[Idx]->Hide();
+		IndexExpand[Idx]->WhenAction << [this, Idx](){ ExpandIndexSetClicked(Idx); };
 	}
 	
 	SetDateFormat("%d-%02d-%02d");
@@ -534,6 +543,7 @@ void MobiView::CleanInterface()
 		Plotter.EIndexList[Idx]->Clear();
 		Plotter.EIndexList[Idx]->Hide();
 		IndexLock[Idx]->Hide();
+		IndexExpand[Idx]->Hide();
 		IndexSetName[Idx]->Hide();
 	}
 	
@@ -711,6 +721,7 @@ void MobiView::BuildInterface()
 	for(size_t IndexSet = 0; IndexSet < IndexSetCount; ++IndexSet)
 	{
 		IndexLock[IndexSet]->Show();
+		IndexExpand[IndexSet]->Show();
 		
 		const char *Name = IndexSets[IndexSet];
 		
@@ -886,7 +897,7 @@ void MobiView::RunModel()
 	
 	PlotRebuild(); //NOTE: Refresh the plot if necessary since the data can have changed after a new run.
 	
-	RefreshParameterViewValues(); //NOTE: In case there are computed parameters that are displayed.
+	RefreshParameterView(true); //NOTE: In case there are computed parameters that are displayed, we need to refresh their values in the view
 	
 	if(!Error) Log(String("Model was run.\nDuration: ") << Ms << " ms.");
 }
