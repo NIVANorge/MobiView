@@ -100,12 +100,12 @@ void AdditionalPlotView::CopyMainPlot(int Which)
 	UpdateLinkStatus();
 }
 
-void AdditionalPlotView::BuildAll()
+void AdditionalPlotView::BuildAll(bool CausedByReRun)
 {
 	int NRows = EditNumRows.GetData();
 	for(int Row = 0; Row < NRows; ++Row)
 	{
-		Plots[Row].Plot.BuildPlot(ParentWindow, nullptr, false, Plots[Row].PlotInfo);
+		Plots[Row].Plot.BuildPlot(ParentWindow, nullptr, false, Plots[Row].PlotInfo, CausedByReRun);
 	}
 	UpdateLinkStatus();
 }

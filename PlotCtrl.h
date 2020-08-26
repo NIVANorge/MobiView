@@ -10,7 +10,7 @@ public:
 	
 	void PlotModeChange();
 	
-	void RePlot();
+	void RePlot(bool CausedByReRun = false);
 	
 	void TimestepSliderEvent();
 	void TimestepEditEvent();
@@ -26,8 +26,6 @@ public:
 private:
 	
 	MobiView *Parent;
-	
-	
 };
 
 #endif

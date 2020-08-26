@@ -161,7 +161,7 @@ public:
 	
 	void CopyMainPlot(int Which);
 	
-	void BuildAll();
+	void BuildAll(bool CausedByReRun = false);
 	void ClearAll();
 	
 	MobiView *ParentWindow;

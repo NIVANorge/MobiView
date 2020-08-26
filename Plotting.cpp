@@ -24,7 +24,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	{
 		EIndexList[Idx]->Hide();
 		EIndexList[Idx]->Disable();
-		EIndexList[Idx]->WhenSel = THISBACK(RePlot);
+		EIndexList[Idx]->WhenSel << [this](){ RePlot(); };
 		EIndexList[Idx]->MultiSelect();
 
 		EIndexList[Idx]->AddColumn("(no name)");
@@ -331,15 +331,15 @@ void PlotCtrl::PlotModeChange()
 
 
 
-void PlotCtrl::RePlot()
+void PlotCtrl::RePlot(bool CausedByReRun)
 {
 	//NOTE: This is to allow for expansion with multiple plots later
 	GatherCurrentPlotSetup(MainPlot.PlotSetup);
-	MainPlot.BuildPlot(Parent, this, true, Parent->PlotInfo);
+	MainPlot.BuildPlot(Parent, this, true, Parent->PlotInfo, CausedByReRun);
 }
 
 
-void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo)
+void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo, bool CausedByReRun)
 {
 	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
 	//specifics that we need. However, it is a little tricky to let go of that dependency.
@@ -814,7 +814,13 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 			residual_stats ResidualStats = {};
 			ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps);
 			String GOF = "Goodness of fit: ";
-			DisplayResidualStats(ResidualStats, GOF, Parent->StatSettings, PlotInfo);
+			
+			if(!CausedByReRun) CachedStats.WasInitialized = false;
+			
+			DisplayResidualStats(ResidualStats, CachedStats, GOF, Parent->StatSettings, PlotInfo);
+			
+			CachedStats = ResidualStats;
+			CachedStats.WasInitialized = true;
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{

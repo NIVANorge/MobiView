@@ -23,20 +23,34 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	PlotInfo.SetCursor(INT64_MAX);
 }
 
-void DisplayResidualStats(residual_stats &Stats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
+void DisplayStat(String ValName, double ValOld, double ValNow, bool DisplayChange, String &Display)
+{
+	Display << ValName << ": " << FormatDouble(ValNow, 5);
+	if(DisplayChange && ValOld != ValNow)
+	{
+		Display << "             (";
+		if(ValNow > ValOld)
+			Display << "+";
+		Display << FormatDouble(ValNow - ValOld, 5) << ")";
+	}
+	Display << "\n";
+}
+
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
 {
 	String Display = Name;
 	
 	Display << "\n";
-	if(StatSettings.DisplayMeanError) Display << "Mean error (bias): "  << FormatDouble(Stats.MeanError, 5) << "\n";
-	if(StatSettings.DisplayMAE)       Display << "MAE: "                << FormatDouble(Stats.MeanAbsoluteError, 5) << "\n";
-	if(StatSettings.DisplayRMSE)      Display << "RMSE: "               << FormatDouble(Stats.RootMeanSquareError, 5) << "\n";
-	if(StatSettings.DisplayNS)        Display << "N-S: "                << FormatDouble(Stats.NashSutcliffe, 5) << "\n";
-	if(StatSettings.DisplayLogNS)     Display << "log N-S: "            << FormatDouble(Stats.LogNashSutcliffe, 5) << "\n";
-	if(StatSettings.DisplayR2)        Display << "r2: "                 << FormatDouble(Stats.R2, 5) << "\n";
-	if(StatSettings.DisplayIdxAgr)    Display << "Idx. of agr.: "       << FormatDouble(Stats.IndexOfAgreement, 5) << "\n";
-	if(StatSettings.DisplayKGE)       Display << "KGE: "                << FormatDouble(Stats.KlingGuptaEfficiency, 5) << "\n";
-	if(StatSettings.DisplaySRCC)      Display << "Spearman's RCC: "     << FormatDouble(Stats.SpearmansRCC, 5) << "\n";
+	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayNS)        DisplayStat("N-S",               CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayR2)        DisplayStat("r2",                CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display);
+	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display);
+
 	Display << "common data points: " << Stats.DataPoints << "\n";
 	Display << "\n";
 	

@@ -66,6 +66,8 @@ struct residual_stats
 	double KlingGuptaEfficiency;
 	double SpearmansRCC;
 	size_t DataPoints;
+	
+	bool WasInitialized = false;
 };
 
 struct StatisticsSettings
@@ -175,7 +177,7 @@ void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, d
 
 
 void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
-void DisplayResidualStats(residual_stats &Stats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
 
 class PlotCtrl;
 
@@ -185,7 +187,7 @@ public:
 	
 	MyPlot();
 	
-	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo);
+	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo, bool CausedByReRun = false);
 	
 	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
@@ -227,6 +229,8 @@ private:
 	Vector<double> SurfY;
 	Vector<double> SurfZ;
 	TableDataVector SurfData;
+	
+	residual_stats CachedStats;
 };
 
 

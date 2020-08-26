@@ -335,10 +335,10 @@ void MobiView::PlotModeChange()
 
 void MobiView::PlotRebuild()
 {
-	Plotter.RePlot();
+	Plotter.RePlot(true);
 	if(OtherPlots.IsOpen())
 	{
-		OtherPlots.BuildAll();
+		OtherPlots.BuildAll(true);
 	}
 }
 
