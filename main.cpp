@@ -69,12 +69,14 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
-	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Add(IconImg::ViewMorePlots(), THISBACK(OpenAdditionalPlotView)).Tip("Open additional plot view");
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings)");
+	bar.Separator();
+	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
+	bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
 }
 
 MobiView::MobiView() : Plotter(this)
@@ -324,6 +326,7 @@ MobiView::MobiView() : Plotter(this)
 	ChangeIndexes.Branches.ParentWindow = this;
 	EditStatSettings.ParentWindow = this;
 	OtherPlots.ParentWindow = this;
+	ModelInfo.ParentWindow = this;
 }
 
 
@@ -388,6 +391,15 @@ void MobiView::OpenStructureView()
 	{
 		StructureView.RefreshText();
 		StructureView.Open();
+	}
+}
+
+void MobiView::OpenModelInfoView()
+{
+	if(!ModelInfo.IsOpen())
+	{
+		ModelInfo.RefreshText();
+		ModelInfo.Open();
 	}
 }
 

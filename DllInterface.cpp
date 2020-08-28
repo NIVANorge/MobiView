@@ -80,6 +80,7 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(GetAllParameterGroups);
 	LoadProcedure(GetAllModulesCount);
 	LoadProcedure(GetAllModules);
+	LoadProcedure(GetModuleDescription);
 	LoadProcedure(GetAllParametersCount);
 	LoadProcedure(GetAllParameters);
 	LoadProcedure(GetAllResultsCount);

@@ -70,6 +70,7 @@ typedef uint64 (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const c
 typedef void   (__cdecl *GetAllParameterGroups_t)(void *DataSetPtr, char **NamesOut, const char *ModuleName);
 typedef uint64 (__cdecl *GetAllModulesCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllModules_t)(void *DataSetPtr, char **NamesOut, char **VersionsOut);
+typedef const char * (__cdecl *GetModuleDescription_t)(void *DataSetPtr, const char *ModuleName);
 typedef uint64 (__cdecl *GetAllParametersCount_t)(void *DataSetPtr, const char *GroupName);
 typedef void   (__cdecl *GetAllParameters_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *GroupName);
 typedef uint64 (__cdecl *GetAllResultsCount_t)(void *DataSetPtr, const char *ModuleName);
@@ -133,6 +134,7 @@ struct model_dll_interface
 	GetAllParameterGroups_t GetAllParameterGroups;
 	GetAllModulesCount_t    GetAllModulesCount;
 	GetAllModules_t         GetAllModules;
+	GetModuleDescription_t  GetModuleDescription;
 	GetAllParametersCount_t GetAllParametersCount;
 	GetAllParameters_t   GetAllParameters;
 	GetAllResultsCount_t GetAllResultsCount;

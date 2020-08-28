@@ -97,6 +97,17 @@ public:
 	void RefreshText();
 };
 
+class ModelInfoViewWindow : public WithModelInfoLayout<TopWindow> {
+public:
+	typedef ModelInfoViewWindow CLASSNAME;
+	
+	ModelInfoViewWindow();
+	
+	MobiView *ParentWindow;
+	
+	void RefreshText();
+};
+
 class EditStatSettingsWindow : public WithEditStatSettingsLayout<TopWindow> {
 public:
 	typedef EditStatSettingsWindow CLASSNAME;
@@ -253,6 +264,10 @@ public:
 	
 	void OpenAdditionalPlotView();
 	AdditionalPlotView OtherPlots;
+	
+	void OpenModelInfoView();
+	ModelInfoViewWindow ModelInfo;
+	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
 	

@@ -25,6 +25,11 @@ LAYOUT(StructureViewLayout, 316, 484)
 	ITEM(Label, dv___1, SetLabel(t_("Index set dependencies and order of evaluation for equations")).LeftPosZ(8, 304).TopPosZ(8, 19))
 END_LAYOUT
 
+LAYOUT(ModelInfoLayout, 316, 484)
+	ITEM(DocEdit, InfoBox, SetEditable(false).HSizePosZ(4, 4).VSizePosZ(52, 4))
+	ITEM(Label, OverviewLabel, SetLabel(t_("This shows info provided for individual modules.\nFor general MobiView and Mobius user manuals, go to\nhttps://github.com/NIVANorge/Mobius")).LeftPosZ(8, 304).TopPosZ(8, 40))
+END_LAYOUT
+
 LAYOUT(ParameterCtrlLayout, 652, 192)
 	ITEM(ArrayCtrl, ParameterView, HSizePosZ(0, 0).VSizePosZ(68, 0))
 	ITEM(DropList, IndexList1, LeftPosZ(4, 104).TopPosZ(24, 19))
