@@ -38,6 +38,8 @@ void EditStatSettingsWindow::LoadData()
 	}
 	
 	PercentilesEdit.SetText(QuantileString);
+	
+	PrecisionEdit.SetData(Stat.Precision);
 }
 
 void EditStatSettingsWindow::SaveDataAndClose()
@@ -54,6 +56,8 @@ void EditStatSettingsWindow::SaveDataAndClose()
 	std::vector<double> Percentiles;
 	String PercStr = PercentilesEdit.GetText().ToString();
 	bool Success = ParseDoubleList(PercStr, Percentiles);
+	
+	Stat.Precision = PrecisionEdit.GetData();
 	
 	if(Success && Percentiles.size() >= 1)
 	{

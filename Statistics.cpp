@@ -3,59 +3,91 @@
 
 
 #include "MobiView.h"
+#include "MyRichView.h"
 #include <numeric>
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
+void DisplayStat(String ValName, bool PositiveGood, double ValOld, double ValNow, bool DisplayChange, String &Display, bool &TrackedFirst, int Precision)
 {
-	String Display = Name + " [" + Unit + "]:\n";
-	
-	if(StatSettings.DisplayMin)         Display << "min: "         << FormatDouble(Stats.Min, 2) << "\n";
-	if(StatSettings.DisplayMax)         Display << "max: "         << FormatDouble(Stats.Max, 2) << "\n";
-	if(StatSettings.DisplaySum)         Display << "sum: "         << FormatDouble(Stats.Sum, 2) << "\n";
-	if(StatSettings.DisplayMean)        Display << "mean: "        << FormatDouble(Stats.Mean, 2) << "\n";
-	if(StatSettings.DisplayMedian)      Display << "median: "      << FormatDouble(Stats.Median, 2) << "\n";
-	if(StatSettings.DisplayVariance)    Display << "variance: "    << FormatDouble(Stats.Variance, 2) << "\n";
-	if(StatSettings.DisplayStandardDev) Display << "std.dev.: "    << FormatDouble(Stats.StandardDeviation, 2) << "\n";
-	Display << "data points: " << Stats.DataPoints << "\n";
-	Display << "\n";
-	
-	PlotInfo.Append(Display);
-	PlotInfo.SetCursor(INT64_MAX);
-}
-
-void DisplayStat(String ValName, double ValOld, double ValNow, bool DisplayChange, String &Display)
-{
-	Display << ValName << ": " << FormatDouble(ValNow, 5);
+	if(!TrackedFirst) Display << "::@W ";
+	TrackedFirst = false;
+	Display << ValName << "::@W " << FormatDouble(ValNow, Precision);
 	if(DisplayChange && ValOld != ValNow)
 	{
-		Display << "             (";
-		if(ValNow > ValOld)
-			Display << "+";
-		Display << FormatDouble(ValNow - ValOld, 5) << ")";
+		if((PositiveGood && ValNow > ValOld) || (!PositiveGood && ValNow < ValOld))
+			Display << "::@G ";
+		else
+			Display << "::@R ";
+		if(ValNow > ValOld) Display << "+";
+		Display << FormatDouble(ValNow - ValOld, Precision);
 	}
+	else
+		Display << ":: ";
 	Display << "\n";
 }
 
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo)
+void DisplayStat(String ValName, double Val, String &Display, bool &TrackedFirst, int Precision)
 {
-	String Display = Name;
-	
-	Display << "\n";
-	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayNS)        DisplayStat("N-S",               CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayR2)        DisplayStat("r2",                CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display);
-	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display);
+	if(!TrackedFirst) Display << "::@W ";
+	TrackedFirst = false;
+	Display << ValName << "::@W " << FormatDouble(Val, Precision);
+}
 
-	Display << "common data points: " << Stats.DataPoints << "\n";
-	Display << "\n";
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col)
+{
+	int Precision = StatSettings.Precision;
+	
+	String Display = Name + " [" + Unit + "]:&";
+	
+	Display.Replace("[", "`[");
+	Display.Replace("]", "`]");
+	
+	Display = Format("[*@(%d.%d.%d) %s]", Col.GetR(), Col.GetG(), Col.GetB(), Display);
+	
+	bool TrackedFirst = true;
+	Display << "{{1:1FWGW ";
+	if(StatSettings.DisplayMin)         DisplayStat("min", Stats.Min, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMax)         DisplayStat("max", Stats.Max, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplaySum)         DisplayStat("sum", Stats.Sum, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMean)        DisplayStat("mean", Stats.Mean, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMedian)      DisplayStat("median", Stats.Median, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayVariance)    DisplayStat("variance", Stats.Variance, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayStandardDev) DisplayStat("std.dev.", Stats.StandardDeviation, Display, TrackedFirst, Precision);
+	
+	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
+	Display << "}}&";
 	
 	PlotInfo.Append(Display);
-	PlotInfo.SetCursor(INT64_MAX);
+	PlotInfo.ScrollEnd();
+}
+
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo)
+{
+	int Precision = StatSettings.Precision;
+	
+	String Display = Name;
+	
+	Display.Replace("[", "`[");
+	Display.Replace("]", "`]");
+	
+	Display = Format("[* %s]", Display);
+	
+	bool TrackedFirst = true;
+	Display << "{{2:1:1FWGW ";
+	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", false, CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               false, CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              false, CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayNS)        DisplayStat("N-S",               true,  CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           true,  CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayR2)        DisplayStat("r2",                true,  CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      true,  CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               true,  CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    true,  CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+
+	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
+	Display << ":: }}&";
+	
+	PlotInfo.Append(Display);
+	PlotInfo.ScrollEnd();
 }
 
 

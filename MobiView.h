@@ -20,6 +20,10 @@ using namespace Upp;
 #include "DllInterface.h"
 #include "Plotting.h"
 
+
+#include "MyRichView.h"
+
+
 #define LAYOUTFILE <MobiView/MobiView.lay>
 #include <CtrlCore/lay.h>
 
@@ -194,6 +198,9 @@ private:
 };
 
 
+
+
+
 class MobiView : public TopWindow {
 	
 public:
@@ -213,9 +220,9 @@ public:
 	EditTime   CalibrationIntervalStart;
 	EditTime   CalibrationIntervalEnd;
 	Label      CalibrationIntervalLabel;
-	DocEdit PlotInfo;
 	
-	DocEdit LogBox;
+	MyRichView PlotInfo;
+	MyRichView LogBox;
 
 	ParentCtrl EquationSelecterRect;
 	ArrayCtrl  EquationSelecter;
@@ -231,7 +238,7 @@ public:
 	
 	void SubBar(Bar &bar);
 	
-	void Log(String Msg);
+	void Log(String Msg, bool Error = false);
 	
 	void HandleDllError();
 	bool CheckDllUserError();

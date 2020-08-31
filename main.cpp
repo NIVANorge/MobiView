@@ -16,7 +16,7 @@
 #include <Draw/iml.h>
 
 
-void MobiView::Log(String Msg)
+void MobiView::Log(String Msg, bool Error)
 {
 	auto T = std::time(nullptr);
 	auto TM = *std::localtime(&T);
@@ -26,16 +26,24 @@ void MobiView::Log(String Msg)
 	String FormatMsg = "";
 	FormatMsg << Oss.str().data();
 	FormatMsg << Msg;
-	FormatMsg << "\n\n";
+	FormatMsg << "&&";
+	FormatMsg.Replace("[", "`[");
+	FormatMsg.Replace("]", "`]");
+	FormatMsg.Replace("\\", "\1\\\1");
+	FormatMsg.Replace("\n", "&");
+	
+	if(Error)
+		FormatMsg = String("[@3 ") + FormatMsg + "]";
+	
 	LogBox.Append(FormatMsg);
-	LogBox.SetCursor(INT64_MAX);
+	LogBox.ScrollEnd();
 }
 
 
 void MobiView::HandleDllError()
 {
 	Log("There was an error when trying to load the model dll. This could be because the dll is compiled from a version of Mobius that is too old compared to the build of MobiView you are using or vice versa.");
-	Log(ModelDll.GetDllError());
+	Log(ModelDll.GetDllError(), true);
 }
 
 bool MobiView::CheckDllUserError()
@@ -48,7 +56,7 @@ bool MobiView::CheckDllUserError()
 		
 		if(ErrCode != 0)
 		{
-			Log(String(MsgBuf));
+			Log(String(MsgBuf), true);
 		}
 		
 		int WarnCode = ModelDll.EncounteredWarning(MsgBuf);
@@ -126,8 +134,8 @@ MobiView::MobiView() : Plotter(this)
 	LogBox.SetEditable(false);
 	PlotInfo.SetEditable(false);
 	
-	LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
-	PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
+	//LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
+	//PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	
 	
 	
@@ -305,6 +313,13 @@ MobiView::MobiView() : Plotter(this)
 			StatSettings.Percentiles.push_back(Val);
 		}
 	}
+	
+	Value PrecisionJson = StatsJson["Precision"];
+	if(!IsNull(PrecisionJson))
+	{
+		StatSettings.Precision = (int)PrecisionJson;
+	}
+	
 
 	Value IdxEditWindowDim = SettingsJson["Index set editor window dimensions"];
 	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
@@ -350,7 +365,7 @@ void MobiView::OpenSearch()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't search parameters before a dataset is loaded.");
+		Log("Can't search parameters before a dataset is loaded.", true);
 		return;
 	}
 	
@@ -383,7 +398,7 @@ void MobiView::OpenStructureView()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't visualize the model structure before a dataset is loaded.");
+		Log("Can't visualize the model structure before a dataset is loaded.", true);
 		return;
 	}
 	
@@ -407,7 +422,7 @@ void MobiView::OpenChangeIndexes()
 {
 	if(!ModelDll.IsLoaded() || !DataSet)
 	{
-		Log("Can't edit indexes before a dataset is loaded.");
+		Log("Can't edit indexes before a dataset is loaded.", true);
 		return;
 	}
 	
@@ -528,6 +543,8 @@ void MobiView::StoreSettings()
 	JsonArray Percentiles;
 	for(double Percentile : StatSettings.Percentiles) Percentiles << Percentile;
 	Statistics("Percentiles", Percentiles);
+	
+	Statistics("Precision", StatSettings.Precision);
 	
 	SettingsJson("Statistics", Statistics);
 	
@@ -894,7 +911,7 @@ void MobiView::RunModel()
 {
 	if(!ModelDll.IsLoaded() || !ModelDll.RunModel)
 	{
-		Log("Model can only be run once a model has been loaded along with a parameter and input file!");
+		Log("A model can only be run once a model has been loaded along with a parameter and input file!", true);
 		return;
 	}
 	
@@ -933,7 +950,7 @@ void MobiView::SaveBaseline()
 	}
 	else
 	{
-		Log("You can only save a baseline after the model has been run once");
+		Log("You can only save a baseline after the model has been run once", true);
 	}
 }
 

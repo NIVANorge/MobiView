@@ -43,7 +43,7 @@ AdditionalPlotView::AdditionalPlotView()
 		
 		
 		Plots[Row].PlotInfo.SetEditable(false);
-		Plots[Row].PlotInfo.SetColor(TextCtrl::PAPER_READONLY, Plots[Row].PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
+		//Plots[Row].PlotInfo.SetColor(TextCtrl::PAPER_READONLY, Plots[Row].PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	}
 	
 	NumRowsChanged();

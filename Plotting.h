@@ -1,6 +1,9 @@
 #ifndef _MobiView_PlotDataStorage_h_
 #define _MobiView_PlotDataStorage_h_
 
+
+#include "MyRichView.h"
+
 //NOTE: This has to match up to the aggregation selector.
 enum plot_major_mode
 {
@@ -91,6 +94,8 @@ struct StatisticsSettings
 	bool DisplaySRCC         = true;
 	
 	std::vector<double> Percentiles = {0.0, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 100.0};
+	
+	int Precision = 5;
 };
 
 struct plot_data_storage
@@ -176,8 +181,8 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, DocEdit &PlotInfo);
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo);
 
 class PlotCtrl;
 
@@ -187,9 +192,9 @@ public:
 	
 	MyPlot();
 	
-	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo, bool CausedByReRun = false);
+	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun = false);
 	
-	void AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0);
+	Color AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
@@ -199,7 +204,7 @@ public:
 	
 	void ClearAll();
 	
-	void AddPlotRecursive(MobiView *Parent, DocEdit &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
+	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
 	
 	void ReplotProfile();

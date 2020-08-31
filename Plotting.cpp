@@ -339,7 +339,7 @@ void PlotCtrl::RePlot(bool CausedByReRun)
 }
 
 
-void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, DocEdit &PlotInfo, bool CausedByReRun)
+void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun)
 {
 	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
 	//specifics that we need. However, it is a little tricky to let go of that dependency.
@@ -711,10 +711,9 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 			
 			timeseries_stats Stats = {};
 			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), Parent->StatSettings);
-			DisplayTimeseriesStats(Stats, BS, Unit, Parent->StatSettings, PlotInfo);
 			
-			AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, InputStartTime, BaselineStartTime, Parent->TimestepSize, Stats.Min, Stats.Max);
-
+			Color Col = AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, InputStartTime, BaselineStartTime, Parent->TimestepSize, Stats.Min, Stats.Max);
+			DisplayTimeseriesStats(Stats, BS, Unit, Parent->StatSettings, PlotInfo, Col);
 			
 			
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
@@ -727,10 +726,10 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 			
 			timeseries_stats Stats2 = {};
 			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), Parent->StatSettings);
-			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit, Parent->StatSettings, PlotInfo);
-			
-			AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, InputStartTime, ResultStartTime, Parent->TimestepSize, Stats2.Min, Stats2.Max);
+		
+			Col = AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, InputStartTime, ResultStartTime, Parent->TimestepSize, Stats2.Min, Stats2.Max);
 
+			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit, Parent->StatSettings, PlotInfo, Col);
 			
 			
 			//TODO: Should we compute any residual statistics here?
@@ -750,9 +749,10 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, Doc
 				
 				timeseries_stats Stats3 = {};
 				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings);
-				DisplayTimeseriesStats(Stats3, InputLegend, Unit, Parent->StatSettings, PlotInfo);
 				
-				AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
+				Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
+				
+				DisplayTimeseriesStats(Stats3, InputLegend, Unit, Parent->StatSettings, PlotInfo, Col);
 			}
 		}
 		
@@ -1253,7 +1253,7 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 }
 
 
-void MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY)
+Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY)
 {
 	int Timesteps = (int)Len;
 	
@@ -1317,9 +1317,11 @@ void MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, si
 			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");
 		}
 	}
+	
+	return GraphColor;
 }
 
-void MyPlot::AddPlotRecursive(MobiView *Parent, DocEdit &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
+void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
 	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps,
 	Time &ReferenceDate, Time &StartDate, double *XIn)
 {
@@ -1376,9 +1378,10 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, DocEdit &PlotInfo, std::string &
 		
 		timeseries_stats Stats = {};
 		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings);
-		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo);
 		
-		AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max);
+		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max);
+		
+		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo, Col);
 		
 		NullifyNans(Dat, Len);
 	}
