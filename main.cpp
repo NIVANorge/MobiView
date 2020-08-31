@@ -33,7 +33,7 @@ void MobiView::Log(String Msg, bool Error)
 	FormatMsg.Replace("\n", "&");
 	
 	if(Error)
-		FormatMsg = String("[@3 ") + FormatMsg + "]";
+		FormatMsg = String("[@R ") + FormatMsg + "]";
 	
 	LogBox.Append(FormatMsg);
 	LogBox.ScrollEnd();
