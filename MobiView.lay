@@ -117,10 +117,10 @@ LAYOUT(AdditionalPlotViewLayout, 408, 320)
 	ITEM(Label, RowLabel, SetLabel(t_("Rows:")).RightPosZ(144, 32).TopPosZ(4, 19))
 END_LAYOUT
 
-LAYOUT(MiniPlotLayout, 436, 100)
-	ITEM(MyPlot, Plot, HSizePosZ(0, 176).VSizePosZ(0, 0))
-	ITEM(MyRichView, PlotInfo, RightPosZ(0, 176).VSizePosZ(0, 16))
-	ITEM(Button, CopyMain, SetLabel(t_("<<")).RightPosZ(144, 32).BottomPosZ(1, 15))
-	ITEM(Button, PushMain, SetLabel(t_(">>")).RightPosZ(112, 32).BottomPosZ(1, 15))
+LAYOUT(MiniPlotLayout, 568, 100)
+	ITEM(MyPlot, Plot, HSizePosZ(0, 308).VSizePosZ(0, 0))
+	ITEM(MyRichView, PlotInfo, RightPosZ(0, 308).VSizePosZ(0, 16))
+	ITEM(Button, CopyMain, SetLabel(t_("<<")).RightPosZ(276, 32).BottomPosZ(1, 15))
+	ITEM(Button, PushMain, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
 END_LAYOUT
 

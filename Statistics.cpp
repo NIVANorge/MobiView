@@ -6,14 +6,14 @@
 #include "MyRichView.h"
 #include <numeric>
 
-void DisplayStat(String ValName, bool PositiveGood, double ValOld, double ValNow, bool DisplayChange, String &Display, bool &TrackedFirst, int Precision)
+void DisplayStat(String ValName, int PositiveGood, double ValOld, double ValNow, bool DisplayChange, String &Display, bool &TrackedFirst, int Precision)
 {
 	if(!TrackedFirst) Display << "::@W ";
 	TrackedFirst = false;
 	Display << ValName << "::@W " << FormatDouble(ValNow, Precision);
 	if(DisplayChange && ValOld != ValNow)
 	{
-		if((PositiveGood && ValNow > ValOld) || (!PositiveGood && ValNow < ValOld))
+		if((PositiveGood==1 && ValNow > ValOld) || (PositiveGood==0 && ValNow < ValOld) || (PositiveGood==-1 && std::abs(ValNow) < std::abs(ValOld)))
 			Display << "::@G ";
 		else
 			Display << "::@R ";
@@ -40,6 +40,7 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	
 	Display.Replace("[", "`[");
 	Display.Replace("]", "`]");
+	Display.Replace("_", "`_");
 	
 	Display = Format("[*@(%d.%d.%d) %s]", Col.GetR(), Col.GetG(), Col.GetB(), Display);
 	
@@ -68,20 +69,21 @@ void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, St
 	
 	Display.Replace("[", "`[");
 	Display.Replace("]", "`]");
+	Display.Replace("_", "`_");
 	
 	Display = Format("[* %s]", Display);
 	
 	bool TrackedFirst = true;
 	Display << "{{2:1:1FWGW ";
-	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", false, CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               false, CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              false, CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayNS)        DisplayStat("N-S",               true,  CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           true,  CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayR2)        DisplayStat("r2",                true,  CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      true,  CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               true,  CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    true,  CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", -1, CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               0,  CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              0,  CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayNS)        DisplayStat("N-S",               1,  CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           1,  CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayR2)        DisplayStat("r2",                1,  CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      1,  CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               1,  CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    1,  CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
 
 	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
 	Display << ":: }}&";

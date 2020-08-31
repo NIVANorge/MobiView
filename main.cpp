@@ -29,6 +29,7 @@ void MobiView::Log(String Msg, bool Error)
 	FormatMsg << "&&";
 	FormatMsg.Replace("[", "`[");
 	FormatMsg.Replace("]", "`]");
+	FormatMsg.Replace("_", "`_");
 	FormatMsg.Replace("\\", "\1\\\1");
 	FormatMsg.Replace("\n", "&");
 	
