@@ -36,8 +36,7 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 {
 	int Precision = StatSettings.Precision;
 	
-	String Display = Name + " [" + Unit + "]:&";
-	
+	String Display = Name + " [" + Unit + "]:&";;
 	Display.Replace("[", "`[");
 	Display.Replace("]", "`]");
 	Display.Replace("_", "`_");

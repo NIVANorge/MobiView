@@ -118,7 +118,7 @@ void AdditionalPlotView::ClearAll()
 	}
 }
 
-void SerializePlotSetup(Json &SetupJson, plot_setup &Setup)
+void SerializePlotSetup(Json &SetupJson, plot_setup &Setup, MobiView *ParentWindow)
 {
 	//NOTE: This is not robust if we change the enums!
 	
@@ -139,15 +139,19 @@ void SerializePlotSetup(Json &SetupJson, plot_setup &Setup)
 		InputArr << R.data();
 	SetupJson("SelectedInputs", InputArr);
 	
-	JsonArray IndexArr;
+	Json IndexMap;
+	int Id = 0;
 	for(std::vector<std::string> &Arr : Setup.SelectedIndexes)
 	{
+		String IndexSetName = ParentWindow->IndexSetName[Id]->GetText();
 		JsonArray InnerArr;
 		for(std::string &Index : Arr)
 			InnerArr << Index.data();
-		IndexArr << InnerArr;
+		IndexMap(IndexSetName, InnerArr);
+		
+		++Id;
 	}
-	SetupJson("SelectedIndexes", IndexArr);
+	SetupJson("SelectedIndexes", IndexMap);
 	
 	JsonArray ActiveIndexSetArr;
 	for(bool IsActive : Setup.IndexSetIsActive)
@@ -161,7 +165,11 @@ void AdditionalPlotView::WriteToJson()
 	FileSel Sel;
 
 	Sel.Type("Plot setups", "*.json");
-	Sel.ActiveDir(GetCurrentDirectory());
+	
+	if(!ParentWindow->ParameterFile.empty())
+		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	else
+		Sel.ActiveDir(GetCurrentDirectory());
 	
 	Sel.ExecuteSaveAs();
 	String Filename = Sel.Get();
@@ -183,7 +191,7 @@ void AdditionalPlotView::WriteToJson()
 	for(int Row = 0; Row < NRows; ++Row)
 	{
 		Json RowSettings;
-		SerializePlotSetup(RowSettings, Plots[Row].Plot.PlotSetup);
+		SerializePlotSetup(RowSettings, Plots[Row].Plot.PlotSetup, ParentWindow);
 		Arr << RowSettings;
 	}
 	
@@ -197,27 +205,7 @@ void AdditionalPlotView::WriteToJson()
 }
 
 
-/*
-struct plot_setup
-{
-	plot_major_mode    MajorMode;
-	aggregation_type   AggregationType;
-	aggregation_period AggregationPeriod;
-	y_axis_mode        YAxisMode;
-	bool               ScatterInputs;
-	
-	std::vector<std::string> SelectedResults;
-	std::vector<std::string> SelectedInputs;
-	
-	std::vector<bool> IndexSetIsActive;
-	std::vector<std::vector<std::string>> SelectedIndexes;
-	
-	
-	int ProfileTimestep;
-};
-*/
-
-void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup)
+void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup, MobiView *ParentWindow)
 {
 	if(IsNull(SetupJson)) return;
 	
@@ -255,13 +243,14 @@ void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup)
 			Setup.SelectedInputs.push_back(Input.ToStd());
 	}
 	
-	ValueArray SelectedIndexes = SetupJson["SelectedIndexes"];
+	ValueMap SelectedIndexes = SetupJson["SelectedIndexes"];
 	if(!IsNull(SelectedIndexes) && SelectedIndexes.GetCount() == MAX_INDEX_SETS)
 	{
 		Setup.SelectedIndexes.resize(MAX_INDEX_SETS);
 		for(int IndexSet = 0; IndexSet < SelectedIndexes.GetCount(); ++IndexSet)
 		{
-			ValueArray Indexes = SelectedIndexes[IndexSet];
+			String IndexSetName = ParentWindow->IndexSetName[IndexSet]->GetText();
+			ValueArray Indexes = SelectedIndexes[IndexSetName];
 			if(!IsNull(Indexes))
 			{
 				Setup.SelectedIndexes[IndexSet].clear();
@@ -287,7 +276,11 @@ void AdditionalPlotView::LoadFromJson()
 	FileSel Sel;
 	
 	Sel.Type("Plot setups", "*.json");
-	Sel.ActiveDir(GetCurrentDirectory());
+	
+	if(!ParentWindow->ParameterFile.empty())
+		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	else
+		Sel.ActiveDir(GetCurrentDirectory());
 	
 	Sel.ExecuteOpen();
 	String Filename = Sel.Get();
@@ -320,7 +313,7 @@ void AdditionalPlotView::LoadFromJson()
 		{
 			ValueMap Setup = Setups[Row];
 			
-			DeserializePlotSetup(Setup, Plots[Row].Plot.PlotSetup);
+			DeserializePlotSetup(Setup, Plots[Row].Plot.PlotSetup, ParentWindow);
 		}
 		
 	}
