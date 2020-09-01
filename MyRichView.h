@@ -5,13 +5,15 @@ class MyRichView : public RichTextView {
 public:
 	MyRichView() {
 		zoomlevel = 7;
+		IsLogWindow = true;
 	}
 	virtual void Layout() {
 		RichTextView::Layout();
 		PageWidth( int(zoomlevel*GetSize().cx) );	// Smaller the total, the bigger the text
-		ScrollEnd();     //TODO: This is not ideal, but it is better than it always scrolling to top.
+		if(IsLogWindow) ScrollEnd();     //TODO: This is not ideal, but it is better than it always scrolling to top.
 	}
 	double zoomlevel;
+	bool IsLogWindow;
 	
 	void Append(const String &ToAppend) {
 		String Data = GetQTF();

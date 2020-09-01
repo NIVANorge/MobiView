@@ -27,6 +27,7 @@ file
 	Info.rc,
 	MobiView.iml,
 	star.iml,
+	logos.iml,
 	images.iml;
 
 mainconfig

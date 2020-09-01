@@ -1,13 +1,18 @@
 #include "MobiView.h"
 
 
+#define IMAGECLASS LogoImg
+#define IMAGEFILE <MobiView/logos.iml>
+#include <Draw/iml.h>
+
+
 ModelInfoViewWindow::ModelInfoViewWindow()
 {
+	InfoBox.IsLogWindow = false;
+	
 	CtrlLayout(*this, "Model information");
 	
 	Sizeable().Zoomable();
-	
-	//InfoBox.SetColor(TextCtrl::PAPER_READONLY, InfoBox.GetColor(TextCtrl::PAPER_NORMAL));
 }
 
 void ModelInfoViewWindow::RefreshText()
@@ -26,9 +31,13 @@ void ModelInfoViewWindow::RefreshText()
 	ParentWindow->ModelDll.GetAllModules(ParentWindow->DataSet, ModuleNames.data(), ModuleVersions.data());
 	if (ParentWindow->CheckDllUserError()) return;
 	
-	String Buf = "[3 The model ";
-	Buf += ParentWindow->ModelDll.GetModelName(ParentWindow->DataSet);
-	Buf += " contains the following modules:\n";
+	String Buf;
+	
+	const char *ModelName = ParentWindow->ModelDll.GetModelName(ParentWindow->DataSet);
+	if(ModelName && strlen(ModelName) >= 4 && ModelName[0]=='I' && ModelName[1]=='N' && ModelName[2]=='C' && ModelName[3]=='A')
+		Buf << "@@iml:1512*768`LogoImg:INCALogo`&";
+	
+	Buf << "[3 The model [* " << ModelName << "] contains the following modules:\n";
 	
 	for(size_t Module = 0; Module < ModuleNames.size(); ++Module)
 	{
