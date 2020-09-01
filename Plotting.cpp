@@ -346,7 +346,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	//TODO: We should really really remove the Control from here...
 	
-	if(Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
+	if(!Parent || Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
 	{
 		this->SetTitle("Unable to generate a plot since no model is loaded");
 		return;
