@@ -84,7 +84,12 @@ void AdditionalPlotView::UpdateLinkStatus()
 			if(Plots[Row].Plot.GetMouseHandlingX())
 			{
 				if(FirstLinkable >= 0)
+				{
+					Plots[Row].Plot.SetXYMin(Plots[FirstLinkable].Plot.GetXMin());
+					Plots[Row].Plot.SetRange(Plots[FirstLinkable].Plot.GetXRange());
 					Plots[Row].Plot.LinkedWith(Plots[FirstLinkable].Plot);
+					Plots[Row].Refresh();
+				}
 				else
 					FirstLinkable = Row;
 				

@@ -348,7 +348,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	if(!Parent || Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
 	{
-		this->SetTitle("Unable to generate a plot since no model is loaded");
+		this->SetTitle("Unable to generate a plot since no model is loaded.");
 		return;
 	}
 	
@@ -358,7 +358,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	{
 		if(PlotSetup.SelectedIndexes[IndexSet].size() == 0 && PlotSetup.IndexSetIsActive[IndexSet])
 		{
-			this->SetTitle("At least one index has to be set for each of the active index sets");
+			this->SetTitle("At least one index has to be set for each of the active index sets.");
 			return;
 		}
 	}
@@ -369,7 +369,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	//NOTE: To avoid a crash. However, we should maybe allow plotting inputs? Would complicate the code though
 	if(PlotSetup.SelectedResults.size() > 0 && ResultTimesteps == 0)
 	{
-		this->SetTitle("Unable to generate a plot since the model has not been run");
+		this->SetTitle("Unable to generate a plot since the model has not been run, or no time series is selected.");
 		return;
 	}
 	
