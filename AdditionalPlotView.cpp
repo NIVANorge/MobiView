@@ -145,23 +145,33 @@ void SerializePlotSetup(Json &SetupJson, plot_setup &Setup, MobiView *ParentWind
 	SetupJson("SelectedInputs", InputArr);
 	
 	Json IndexMap;
-	int Id = 0;
+	int Id = -1;
 	for(std::vector<std::string> &Arr : Setup.SelectedIndexes)
 	{
+		++Id;
 		String IndexSetName = ParentWindow->IndexSetName[Id]->GetText();
+		if(IndexSetName.IsEmpty()) continue;
+		
 		JsonArray InnerArr;
 		for(std::string &Index : Arr)
 			InnerArr << Index.data();
 		IndexMap(IndexSetName, InnerArr);
 		
-		++Id;
+		
 	}
 	SetupJson("SelectedIndexes", IndexMap);
 	
-	JsonArray ActiveIndexSetArr;
+	Json ActiveIndexSet;
+	Id = -1;
 	for(bool IsActive : Setup.IndexSetIsActive)
-		ActiveIndexSetArr << IsActive;
-	SetupJson("IndexSetIsActive", ActiveIndexSetArr);
+	{
+		++Id;
+		String IndexSetName = ParentWindow->IndexSetName[Id]->GetText();
+		if(IndexSetName.IsEmpty()) continue;
+		
+		ActiveIndexSet(IndexSetName, IsActive);
+	}
+	SetupJson("IndexSetIsActive", ActiveIndexSet);
 }
 
 
@@ -249,16 +259,17 @@ void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup, MobiView *Pare
 	}
 	
 	ValueMap SelectedIndexes = SetupJson["SelectedIndexes"];
-	if(!IsNull(SelectedIndexes) && SelectedIndexes.GetCount() == MAX_INDEX_SETS)
+	if(!IsNull(SelectedIndexes))
 	{
 		Setup.SelectedIndexes.resize(MAX_INDEX_SETS);
 		for(int IndexSet = 0; IndexSet < SelectedIndexes.GetCount(); ++IndexSet)
 		{
+			Setup.SelectedIndexes[IndexSet].clear();
 			String IndexSetName = ParentWindow->IndexSetName[IndexSet]->GetText();
+			
 			ValueArray Indexes = SelectedIndexes[IndexSetName];
 			if(!IsNull(Indexes))
 			{
-				Setup.SelectedIndexes[IndexSet].clear();
 				for(String Index : Indexes)
 				{
 					Setup.SelectedIndexes[IndexSet].push_back(Index.ToStd());
@@ -268,11 +279,17 @@ void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup, MobiView *Pare
 	}
 	
 	Setup.IndexSetIsActive.clear();
-	ValueArray IndexSetIsActive = SetupJson["IndexSetIsActive"];
+	ValueMap IndexSetIsActive = SetupJson["IndexSetIsActive"];
 	if(!IsNull(IndexSetIsActive))
 	{
-		for(bool IsActive : IndexSetIsActive)
-			Setup.IndexSetIsActive.push_back(IsActive);
+		for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
+		{
+			String IndexSetName = ParentWindow->IndexSetName[IndexSet]->GetText();
+			Value IsActive = IndexSetIsActive[IndexSetName];
+			bool IsActive2 = false;
+			if(!IsNull(IsActive)) IsActive2 = IsActive;
+			Setup.IndexSetIsActive.push_back(IsActive2);
+		}
 	}
 }
 

@@ -344,15 +344,19 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
 	//specifics that we need. However, it is a little tricky to let go of that dependency.
 	
-	//TODO: We should really really remove the Control from here...
+	//TODO: We should really really remove the dependency on the Control pointer from here...
 	
-	if(!Parent || Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
+	if(Parent==0 || Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
 	{
 		this->SetTitle("Unable to generate a plot since no model is loaded.");
 		return;
 	}
 	
-	if(PlotSetup.SelectedIndexes.size() == 0) return;
+	if(PlotSetup.SelectedIndexes.size() == 0)
+	{
+		this->SetTitle("No indexes were selected.");
+		return;
+	}
 	
 	for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
