@@ -267,6 +267,29 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					
 					if(!RefreshValuesOnly) ParameterControls.Create<EditTimeNotNull>();
 					CurrentParameterTypes.push_back(ParameterType_Time);
+					if(CheckDllUserError()) return;
+				}
+				else if(strcmp(Type, "enum") == 0)
+				{
+					const char *Val = ModelDll.GetParameterEnum(DataSet, Name, Indexes.data(), IndexSetCount);
+					String Val2 = Val;
+					RowData.Set(ValueColumn, Val);
+					
+					if(!RefreshValuesOnly)
+					{
+						ParameterControls.Create<DropList>();
+						
+						DropList *EnumList = (DropList *)&ParameterControls.Top();
+						uint64 EnumCount = ModelDll.GetEnumValuesCount(DataSet, Name);
+						std::vector<const char *> EnumNames(EnumCount);
+						ModelDll.GetEnumValues(DataSet, Name, (char **)EnumNames.data());
+						
+						for(const char *Name : EnumNames)
+							EnumList->Add(Name);
+					}
+					
+					CurrentParameterTypes.push_back(ParameterType_Enum);
+					if(CheckDllUserError()) return;
 				}
 				
 				if(!RefreshValuesOnly)
@@ -326,13 +349,19 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			
 			case ParameterType_Time:
 			{
-				EditTimeNotNull* ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col);
+				EditTimeNotNull *ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col);
 				Time D = ctrl->GetData();
 				std::string V = Format(D, true).ToStd();
 				if(V.size() > 0)    // Seems like D.IsValid() and !IsNull(D)  don't work correctly, so we do this instead.
-				{
 					ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
-				}
+			} break;
+			
+			case ParameterType_Enum:
+			{
+				DropList *ctrl = (DropList *)Params.ParameterView.GetCtrl(Row, Col);
+				String V = ctrl->GetData();
+				std::string V2 = V.ToStd();
+				ModelDll.SetParameterEnum(DataSet, Name.data(), Indexes.data(), Indexes.size(), V2.data());
 			} break;
 		}
 		CheckDllUserError();

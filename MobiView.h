@@ -38,6 +38,7 @@ enum parameter_type
 	ParameterType_UInt,
 	ParameterType_Bool,
 	ParameterType_Time,
+	ParameterType_Enum,
 };
 
 inline parameter_type

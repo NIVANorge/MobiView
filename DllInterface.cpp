@@ -54,10 +54,14 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(SetParameterUInt);
 	LoadProcedure(SetParameterBool);
 	LoadProcedure(SetParameterTime);
+	LoadProcedure(SetParameterEnum);
 	LoadProcedure(GetParameterDouble);
 	LoadProcedure(GetParameterUInt);
 	LoadProcedure(GetParameterBool);
 	LoadProcedure(GetParameterTime);
+	LoadProcedure(GetParameterEnum);
+	LoadProcedure(GetEnumValuesCount);
+	LoadProcedure(GetEnumValues);
 	LoadProcedure(GetParameterDoubleMinMax);
 	LoadProcedure(GetParameterUIntMinMax);
 	LoadProcedure(GetParameterDescription);
