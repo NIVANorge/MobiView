@@ -243,7 +243,12 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					RowData.Set("__min", (int64)Min);
 					RowData.Set("__max", M);
 					
-					if(!RefreshValuesOnly) ParameterControls.Create<EditInt64NotNull>();
+					if(!RefreshValuesOnly)
+					{
+						ParameterControls.Create<EditInt64NotNullSpin>();
+						EditInt64NotNullSpin *ctrl = (EditInt64NotNullSpin *)&ParameterControls.Top();
+						ctrl->Min(0);
+					}
 					CurrentParameterTypes.push_back(ParameterType_UInt);
 					
 					if (CheckDllUserError()) return;
