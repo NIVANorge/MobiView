@@ -1336,13 +1336,12 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 	{
 		std::vector<char *> Indexes(CurrentIndexes.size());
 		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-		{
 			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
-		}
+		
 		char **IndexData = Indexes.data();
 		if(CurrentIndexes.size() == 0) IndexData = nullptr;
 		
-		//TODO: Better way to do this: ?
+		//TODO: This is wasteful if the result series was not computed...
 		std::vector<double> &Data = PlotData.Allocate(Timesteps);
 		
 		String Unit;
@@ -1352,15 +1351,17 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		{
 			Parent->ModelDll.GetResultSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
 			Unit = Parent->ModelDll.GetResultUnit(Parent->DataSet, Name.data());
+			if(!Parent->ModelDll.ResultWasComputed(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
+				return;
 		}
 		else
 		{
+			//TODO: Should we just omit displaying it in this case?
+			
 			Parent->ModelDll.GetInputSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
 			Unit = Parent->ModelDll.GetInputUnit(Parent->DataSet, Name.data());
 			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
-			{
-				Provided = " (timeseries not provided)";
-			}
+				Provided = " (time series not provided)";
 		}
 		if(Parent->CheckDllUserError()) return;
 		

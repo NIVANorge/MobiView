@@ -82,6 +82,7 @@ typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, cha
 typedef uint64 (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
 typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
+typedef bool   (__cdecl *ResultWasComputed_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
 typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
 typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
 typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64 BufLen);
@@ -150,6 +151,7 @@ struct model_dll_interface
 	GetAllInputsCount_t  GetAllInputsCount;
 	GetAllInputs_t       GetAllInputs;
 	InputWasProvided_t   InputWasProvided;
+	ResultWasComputed_t  ResultWasComputed;
 	GetBranchInputsCount_t GetBranchInputsCount;
 	GetBranchInputs_t    GetBranchInputs;
 	PrintResultStructure_t PrintResultStructure;

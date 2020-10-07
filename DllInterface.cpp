@@ -92,6 +92,7 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(GetAllInputsCount);
 	LoadProcedure(GetAllInputs);
 	LoadProcedure(InputWasProvided);
+	LoadProcedure(ResultWasComputed);
 	LoadProcedure(GetBranchInputsCount);
 	LoadProcedure(GetBranchInputs);
 	LoadProcedure(PrintResultStructure);
