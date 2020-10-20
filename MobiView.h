@@ -248,7 +248,7 @@ public:
 	void SaveParametersAs();
 	void RunModel();
 	void SaveBaseline();
-	void StoreSettings();
+	void StoreSettings(bool OverwriteFavorites = true);
 	
 	void CleanInterface();
 	void BuildInterface();

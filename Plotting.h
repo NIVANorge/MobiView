@@ -29,6 +29,7 @@ enum aggregation_type
 //NOTE: This has to match up to the aggregation period selector.
 enum aggregation_period
 {	Aggregation_None = 0,
+	Aggregation_Weekly,
 	Aggregation_Monthly,
 	Aggregation_Yearly,
 };

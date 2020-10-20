@@ -4,7 +4,7 @@
 #include <dlfcn.h>
 #endif
 
-bool model_dll_interface::Load(const char *DllName)
+void model_dll_interface::UnLoad()
 {
 	if(hinstModelDll)
 	{
@@ -15,6 +15,12 @@ bool model_dll_interface::Load(const char *DllName)
 #endif
 		hinstModelDll = 0;
 	}
+}
+
+
+bool model_dll_interface::Load(const char *DllName)
+{
+	UnLoad();
 	
 #ifdef PLATFORM_WIN32
 	hinstModelDll = LoadLibraryA(DllName);

@@ -163,6 +163,7 @@ struct model_dll_interface
 	void     *hinstModelDll;
 #endif
 	
+	void UnLoad();
 	bool Load(const char *DllName);
 	
 	bool IsLoaded() { return hinstModelDll != 0; }

@@ -267,9 +267,7 @@ void PlotCtrl::PlotModeChange()
 	{
 		aggregation_period Interval = MainPlot.PlotSetup.AggregationPeriod;
 		if(Interval == Aggregation_None)
-		{
 			Aggregation.Disable();
-		}
 		else
 		{
 			Aggregation.Enable();
@@ -564,7 +562,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					
 					NullifyNans(Data.data(), Data.size());
 					
-					if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
+					if(IntervalType != Aggregation_None)
 					{
 						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
 						std::vector<double> YValues;
@@ -584,13 +582,13 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				if(IsMainPlot)
 				{
 					Control->ProfileDisplayTime = CurrentStartTime;
-					if(IntervalType == Aggregation_Monthly || IntervalType == Aggregation_Yearly)
+					if(IntervalType != Aggregation_None)
 					{
 						//TODO: Clean this up
 						Control->ProfileDisplayTime.second = 0;
 						Control->ProfileDisplayTime.minute = 0;
 						Control->ProfileDisplayTime.hour   = 0;
-						Control->ProfileDisplayTime.day    = 1;
+						if(IntervalType == Aggregation_Yearly || IntervalType == Aggregation_Monthly) Control->ProfileDisplayTime.day    = 1;
 						if(IntervalType == Aggregation_Yearly) Control->ProfileDisplayTime.month = 1;
 					}
 					Control->TimestepEdit.SetData(Control->ProfileDisplayTime);
@@ -1182,6 +1180,14 @@ void MyPlot::AddNormalApproximation(String &Legend, int SampleCount, double Min,
 	this->AddSeries(XValues.data(), YValues.data(), XValues.size()).Legend(Legend).MarkColor(GraphColor).Stroke(0.0, GraphColor).Dash("");
 }
 
+void AddDays(Date &date, int Days)
+{
+	//NOTE: This is here to be able to call +=days on a Time object (which would otherwise be
+	//interpreted as adding seconds. Seems to be no way to call the super class operator here when
+	//it is overloaded.
+	date += Days;
+}
+
 
 void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues)
 {
@@ -1217,11 +1223,14 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 		
 		//TODO: Want more aggregation interval types than year or month for models with
 		//non-daily resolutions
-		bool PushAggregate = (NextTimestep == Timesteps) || (NextTime.year != CurrentTime.year);
+		bool PushAggregate = (NextTimestep == Timesteps);
+		if(IntervalType == Aggregation_Yearly || IntervalType == Aggregation_Monthly)
+			PushAggregate = PushAggregate || (NextTime.year != CurrentTime.year);
 		if(IntervalType == Aggregation_Monthly)
-		{
 			PushAggregate = PushAggregate || (NextTime.month != CurrentTime.month);
-		}
+		if(IntervalType == Aggregation_Weekly)
+			PushAggregate = PushAggregate || (DayOfWeek(NextTime) == 1);
+		
 		if(PushAggregate)
 		{
 			double YVal = CurrentAggregate;
@@ -1236,8 +1245,17 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 			Beginning.second = 0;
 			Beginning.minute = 0;
 			Beginning.hour   = 0;
-			Beginning.day    = 1;
-			if(IntervalType == Aggregation_Yearly) Beginning.month = 1;
+			if(IntervalType == Aggregation_Weekly)
+			{
+				int Dow = DayOfWeek(Beginning)-1;
+				if(Dow==-1) Dow = 6;
+				AddDays(Beginning, -Dow);
+			}
+			else
+			{
+				Beginning.day    = 1;
+				if(IntervalType == Aggregation_Yearly) Beginning.month = 1;
+			}
 			double XVal = (double)(Beginning - ReferenceTime);
 			
 			XValues.push_back(XVal);
@@ -1745,8 +1763,10 @@ void PlotCtrl::TimestepSliderEvent()
 	// slider.
 	aggregation_period IntervalType = MainPlot.PlotSetup.AggregationPeriod;
 	if(IntervalType == Aggregation_None)
-	{
 		AdvanceTimesteps(NewTime, Timestep, Parent->TimestepSize);
+	else if(IntervalType == Aggregation_Weekly)
+	{
+		AdvanceTimesteps(NewTime, 7*Timestep, Parent->TimestepSize); //TODO: Not properly tested. Should maybe "normalize" it to be on a monday.
 	}
 	else if(IntervalType == Aggregation_Monthly)
 	{
@@ -1756,9 +1776,8 @@ void PlotCtrl::TimestepSliderEvent()
 		NewTime.year += YearAdd;
 	}
 	else if(IntervalType == Aggregation_Yearly)
-	{
 		NewTime.year += Timestep;
-	}
+	
 	TimestepEdit.SetData(NewTime);
 	
 	MainPlot.PlotSetup.ProfileTimestep = Timestep;
@@ -1877,6 +1896,7 @@ int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size Tim
 			else                            return 5;
 		}
 	}
+	else if(IntervalType == Aggregation_Weekly)  return 3;
 	else if(IntervalType == Aggregation_Monthly) return 4;
 	else if(IntervalType == Aggregation_Yearly)  return 5;
 	

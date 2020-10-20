@@ -461,10 +461,10 @@ void MobiView::UpdateEquationSelecter()
 	
 	PlotModeChange(); //In order to replot in case the selection changed.
 	
-	StoreSettings();
+	StoreSettings(true);
 }
 
-void MobiView::StoreSettings()
+void MobiView::StoreSettings(bool OverwriteFavorites)
 {
 	String SettingsFile = LoadFile(GetDataFile("settings.json"));
 	Value ExistingSettings = ParseJSON(SettingsFile);
@@ -484,13 +484,13 @@ void MobiView::StoreSettings()
 	
 	for(const auto &K : Eq.GetKeys())
 	{
-		if(K != DllFileName || !ModelDll.IsLoaded())
+		if(K != DllFileName || !OverwriteFavorites || !ModelDll.IsLoaded())
 		{
 			Favorites(K.ToString(), Eq[K]);
 		}
 	}
 	
-	if(ModelDll.IsLoaded()) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
+	if(OverwriteFavorites && ModelDll.IsLoaded()) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
 	{
 		JsonArray FavForCurrent;
 		for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
@@ -815,6 +815,8 @@ void MobiView::Load()
 		
 		CalibrationIntervalStart.SetData(Null);
 		CalibrationIntervalEnd.SetData(Null);
+		
+		ModelDll.UnLoad();
 	}
 	
 	
@@ -853,6 +855,7 @@ void MobiView::Load()
 	if(!Success)
 	{
 		HandleDllError();
+		ModelDll.UnLoad();
 		return;
 	}
 
@@ -873,7 +876,12 @@ void MobiView::Load()
 	
 	bool ChangedInput = InputFile != PreviouslyLoadedInputFile;
 	
-	if(!Success) return;
+	if(!Success)
+	{
+		Log("Received empty input file name.", true);
+		ModelDll.UnLoad();
+		return;
+	}
 	
 	Log(String("Selecting input file: ") + InputFile.data());
 	
@@ -895,19 +903,29 @@ void MobiView::Load()
 	
 	Success = ParameterFile.size() > 0;
 	
-	if(!Success) return;
+	if(!Success)
+	{
+		Log("Received empty parameter file name.", true);
+		ModelDll.UnLoad();
+		return;
+	}
 	
 	Log(String("Selecting parameter file: ") + ParameterFile.data());
 	
 
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
-	if (CheckDllUserError()) return;
+	if (CheckDllUserError())
+	{
+		ModelDll.UnLoad();
+		StoreSettings(false); // So that it still remembers what files you selected for your next attempt at loading.
+		return;
+	}
 
 
 	
 	BuildInterface();
 	
-	StoreSettings();
+	StoreSettings(false);
 }
 
 
@@ -933,7 +951,8 @@ void MobiView::RunModel()
 	
 	RefreshParameterView(true); //NOTE: In case there are computed parameters that are displayed, we need to refresh their values in the view
 	
-	if(!Error) Log(String("Model was run.\nDuration: ") << Ms << " ms.");
+	if(!Error)
+		Log(String("Model was run.\nDuration: ") << Ms << " ms.");
 }
 
 void MobiView::SaveBaseline()
@@ -962,16 +981,11 @@ void MobiView::SaveBaseline()
 
 void MobiView::ClosingChecks()
 {
+	int Cl = 1;
 	if(ParametersWereChangedSinceLastSave)
-	{
-		int Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to exit MobiView?");
-		if(Cl)
-		{
-			StoreSettings();
-			Close();
-		}
-	}
-	else
+		Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to exit MobiView?");
+	
+	if(Cl)
 	{
 		StoreSettings();
 		Close();
