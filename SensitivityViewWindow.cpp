@@ -163,23 +163,38 @@ SensitivityViewWindow::Run()
 	GUIUpdateFreq = std::max(1, GUIUpdateFreq);
 	
 	Plot.ClearAll(false);
-	Plot.PlotData.Data.reserve(2*NSteps);
+	Plot.PlotData.Data.reserve(2*NSteps + 3);
 	
+	StatPlot.RemoveAllSeries();
+	StatPlot.SetLabelX(" ");
+	StatPlot.SetLabelY(" ");
+	
+	String Parname = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name")).ToString();
+	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit")).ToString();
 	//TODO: This should say indexes too!
 	Plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to \"%s\" [%s]",
 		Plot.PlotSetup.SelectedResults[0].data(),
 		ParentWindow->ModelDll.GetResultUnit(ParentWindow->DataSet, Plot.PlotSetup.SelectedResults[0].data()),
-		ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name").ToString()),
-		ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit").ToString())
-		));
+		Parname, ParUnit));
 	
+	bool HasInput = Plot.PlotSetup.SelectedInputs.size() == 1;
 	
-	if(Plot.PlotSetup.SelectedInputs.size() == 1)
+	double *StatData = Plot.PlotData.Allocate(NSteps).data();
+	double *ParValues = Plot.PlotData.Allocate(NSteps).data();
+	
+	for(int NStep = 0; NStep < NSteps; ++NStep)
+	{
+		StatData[NStep] = Null;
+		ParValues[NStep] = Min + ((double)NStep)*Stride;   //TODO: Also allow selection of logarithmic spacing
+	}
+	
+	double *InputYValues;
+	if(HasInput)
 	{
 		double *InputXValues = Plot.PlotData.Allocate(InputTimesteps).data();
 		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, ParentWindow->TimestepSize, InputXValues);
 		
-		double *InputYValues = Plot.PlotData.Allocate(InputTimesteps).data();
+		InputYValues = Plot.PlotData.Allocate(InputTimesteps).data();
 		String Legend;
 		String Unit;
 		ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, false);
@@ -192,11 +207,33 @@ SensitivityViewWindow::Run()
 		//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 	}
 	
+	if(HasInput)
+	{
+		Color StatColor(0, 130, 200);
+		StatPlot.AddSeries(ParValues, StatData, NSteps).MarkBorderColor(StatColor).MarkColor(StatColor).Stroke(1.5, StatColor).Opacity(0.5).MarkStyle<CircleMarkPlot>();
+		
+		StatPlot.SetLabels(Parname, "N-S");
+		StatPlot.ShowLegend(false);
+		StatPlot.SetMouseHandling(false, false);
+		
+		//This is a little stupid, but whatever...
+		Size PlotReticleSize = GetTextSize("00000", StatPlot.GetReticleFont());
+		Size PlotUnitSize    = GetTextSize("[dummy]", StatPlot.GetLabelsFont());
+		StatPlot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
+		//StatPlot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+		
+		StatPlot.SetXYMin(Min);
+		StatPlot.SetRange(Max-Min);
+		StatPlot.SetMajorUnitsNum(std::min(NSteps-1, 9));     //TODO: This should be better!
+		
+		//StatPlot.Refresh();
+	}
+	
 	int NStep = 0;
 	for(int NStep = 0; NStep < NSteps; ++NStep)
 	{
-		//TODO: Also allow selection of logarithmic spacing
-		double Val = Min + ((double)NStep)*Stride;
+		
+		double Val = ParValues[NStep];
 		
 		// Write the value into the DataSet
 		ParentWindow->ParameterEditAccepted(SelectedRow, Id("__value"), DataSetCopy, Val);
@@ -222,7 +259,7 @@ SensitivityViewWindow::Run()
 		String Unit;
 		ParentWindow->GetSingleSelectedResultSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedResults[0], Legend, Unit, ResultYValues);
 		NullifyNans(ResultYValues, ResultTimesteps);
-
+		
 		//Note: override the legend:
 		Legend = Format("%g", Val);
 		Unit = Null; //NOTE: to avoid it showing in the legend (ideally we want to be able to turn that off).
@@ -240,6 +277,16 @@ SensitivityViewWindow::Run()
 		Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 		Plot.Refresh();
 		
+		if(HasInput)
+		{
+			//TODO: Use GOF interval!
+			int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize);
+			residual_stats ResidualStats = {};
+			ComputeResidualStats(ResidualStats, InputYValues+ResultOffset, ResultYValues, ResultTimesteps);
+			//TODO: Allow selecting other stats!
+			StatData[NStep] = ResidualStats.NashSutcliffe;
+		}
+		
 		bool Error = ParentWindow->CheckDllUserError();
 		if(Error)
 		{
@@ -250,7 +297,10 @@ SensitivityViewWindow::Run()
 		if(NStep % GUIUpdateFreq == 0)
 		{
 			RunProgress.Set(NStep+1);
-
+			
+			StatPlot.ZoomToFit(true, true);
+			//StatPlot.Refresh();
+			
 			this->ProcessEvents();
 		}
 	}

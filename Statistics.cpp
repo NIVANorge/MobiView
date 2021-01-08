@@ -201,7 +201,7 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
 		double Val = Obs[Idx] - Mod[Idx];
-		if(std::isfinite(Val))
+		if(std::isfinite(Val) && !IsNull(Val))
 		{
 			Sum += Val;
 			SumAbs += std::abs(Val);
@@ -241,7 +241,8 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 	
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
-		if(std::isfinite(Obs[Idx]) && std::isfinite(Mod[Idx]))
+		double Val = Obs[Idx] - Mod[Idx];
+		if(std::isfinite(Val) && !IsNull(Val))
 		{
 			SSObs += (Obs[Idx] - MeanObs)*(Obs[Idx] - MeanObs);
 			SSMod += (Mod[Idx] - MeanMod)*(Mod[Idx] - MeanMod);
