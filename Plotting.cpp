@@ -1279,13 +1279,17 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 }
 
 
-Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY)
+Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY, Color OverrideColor)
 {
 	aggregation_period IntervalType  = PlotSetup.AggregationPeriod;
 	aggregation_type AggregationType = PlotSetup.AggregationType;
 	y_axis_mode YAxis                = PlotSetup.YAxisMode;
 	
-	Color GraphColor = PlotColors.Next();
+	Color GraphColor;
+	if(IsNull(OverrideColor))
+		GraphColor = PlotColors.Next();
+	else
+		GraphColor = OverrideColor;
 	
 	ScatterDraw *Graph = nullptr;
 	
@@ -1308,7 +1312,6 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 				Data[Idx] = std::log10(Data[Idx]);
 			}
 		}
-		
 		Graph = &this->AddSeries(XIn, Data, Len);
 	}
 	else //Weekly, monthly values or yearly values

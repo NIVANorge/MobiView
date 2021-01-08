@@ -41,6 +41,7 @@ void
 SensitivityViewWindow::Update()
 {
 	ErrorLabel.SetText("");
+	ParamLabel.SetText("");
 	
 	int SelectedRow = FindSelectedParameterRow();
 	
@@ -74,6 +75,11 @@ SensitivityViewWindow::Update()
 	
 	double Min = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__min"));
 	double Max = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__max"));
+	
+	String Parname = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name"));
+	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit"));
+	
+	ParamLabel.SetText(Format("%s [%s]", Parname, ParUnit));
 	
 	EditMin.SetData(Min);
 	EditMax.SetData(Max);
@@ -111,26 +117,26 @@ SensitivityViewWindow::Run()
 		return;
 	}
 	
-	plot_setup PlotSetup;
-	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
+	ParentWindow->Plotter.GatherCurrentPlotSetup(Plot.PlotSetup);
 	
-	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() > 1)
+	if(Plot.PlotSetup.SelectedResults.size() != 1 || Plot.PlotSetup.SelectedInputs.size() > 1)
 	{
 		ErrorLabel.SetText("This currently only works with a single selected result series, and at most one input series");
 		return;
 	}
-	for(int Idx = 0; Idx < PlotSetup.SelectedIndexes.size(); ++Idx)
+	for(int Idx = 0; Idx < Plot.PlotSetup.SelectedIndexes.size(); ++Idx)
 	{
-		if(PlotSetup.SelectedIndexes[Idx].size() != 1 && PlotSetup.IndexSetIsActive[Idx])
+		if(Plot.PlotSetup.SelectedIndexes[Idx].size() != 1 && Plot.PlotSetup.IndexSetIsActive[Idx])
 		{
 			ErrorLabel.SetText("This currently only works with a single index combination for the result");
 			return;
 		}
 	}
 	
-	if(PlotSetup.YAxisMode == YAxis_Normalized)
-		PlotSetup.YAxisMode = YAxis_Regular;
-	PlotSetup.MajorMode = MajorMode_Regular;
+	if(Plot.PlotSetup.YAxisMode == YAxis_Normalized)
+		Plot.PlotSetup.YAxisMode = YAxis_Regular;
+	Plot.PlotSetup.MajorMode = MajorMode_Regular;
+	
 	
 	int NSteps = EditSteps.GetData();
 	
@@ -146,6 +152,7 @@ SensitivityViewWindow::Run()
 	Time InputStartTime;
 	StrToTime(InputStartTime, TimeStr);
 	
+	uint64 InputTimesteps = ParentWindow->ModelDll.GetInputTimesteps(DataSetCopy);
 	
 	RunProgress.Set(0);
 	RunProgress.SetTotal(NSteps);
@@ -159,9 +166,31 @@ SensitivityViewWindow::Run()
 	Plot.PlotData.Data.reserve(2*NSteps);
 	
 	//TODO: This should say indexes too!
-	Plot.SetTitle(Format("Sensitivity of \"%s\" to \"%s\"",
-		PlotSetup.SelectedResults[0].data(),
-		ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name").ToString())));
+	Plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to \"%s\" [%s]",
+		Plot.PlotSetup.SelectedResults[0].data(),
+		ParentWindow->ModelDll.GetResultUnit(ParentWindow->DataSet, Plot.PlotSetup.SelectedResults[0].data()),
+		ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name").ToString()),
+		ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit").ToString())
+		));
+	
+	
+	if(Plot.PlotSetup.SelectedInputs.size() == 1)
+	{
+		double *InputXValues = Plot.PlotData.Allocate(InputTimesteps).data();
+		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, ParentWindow->TimestepSize, InputXValues);
+		
+		double *InputYValues = Plot.PlotData.Allocate(InputTimesteps).data();
+		String Legend;
+		String Unit;
+		ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, false);
+		NullifyNans(InputYValues, InputTimesteps);
+		
+		Color InputColor(0, 130, 200);
+		
+		Plot.AddPlot(Legend, Unit, InputXValues, InputYValues, InputTimesteps, true, InputStartTime, InputStartTime, ParentWindow->TimestepSize, 0.0, 0.0, InputColor);
+			
+		//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
+	}
 	
 	int NStep = 0;
 	for(int NStep = 0; NStep < NSteps; ++NStep)
@@ -184,39 +213,32 @@ SensitivityViewWindow::Run()
 		Time ResultStartTime;
 		StrToTime(ResultStartTime, TimeStr);
 		
+		//TODO: It is wasteful to do this for each loop!!
 		double *ResultXValues = Plot.PlotData.Allocate(ResultTimesteps).data();
 		ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, ParentWindow->TimestepSize, ResultXValues);
 		
 		double *ResultYValues = Plot.PlotData.Allocate(ResultTimesteps).data();
 		String Legend;
 		String Unit;
-		ParentWindow->GetSingleSelectedResultSeries(PlotSetup, DataSetCopy, PlotSetup.SelectedResults[0], Legend, Unit, ResultYValues);
+		ParentWindow->GetSingleSelectedResultSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedResults[0], Legend, Unit, ResultYValues);
 		NullifyNans(ResultYValues, ResultTimesteps);
 
 		//Note: override the legend:
 		Legend = Format("%g", Val);
 		Unit = Null; //NOTE: to avoid it showing in the legend (ideally we want to be able to turn that off).
 		
-		//PromptOK(Format("%g %g %g", ResultXValues[0], ResultXValues[1], ResultXValues[ResultTimesteps-1]));
-		
 		//timeseries_stats Stats = {};
 		//ComputeTimeseriesStats(Stats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings);
-		
-		//PromptOK(Format("%d", (int)ResultTimesteps));
-		
+			
+		Color GraphColor = GradientColor(Color(230, 25, 75), Color(60, 180, 75), NStep, NSteps);
 		//NOTE: It doesn't matter that we pass 0 as min and max since we disallow normalized Y
 		//axis above.
+		Plot.AddPlot(Legend, Unit, ResultXValues, ResultYValues, ResultTimesteps, false, InputStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
-		
-		//Plot.AddPlot(Legend, Unit, ResultXValues, ResultYValues, ResultTimesteps, false, InputStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0);
-		
-		//TODO: Figure out why AddPlot doesn't work!
-		Color GraphColor = GradientColor(Color(255, 0, 0), Color(0, 0, 255), NStep, NSteps);
-		Plot.AddSeries(ResultXValues, ResultYValues, ResultTimesteps).NoMark().Stroke(1.5, GraphColor).Dash("").Units(Unit).Legend(Legend);
-		
+		//TODO: There is a lot of stuff in the following call that it is wasteful to do for
+		//each loop!
 		Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 		Plot.Refresh();
-		
 		
 		bool Error = ParentWindow->CheckDllUserError();
 		if(Error)
@@ -233,7 +255,7 @@ SensitivityViewWindow::Run()
 		}
 	}
 	
-	Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
+	//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 	RunProgress.Hide();
 	
 	ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
