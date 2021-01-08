@@ -1281,8 +1281,6 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 
 Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY)
 {
-	int Timesteps = (int)Len;
-	
 	aggregation_period IntervalType  = PlotSetup.AggregationPeriod;
 	aggregation_type AggregationType = PlotSetup.AggregationType;
 	y_axis_mode YAxis                = PlotSetup.YAxisMode;
@@ -1311,17 +1309,15 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 			}
 		}
 		
-		double Offset = (double)(StartTime - ReferenceTime);
-		
 		Graph = &this->AddSeries(XIn, Data, Len);
 	}
-	else //Monthly values or yearly values
+	else //Weekly, monthly values or yearly values
 	{
 		//Would it help to reserve some size for these?
 		std::vector<double> &XValues = PlotData.Allocate(0);
 		std::vector<double> &YValues = PlotData.Allocate(0);
 		
-		AggregateData(ReferenceTime, StartTime, Timesteps, Data, IntervalType, AggregationType, TimestepSize, XValues, YValues);
+		AggregateData(ReferenceTime, StartTime, Len, Data, IntervalType, AggregationType, TimestepSize, XValues, YValues);
 		
 		Graph = &this->AddSeries(XValues.data(), YValues.data(), XValues.size());
 	}

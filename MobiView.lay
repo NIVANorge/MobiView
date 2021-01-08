@@ -124,8 +124,8 @@ LAYOUT(MiniPlotLayout, 568, 100)
 	ITEM(Button, PushMain, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
 END_LAYOUT
 
-LAYOUT(SensitivityLayout, 364, 288)
-	ITEM(MyPlot, Plot, HSizePosZ(4, 4).VSizePosZ(52, 4))
+LAYOUT(SensitivityLayout, 516, 312)
+	ITEM(MyPlot, Plot, HSizePosZ(4, 4).VSizePosZ(52, 28))
 	ITEM(EditIntSpin, EditSteps, NotNull(true).LeftPosZ(36, 64).TopPosZ(4, 19))
 	ITEM(Label, LabelMax, SetLabel(t_("Max")).LeftPosZ(204, 24).TopPosZ(4, 19))
 	ITEM(Label, LabelSteps, SetLabel(t_("Steps")).LeftPosZ(4, 32).TopPosZ(4, 19))
@@ -133,6 +133,7 @@ LAYOUT(SensitivityLayout, 364, 288)
 	ITEM(Label, LabelMin, SetLabel(t_("Min")).LeftPosZ(104, 28).TopPosZ(4, 19))
 	ITEM(EditDouble, EditMin, LeftPosZ(136, 64).TopPosZ(4, 19))
 	ITEM(Button, PushRun, SetLabel(t_("Run")).LeftPosZ(300, 60).TopPosZ(4, 19))
-	ITEM(Label, ErrorLabel, LeftPosZ(4, 356).TopPosZ(28, 19))
+	ITEM(Label, ErrorLabel, HSizePosZ(4, 4).TopPosZ(28, 19))
+	ITEM(ProgressIndicator, RunProgress, HSizePosZ(4, 4).BottomPosZ(0, 24))
 END_LAYOUT
 
