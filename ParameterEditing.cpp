@@ -40,7 +40,6 @@ void MobiView::ExpandIndexSetClicked(size_t IndexSet)
 	RefreshParameterView();
 }
 
-
 void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 {
 	if(!RefreshValuesOnly)
@@ -50,7 +49,10 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	}
 	
 	int ExpandedSet = -1;
-	int ExpandedSetLocal = -1;
+	ExpandedSetLocal = -1;
+	
+	SecondExpandedSetLocal = -1;
+	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
 		if(IndexExpand[Idx]->Get()) ExpandedSet = Idx;
@@ -131,7 +133,6 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	
 	
 	//NOTE: If the last two index sets are the same, display this as a row
-	int SecondExpandedSetLocal = -1;
 	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetCount-1], IndexSetNames[IndexSetCount-2]) == 0))
 		SecondExpandedSetLocal = IndexSetCount-1;
 	
@@ -300,7 +301,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				if(!RefreshValuesOnly)
 				{
 					Params.ParameterView.SetCtrl(Row, Params.ParameterView.GetPos(ValueColumn), ParameterControls.Top());
-					ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Row, ValueColumn, ExpandedSetLocal, SecondExpandedSetLocal); };
+					ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Row, ValueColumn, this->DataSet); };
 				}
 			}
 			
@@ -312,7 +313,8 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 }
 
 
-void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal)
+void
+MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, void *DataSet, Value OverrideValue)
 {
 	if(Level == IndexSetNames.size())
 	{
@@ -334,6 +336,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			case ParameterType_Double:
 			{
 				double V = Params.ParameterView.Get(Row, ValueColumn);
+				if(!IsNull(OverrideValue)) V = OverrideValue;
 				if(!IsNull(V))
 					ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
 			} break;
@@ -341,6 +344,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			case ParameterType_UInt:
 			{
 				int64 V = Params.ParameterView.Get(Row, ValueColumn);
+				if(!IsNull(OverrideValue)) V = OverrideValue;
 				if(!IsNull(V))
 					ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
 			} break;
@@ -384,7 +388,7 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				CurrentIndexes[Level] = IndexNames[Idx];
-				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, ExpandedSetLocal, SecondExpandedSetLocal);
+				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
 			}
 		}
 		else
@@ -396,13 +400,13 @@ void MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int 
 			else
 				CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
 			
-			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, ExpandedSetLocal, SecondExpandedSetLocal);
+			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
 		}
 	}
 }
 
 
-void MobiView::ParameterEditAccepted(int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal)
+void MobiView::ParameterEditAccepted(int Row, Id ValueColumn, void *DataSet, Value OverrideValue)
 {
 	//TODO: High degree of copypaste from above. Factor this out.
 	Vector<int> Selected = ParameterGroupSelecter.GetSel();
@@ -420,9 +424,12 @@ void MobiView::ParameterEditAccepted(int Row, Id ValueColumn, int ExpandedSetLoc
 	if (CheckDllUserError()) return;
 	
 	std::vector<std::string> CurrentIndexes(IndexSetCount);
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, ValueColumn, ExpandedSetLocal, SecondExpandedSetLocal);
+	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
 	
-	ParametersWereChangedSinceLastSave = true;
+	//NOTE: This is just because of the special use case we have currently where this is only
+	//overridden if used on a dataset copy, not the main DataSet.
+	if(IsNull(OverrideValue))
+		ParametersWereChangedSinceLastSave = true;
 }
 
 

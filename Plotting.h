@@ -195,6 +195,8 @@ public:
 	
 	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun = false);
 	
+	void FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize);
+	
 	Color AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings);
@@ -203,7 +205,7 @@ public:
 	void AddNormalApproximation(String &Legend, int SampleCount, double Min, double Max, double Mean, double StdDev);
 	
 	
-	void ClearAll();
+	void ClearAll(bool FullClear = true);
 	
 	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
 	
@@ -228,6 +230,17 @@ public:
 	plot_setup PlotSetup;
 	
 	bool PlotWasAutoResized = false;
+	
+	
+	virtual void Layout() override
+	{
+		ScatterCtrl::Layout();
+		//NOTE: Always let the save/export size be the same as the window size.
+		Size PlotSize = GetSize();
+		SetSaveSize(PlotSize);
+	}
+	
+	
 private:
 	Vector<String> QQLabels;
 	

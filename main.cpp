@@ -82,12 +82,14 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::ViewReaches(), THISBACK(OpenChangeIndexes)).Tip("Edit indexes");
 	bar.Separator();
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
-	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
-	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Add(IconImg::ViewMorePlots(), THISBACK(OpenAdditionalPlotView)).Tip("Open additional plot view");
+	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
 	bar.Separator();
-	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings)");
+	//bar.Gap(60);
+	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
+	bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
 	bar.Separator();
+	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings");
 	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
 	bar.Add(IconImg::Info(), THISBACK(OpenModelInfoView)).Tip("View model information");
 }
@@ -155,8 +157,6 @@ MobiView::MobiView() : Plotter(this)
 	
 	Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
-	ParameterGroupSelecter.WhenSel << [this](){ RefreshParameterView(false); };
-	
 	IndexSetName[0] = &Params.IndexSetName1;
 	IndexSetName[1] = &Params.IndexSetName2;
 	IndexSetName[2] = &Params.IndexSetName3;
@@ -184,6 +184,17 @@ MobiView::MobiView() : Plotter(this)
 	IndexExpand[3]    = &Params.IndexExpand4;
 	IndexExpand[4]    = &Params.IndexExpand5;
 	IndexExpand[5]    = &Params.IndexExpand6;
+	
+	auto SensitivityWindowUpdate = [this]()
+	{
+		SensitivityWindow.Update();
+	};
+	
+	Params.ParameterView.WhenSel << SensitivityWindowUpdate;
+	
+	ParameterGroupSelecter.WhenSel << [this](){ RefreshParameterView(false); };
+	ParameterGroupSelecter.WhenSel << SensitivityWindowUpdate;
+	
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
@@ -339,6 +350,9 @@ MobiView::MobiView() : Plotter(this)
 	}
 	
 	
+	// NOTE: Just to make it initially set the message that no model is loaded
+	Plotter.MainPlot.BuildPlot(this, nullptr, true, PlotInfo, true);
+	
 	
 	Search.ParentWindow = this;
 	StructureView.ParentWindow = this;
@@ -347,6 +361,7 @@ MobiView::MobiView() : Plotter(this)
 	EditStatSettings.ParentWindow = this;
 	OtherPlots.ParentWindow = this;
 	ModelInfo.ParentWindow = this;
+	SensitivityWindow.ParentWindow = this;
 }
 
 
@@ -437,6 +452,21 @@ void MobiView::OpenChangeIndexes()
 		ChangeIndexes.Open();
 	}
 }
+
+void MobiView::OpenSensitivityView()
+{
+	if(!ModelDll.IsLoaded() || !DataSet)
+	{
+		Log("Can't do a perturbation run before a dataset is loaded.", true);
+		return;
+	}
+	
+	if(!SensitivityWindow.IsOpen())
+	{
+		SensitivityWindow.Open();
+	}
+}
+
 
 
 void MobiView::UpdateEquationSelecter()
@@ -711,12 +741,10 @@ void MobiView::BuildInterface()
 	ModelDll.GetAllParameterGroups(DataSet, TopGroupNames.data(), nullptr);
 	if (CheckDllUserError()) return;
 	
-	//PromptOK("bladididi");
+	
 	
 	for(int Idx = 0; Idx < TopGroupCount; ++Idx)
-	{
 		ParameterGroupSelecter.Add(0, Null, TopGroupNames[Idx], false);
-	}
 	
 	for(int Idx = 0; Idx < ModuleCount; ++Idx)
 	{
@@ -792,7 +820,7 @@ void MobiView::Load()
 {
 	if(ParametersWereChangedSinceLastSave)
 	{
-		int Cl = PromptYesNo("Parameters have been edited since last save. If you load a new dataset now, you will lose them. Continue anyway?");
+		int Cl = PromptYesNo("Parameters have been edited since the last save. If you load a new dataset now, you will lose them. Continue anyway?");
 		if(!Cl) return;
 	}
 	
@@ -983,7 +1011,7 @@ void MobiView::ClosingChecks()
 {
 	int Cl = 1;
 	if(ParametersWereChangedSinceLastSave)
-		Cl = PromptYesNo("Parameters have been edited since last save. Do you still want to exit MobiView?");
+		Cl = PromptYesNo("Parameters have been edited since the last save. If you exit now you will loose any changes. Do you still want to exit MobiView?");
 	
 	if(Cl)
 	{

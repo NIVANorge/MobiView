@@ -344,13 +344,34 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	//TODO: We should really really remove the dependency on the Control pointer from here...
 	
+	
+	ClearAll(false);
+	
 	if(Parent==0 || Parent->DataSet==0 || !Parent->ModelDll.IsLoaded())
 	{
-		this->SetTitle("Unable to generate a plot since no model is loaded.");
+		this->SetTitle("No model is loaded.");
 		return;
 	}
 	
-	if(PlotSetup.SelectedIndexes.size() == 0)
+	if(PlotSetup.SelectedResults.empty() && PlotSetup.SelectedInputs.empty())
+	{
+		this->SetTitle("No time series is selected for plotting.");
+		return;
+	}
+	
+	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
+	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
+	
+	//NOTE: We could also just clear the PlotSetup.SelectedResults in this case to allow
+	//plotting any selected input series
+	if(PlotSetup.SelectedResults.size() > 0 && ResultTimesteps == 0)
+	{
+		this->SetTitle("Unable to generate a plot of any result series since the model has not been run.");
+		return;
+	}
+	
+	//NOTE: This should theoretically never happen
+	if(PlotSetup.SelectedIndexes.empty())
 	{
 		this->SetTitle("No indexes were selected.");
 		return;
@@ -358,22 +379,16 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	for(int IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
-		if(PlotSetup.SelectedIndexes[IndexSet].size() == 0 && PlotSetup.IndexSetIsActive[IndexSet])
+		if(PlotSetup.SelectedIndexes[IndexSet].empty() && PlotSetup.IndexSetIsActive[IndexSet])
 		{
-			this->SetTitle("At least one index has to be set for each of the active index sets.");
+			this->SetTitle("At least one index has to be selected for each of the active index sets.");
 			return;
 		}
 	}
 	
-	uint64 InputTimesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
-	uint64 ResultTimesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	
-	//NOTE: To avoid a crash. However, we should maybe allow plotting inputs? Would complicate the code though
-	if(PlotSetup.SelectedResults.size() > 0 && ResultTimesteps == 0)
-	{
-		this->SetTitle("Unable to generate a plot since the model has not been run, or no time series is selected.");
-		return;
-	}
+	
+	
 	
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
@@ -384,26 +399,12 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			break;
 		}
 	}
-
-	this->RemoveAllSeries();
-	PlotColors.Reset();
-	PlotData.Clear();
-	
-	this->RemoveSurf();
-	SurfX.Clear();
-	SurfY.Clear();
-	SurfZ.Clear();
 	
 	this->ShowLegend(true);
-	
-	this->SetLabelX(" ");
-	this->SetLabelY(" ");
 	
 	PlotInfo.Clear();
 	
 	plot_major_mode PlotMajorMode = PlotSetup.MajorMode;
-	
-	this->SetTitle(String(""));
 	
 	char TimeStr[256];
 	Parent->ModelDll.GetStartDate(Parent->DataSet, TimeStr);
@@ -874,6 +875,15 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		}
 	}
 	
+	FormatAxes(PlotMajorMode, NBinsHistogram, InputStartTime, Parent->TimestepSize);
+	
+	this->Refresh();
+}
+
+
+void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize)
+{
+	
 	this->SetGridLinesX.Clear();
 	
 	if(this->GetCount() > 0 || (PlotMajorMode == MajorMode_Profile2D && SurfZ.size() > 0))
@@ -942,7 +952,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			this->cbModifFormatX.Clear();
 			this->ZoomToFit(false, true);
 			
-			this->SetGridLinesX << [this, InputStartTime, Parent](Vector<double> &V){UpdateDateGridLinesX(V, InputStartTime, Parent->TimestepSize);}; //TODO: Reset to THISBACK when appropriate
+			this->SetGridLinesX << [this, InputStartTime, TimestepSize](Vector<double> &V){UpdateDateGridLinesX(V, InputStartTime, TimestepSize);}; //TODO: Reset to THISBACK when appropriate
 			
 			double YRange = this->GetYRange();
 			double YMin   = this->GetYMin();
@@ -961,7 +971,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			
 			const char *MonthNames[12] = {"January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"};
 			
-			int DoStep = GetSmallestStepResolution(PlotSetup.AggregationPeriod, Parent->TimestepSize);
+			int DoStep = GetSmallestStepResolution(PlotSetup.AggregationPeriod, TimestepSize);
 			
 			//NOTE: Format to be displayed at grid lines
 			if(DoStep == 0)
@@ -1088,13 +1098,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	bool AllowScrollX = !(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram);
 	this->SetMouseHandling(AllowScrollX, false);
-	
-	Size PlotSize = this->GetSize();
-	this->SetSaveSize(PlotSize); //TODO: If somebody resizes the window without changing plot mode, this does not get called, and so plot save size will be incorrect....
-	
-	this->Refresh();
 }
-
 
 int MyPlot::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
 {
@@ -1822,12 +1826,22 @@ void MyPlot::ReplotProfile()
 }
 
 
-void MyPlot::ClearAll()
+void MyPlot::ClearAll(bool FullClear)
 {
 	this->RemoveAllSeries();
-	this->RemoveSurf();
+	PlotColors.Reset();
 	PlotData.Clear();
-	PlotWasAutoResized = false;
+	
+	this->RemoveSurf();
+	SurfX.Clear();
+	SurfY.Clear();
+	SurfZ.Clear();
+	
+	this->SetTitle(String(""));
+	this->SetLabelX(" ");
+	this->SetLabelY(" ");
+	
+	if(FullClear) PlotWasAutoResized = false;
 }
 
 

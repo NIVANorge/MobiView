@@ -14,7 +14,7 @@ AdditionalPlotView::AdditionalPlotView()
 {
 	CtrlLayout(*this, "Additional plot view");
 	
-	MinimizeBox().Sizeable().Zoomable();
+	Sizeable().Zoomable();
 	
 	Add(VerticalSplitter.VSizePos(25, 0));
 	

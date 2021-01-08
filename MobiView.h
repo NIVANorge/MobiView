@@ -198,6 +198,21 @@ private:
 	void SubBar(Bar &bar);
 };
 
+class SensitivityViewWindow : public WithSensitivityLayout<TopWindow>
+{
+public:
+	typedef SensitivityViewWindow CLASSNAME;
+	
+	SensitivityViewWindow();
+	
+	MobiView *ParentWindow;
+	
+	void Update();
+	void Run();
+	
+private:
+	int FindSelectedParameterRow();
+};
 
 
 
@@ -253,19 +268,17 @@ public:
 	void CleanInterface();
 	void BuildInterface();
 	
-	void OpenSearch();
-	SearchWindow Search;
 	
 	
+	StatisticsSettings StatSettings;
 	void OpenStatSettings();
 	EditStatSettingsWindow EditStatSettings;
 	
-	StatisticsSettings StatSettings;
-	
+	void OpenSearch();
+	SearchWindow Search;
 	
 	void OpenStructureView();
 	StructureViewWindow StructureView;
-	
 	
 	void OpenChangeIndexes();
 	ChangeIndexesWindow ChangeIndexes;
@@ -275,6 +288,9 @@ public:
 	
 	void OpenModelInfoView();
 	ModelInfoViewWindow ModelInfo;
+	
+	void OpenSensitivityView();
+	SensitivityViewWindow SensitivityWindow;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
@@ -297,10 +313,12 @@ public:
 	
 	void ExpandIndexSetClicked(size_t IndexSet);
 	void RefreshParameterView(bool RefreshValuesOnly = false);
-	//void RefreshParameterViewValues();
 	
-	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal);
-	void ParameterEditAccepted(int Row, Id ValueColumn, int ExpandedSetLocal, int SecondExpandedSetLocal);
+	
+	int ExpandedSetLocal;
+	int SecondExpandedSetLocal;
+	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, void *DataSet, Value OverrideValue);
+	void ParameterEditAccepted(int Row, Id ValueColumn, void *DataSet, Value OverrideValue=Null);
 	
 	
 	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);
@@ -310,6 +328,7 @@ public:
 
 	ToolBar Tool;
 	
+	// TODO: These should probably be owned by ParameterCtrl instead??
 	Array<Ctrl> ParameterControls;
 	std::vector<parameter_type> CurrentParameterTypes;
 	
