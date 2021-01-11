@@ -19,6 +19,19 @@ SensitivityViewWindow::SensitivityViewWindow()
 	PushRun.WhenPush = THISBACK(Run);
 	
 	RunProgress.Hide();
+	
+	SelectStat.Add("(none)");
+	
+	#define SET_SETTING(Handle, Name, Type) \
+		SelectStat.Add(Name);
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
+	
+	#include "SetStatSettings.h"
+	
+	#undef SET_SETTING
+	#undef SET_RES_SETTING
+	
+	SelectStat.SetIndex(0);
 }
 
 int
@@ -93,15 +106,17 @@ SensitivityViewWindow::Run()
 	
 	int SelectedRow = FindSelectedParameterRow();
 	
-	if(ParentWindow->SecondExpandedSetLocal >= 0)
-	{
-		ErrorLabel.SetText("We currently don't have this functionality for matrix parameters");
-		return;
-	}
+	ErrorLabel.SetText("");
 	
 	if(SelectedRow == -1)
 	{
 		ErrorLabel.SetText("Select a parameter in the main view");
+		return;
+	}
+	
+	if(ParentWindow->SecondExpandedSetLocal >= 0)
+	{
+		ErrorLabel.SetText("We currently don't have this functionality for matrix parameters");
 		return;
 	}
 	
@@ -166,6 +181,7 @@ SensitivityViewWindow::Run()
 	Plot.PlotData.Data.reserve(2*NSteps + 3);
 	
 	StatPlot.RemoveAllSeries();
+	StatPlot.SetTitle(" ");
 	StatPlot.SetLabelX(" ");
 	StatPlot.SetLabelY(" ");
 	
@@ -207,12 +223,14 @@ SensitivityViewWindow::Run()
 		//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 	}
 	
-	if(HasInput)
+	String StatName = SelectStat.Get();
+	
+	if(StatName != "(none)")
 	{
 		Color StatColor(0, 130, 200);
 		StatPlot.AddSeries(ParValues, StatData, NSteps).MarkBorderColor(StatColor).MarkColor(StatColor).Stroke(1.5, StatColor).Opacity(0.5).MarkStyle<CircleMarkPlot>();
 		
-		StatPlot.SetLabels(Parname, "N-S");
+		StatPlot.SetLabels(Parname, StatName);
 		StatPlot.ShowLegend(false);
 		StatPlot.SetMouseHandling(false, false);
 		
@@ -227,6 +245,10 @@ SensitivityViewWindow::Run()
 		StatPlot.SetMajorUnitsNum(std::min(NSteps-1, 9));     //TODO: This should be better!
 		
 		//StatPlot.Refresh();
+	}
+	else
+	{
+		StatPlot.SetTitle("Select a statistic to display");
 	}
 	
 	int NStep = 0;
@@ -263,9 +285,6 @@ SensitivityViewWindow::Run()
 		//Note: override the legend:
 		Legend = Format("%g", Val);
 		Unit = Null; //NOTE: to avoid it showing in the legend (ideally we want to be able to turn that off).
-		
-		//timeseries_stats Stats = {};
-		//ComputeTimeseriesStats(Stats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings);
 			
 		Color GraphColor = GradientColor(Color(230, 25, 75), Color(60, 180, 75), NStep, NSteps);
 		//NOTE: It doesn't matter that we pass 0 as min and max since we disallow normalized Y
@@ -277,15 +296,49 @@ SensitivityViewWindow::Run()
 		Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 		Plot.Refresh();
 		
+		residual_stats ResidualStats = {};
+		timeseries_stats TimeseriesStats = {};
+		
+		//TODO: It is a tiny bit inefficient to do the string comparison here every time, but
+		//it should be fine
+		
+		#define SET_SETTING(Handle, Name, Type) \
+			else if(Name == StatName)           \
+			{                                   \
+				ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings); \
+				StatData[NStep] = TimeseriesStats.Handle;                                                            \
+			}
+		//TODO: Use the GOF interval!
+		#define SET_RES_SETTING(Handle, Name, Type) \
+			else if(Name == StatName)               \
+			{                                       \
+				if(HasInput)                        \
+				{                                   \
+					int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize); \
+					ComputeResidualStats(ResidualStats, InputYValues+ResultOffset, ResultYValues, ResultTimesteps);     \
+					StatData[NStep] = ResidualStats.Handle; \
+				}                                   \
+				else                                \
+					StatPlot.SetTitle("Select an input series to compute the residual stat"); \
+			}
+		
+		if(StatName == "(none)") {}
+		#include "SetStatSettings.h"
+		
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+		
+		
+		/*
 		if(HasInput)
 		{
 			//TODO: Use GOF interval!
 			int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize);
-			residual_stats ResidualStats = {};
 			ComputeResidualStats(ResidualStats, InputYValues+ResultOffset, ResultYValues, ResultTimesteps);
 			//TODO: Allow selecting other stats!
-			StatData[NStep] = ResidualStats.NashSutcliffe;
+			StatData[NStep] = ResidualStats.NS;
 		}
+		*/
 		
 		bool Error = ParentWindow->CheckDllUserError();
 		if(Error)

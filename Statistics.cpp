@@ -43,15 +43,18 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	
 	Display = Format("[*@(%d.%d.%d) %s]", Col.GetR(), Col.GetG(), Col.GetB(), Display);
 	
+	
+	#define SET_SETTING(Handle, Name, Type) \
+		if(StatSettings.Display##Handle)         DisplayStat(Name, Stats.Handle, Display, TrackedFirst, Precision);
+	#define SET_RES_SETTING(Handle, Name, Type)
+	
 	bool TrackedFirst = true;
 	Display << "{{1:1FWGW ";
-	if(StatSettings.DisplayMin)         DisplayStat("min", Stats.Min, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayMax)         DisplayStat("max", Stats.Max, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplaySum)         DisplayStat("sum", Stats.Sum, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayMean)        DisplayStat("mean", Stats.Mean, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayMedian)      DisplayStat("median", Stats.Median, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayVariance)    DisplayStat("variance", Stats.Variance, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayStandardDev) DisplayStat("std.dev.", Stats.StandardDeviation, Display, TrackedFirst, Precision);
+	
+	#include "SetStatSettings.h"
+	
+	#undef SET_SETTING
+	#undef SET_RES_SETTING
 	
 	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
 	Display << "}}&";
@@ -72,20 +75,20 @@ void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, St
 	
 	Display = Format("[* %s]", Display);
 	
+	#define SET_RES_SETTING(Handle, Name, Type) \
+		if(StatSettings.Display##Handle) DisplayStat(Name, Type, CachedStats.Handle, Stats.Handle, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	#define SET_SETTING(Handle, Name, Type)
+	
 	bool TrackedFirst = true;
 	Display << "{{2:1:1FWGW ";
-	if(StatSettings.DisplayMeanError) DisplayStat("Mean error (bias)", -1, CachedStats.MeanError, Stats.MeanError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayMAE)       DisplayStat("MAE",               0,  CachedStats.MeanAbsoluteError, Stats.MeanAbsoluteError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayRMSE)      DisplayStat("RMSE",              0,  CachedStats.RootMeanSquareError, Stats.RootMeanSquareError, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayNS)        DisplayStat("N-S",               1,  CachedStats.NashSutcliffe, Stats.NashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayLogNS)     DisplayStat("log N-S",           1,  CachedStats.LogNashSutcliffe, Stats.LogNashSutcliffe, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayR2)        DisplayStat("r2",                1,  CachedStats.R2, Stats.R2, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayIdxAgr)    DisplayStat("Idx. of agr.",      1,  CachedStats.IndexOfAgreement, Stats.IndexOfAgreement, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplayKGE)       DisplayStat("KGE",               1,  CachedStats.KlingGuptaEfficiency, Stats.KlingGuptaEfficiency, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
-	if(StatSettings.DisplaySRCC)      DisplayStat("Spearman's RCC",    1,  CachedStats.SpearmansRCC, Stats.SpearmansRCC, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+	
+	#include "SetStatSettings.h"
 
 	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
 	Display << ":: }}&";
+	
+	#undef SET_RES_SETTING
+	#undef SET_SETTING
 	
 	PlotInfo.Append(Display);
 	PlotInfo.ScrollEnd();
@@ -172,7 +175,7 @@ void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len
 	StatsOut.Mean = Mean;
 	
 	StatsOut.Variance = Variance;
-	StatsOut.StandardDeviation = std::sqrt(Variance);
+	StatsOut.StandardDev = std::sqrt(Variance);
 	StatsOut.DataPoints = FiniteCount;
 }
 
@@ -281,13 +284,13 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 	StatsOut.MinError  = Min;
 	StatsOut.MaxError  = Max;
 	StatsOut.MeanError = MeanError;
-	StatsOut.MeanAbsoluteError = SumAbs / (double)FiniteCount;
-	StatsOut.RootMeanSquareError = std::sqrt(MeanSquareError);
-	StatsOut.NashSutcliffe = NS;
-	StatsOut.LogNashSutcliffe = logNS;
-	StatsOut.R2 = RR*RR;
-	StatsOut.IndexOfAgreement = IA;
-	StatsOut.KlingGuptaEfficiency = KGE;
+	StatsOut.MAE       = SumAbs / (double)FiniteCount;
+	StatsOut.RMSE      = std::sqrt(MeanSquareError);
+	StatsOut.NS        = NS;
+	StatsOut.LogNS     = logNS;
+	StatsOut.R2        = RR*RR;
+	StatsOut.IdxAgr    = IA;
+	StatsOut.KGE       = KGE;
 	StatsOut.DataPoints = FiniteCount;
 	
 	
@@ -322,7 +325,7 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 	}
 	
 	double FC = (double)FiniteCount;
-	StatsOut.SpearmansRCC = 1.0 - 6.0 * SumSquareRankDiff / (FC * (FC*FC - 1.0));
+	StatsOut.SRCC = 1.0 - 6.0 * SumSquareRankDiff / (FC * (FC*FC - 1.0));
 }
 
 void ComputeTrendStats(double *XData, double *YData, size_t Len, double MeanY, double &XMeanOut, double &XVarOut, double &XYCovarOut)

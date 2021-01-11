@@ -308,16 +308,18 @@ MobiView::MobiView() : Plotter(this)
 	
 	
 	ValueMap StatsJson = SettingsJson["Statistics"];
-	#define SET_SETTING(Name) \
-		Value Name##Json = StatsJson[#Name]; \
-		if(!IsNull(Name##Json)) \
+	#define SET_SETTING(Handle, Name, Type) \
+		Value Handle##Json = StatsJson[#Handle]; \
+		if(!IsNull(Handle##Json)) \
 		{ \
-			StatSettings.Display##Name = (int)Name##Json; \
+			StatSettings.Display##Handle = (int)Handle##Json; \
 		}
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 	
 	#include "SetStatSettings.h"
 	
 	#undef SET_SETTING
+	#undef SET_RES_SETTING
 	
 	ValueArray Percentiles = StatsJson["Percentiles"];
 	if(!IsNull(Percentiles) && Percentiles.GetCount() >= 1)
@@ -568,12 +570,14 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 	
 	Json Statistics;
 	
-	#define SET_SETTING(Name) \
-		Statistics(#Name, StatSettings.Display##Name);
+	#define SET_SETTING(Handle, Name, Type) \
+		Statistics(#Handle, StatSettings.Display##Handle);
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 	
 	#include "SetStatSettings.h"
 	
 	#undef SET_SETTING
+	#undef SET_RES_SETTING
 	
 	JsonArray Percentiles;
 	for(double Percentile : StatSettings.Percentiles) Percentiles << Percentile;

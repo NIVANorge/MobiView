@@ -36,8 +36,10 @@ void ModelInfoViewWindow::RefreshText()
 	const char *ModelName = ParentWindow->ModelDll.GetModelName(ParentWindow->DataSet);
 	if(ModelName && strlen(ModelName) >= 4 && ModelName[0]=='I' && ModelName[1]=='N' && ModelName[2]=='C' && ModelName[3]=='A')
 		Buf << "@@iml:1512*768`LogoImg:INCALogo`&";
-	if(ModelName && strlen(ModelName) >= 6 && ModelName[0]=='S' && ModelName[1]=='i' && ModelName[2]=='m' && ModelName[3]=='p' && ModelName[4]=='l' && ModelName[5]=='y')
+	else if(ModelName && strlen(ModelName) >= 6 && ModelName[0]=='S' && ModelName[1]=='i' && ModelName[2]=='m' && ModelName[3]=='p' && ModelName[4]=='l' && ModelName[5]=='y')
 		Buf << "@@iml:2236*982`LogoImg:SimplyLogo`&&";
+	else if(ModelName && strlen(ModelName) >= 5 && ModelName[0]=='M' && ModelName[1]=='A' && ModelName[2]=='G' && ModelName[3]=='I' && ModelName[4]=='C')
+		Buf << "@@iml:2476*1328`LogoImg:MAGICLogo`&&";
 	
 	Buf << "[3 The model [* " << ModelName << "] contains the following modules:\n";
 	

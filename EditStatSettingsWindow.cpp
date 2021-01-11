@@ -21,12 +21,14 @@ void EditStatSettingsWindow::LoadData()
 {
 	StatisticsSettings &Stat = ParentWindow->StatSettings;
 	
-	#define SET_SETTING(Name) \
-		Display##Name.Set((int)Stat.Display##Name);
+	#define SET_SETTING(Handle, Name, Type) \
+		Display##Handle.Set((int)Stat.Display##Handle);
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 	
 	#include "SetStatSettings.h"
 	
 	#undef SET_SETTING
+	#undef SET_RES_SETTING
 	
 	String QuantileString;
 	int Idx = 0;
@@ -46,12 +48,14 @@ void EditStatSettingsWindow::SaveDataAndClose()
 {
 	StatisticsSettings &Stat = ParentWindow->StatSettings;
 	
-	#define SET_SETTING(Name) \
-		Stat.Display##Name = (bool)Display##Name.Get();
+	#define SET_SETTING(Handle, Name, Type) \
+		Stat.Display##Handle = (bool)Display##Handle.Get();
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 	
 	#include "SetStatSettings.h"
 	
 	#undef SET_SETTING
+	#undef SET_RES_SETTING
 	
 	std::vector<double> Percentiles;
 	String PercStr = PercentilesEdit.GetText().ToString();

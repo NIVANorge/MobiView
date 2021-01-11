@@ -52,7 +52,7 @@ struct timeseries_stats
 	std::vector<double> Percentiles;
 	double Mean;
 	double Variance;
-	double StandardDeviation;
+	double StandardDev;
 	size_t DataPoints;
 };
 
@@ -61,14 +61,14 @@ struct residual_stats
 	double MinError;
 	double MaxError;
 	double MeanError;
-	double MeanAbsoluteError;
-	double RootMeanSquareError;
-	double NashSutcliffe;
-	double LogNashSutcliffe;
+	double MAE;
+	double RMSE;
+	double NS;
+	double LogNS;
 	double R2;
-	double IndexOfAgreement;
-	double KlingGuptaEfficiency;
-	double SpearmansRCC;
+	double IdxAgr;
+	double KGE;
+	double SRCC;
 	size_t DataPoints;
 	
 	bool WasInitialized = false;
