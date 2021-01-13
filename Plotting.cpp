@@ -858,7 +858,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				timeseries_stats RS2;
 				ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, Parent->StatSettings);
 				
-				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDeviation);
+				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDev);
 			}
 			else if(PlotMajorMode == MajorMode_QQ)
 			{
@@ -1370,19 +1370,17 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		
 		if(!IsInput)
 		{
+			if(!Parent->ModelDll.ResultWasComputed(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
+				Provided = " (time series not computed)"; //TODO: Should we just omit displaying it in this case?
 			Parent->ModelDll.GetResultSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data());
 			Unit = Parent->ModelDll.GetResultUnit(Parent->DataSet, Name.data());
-			if(!Parent->ModelDll.ResultWasComputed(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
-				return;
 		}
 		else
 		{
-			//TODO: Should we just omit displaying it in this case?
-			
+			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
+				Provided = " (time series not provided)"; //TODO: Should we just omit displaying it in this case?
 			Parent->ModelDll.GetInputSeries(Parent->DataSet, Name.data(), IndexData, Indexes.size(), Data.data(), false);
 			Unit = Parent->ModelDll.GetInputUnit(Parent->DataSet, Name.data());
-			if(!Parent->ModelDll.InputWasProvided(Parent->DataSet, Name.data(), IndexData, Indexes.size()))
-				Provided = " (time series not provided)";
 		}
 		if(Parent->CheckDllUserError()) return;
 		
