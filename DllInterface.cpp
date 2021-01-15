@@ -115,7 +115,6 @@ std::string model_dll_interface::GetDllError()
 {
 #ifdef PLATFORM_WIN32
 	LPVOID lpMsgBuf;
-    LPVOID lpDisplayBuf;
 	DWORD dw = GetLastError();
 
     FormatMessage(
@@ -128,7 +127,6 @@ std::string model_dll_interface::GetDllError()
         (LPTSTR) &lpMsgBuf,
         0, NULL );
 
-	
 	std::string Result((char *)lpMsgBuf);
 
     LocalFree(lpMsgBuf);

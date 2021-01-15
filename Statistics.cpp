@@ -283,6 +283,7 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 	
 	StatsOut.MinError  = Min;
 	StatsOut.MaxError  = Max;
+	
 	StatsOut.MeanError = MeanError;
 	StatsOut.MAE       = SumAbs / (double)FiniteCount;
 	StatsOut.RMSE      = std::sqrt(MeanSquareError);

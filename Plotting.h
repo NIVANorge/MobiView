@@ -42,62 +42,56 @@ enum y_axis_mode
 	YAxis_Logarithmic,
 };
 
-
+#define SET_SETTING(Handle, Name, Type) \
+	double Handle;
+#define SET_RES_SETTING(Handle, Name, Type)
+	
 struct timeseries_stats
 {
-	double Min;
-	double Max;
-	double Sum;
-	double Median;
+	#include "SetStatSettings.h"
+	
 	std::vector<double> Percentiles;
-	double Mean;
-	double Variance;
-	double StandardDev;
 	size_t DataPoints;
 };
+
+#undef SET_SETTING
+#undef SET_RES_SETTING
+
+#define SET_RES_SETTING(Handle, Name, Type) \
+	double Handle;
+#define SET_SETTING(Handle, Name, Type)
 
 struct residual_stats
 {
+	#include "SetStatSettings.h"
+	
+	//Could also have these in SetStatSettings.h, but it does not make that much sense to make
+	//them displayable
 	double MinError;
 	double MaxError;
-	double MeanError;
-	double MAE;
-	double RMSE;
-	double NS;
-	double LogNS;
-	double R2;
-	double IdxAgr;
-	double KGE;
-	double SRCC;
-	size_t DataPoints;
 	
+	size_t DataPoints;
 	bool WasInitialized = false;
 };
 
+#undef SET_SETTING
+#undef SET_RES_SETTING
+
+#define SET_SETTING(Handle, Name, Type) \
+	bool Display##Handle = true;
+#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
+
 struct StatisticsSettings
 {
-	bool DisplayMin          = true;
-	bool DisplayMax          = true;
-	bool DisplaySum          = true;
-	bool DisplayMedian       = true;
-	bool DisplayMean         = true;
-	bool DisplayVariance     = true;
-	bool DisplayStandardDev  = true;
-	
-	bool DisplayMeanError    = true;
-	bool DisplayMAE          = true;
-	bool DisplayRMSE         = true;
-	bool DisplayNS           = true;
-	bool DisplayLogNS        = true;
-	bool DisplayR2           = true;
-	bool DisplayIdxAgr       = true;
-	bool DisplayKGE          = true;
-	bool DisplaySRCC         = true;
+	#include "SetStatSettings.h"
 	
 	std::vector<double> Percentiles = {0.0, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 100.0};
 	
 	int Precision = 5;
 };
+
+#undef SET_SETTING
+#undef SET_RES_SETTING
 
 struct plot_data_storage
 {
