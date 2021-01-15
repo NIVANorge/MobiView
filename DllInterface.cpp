@@ -1,5 +1,8 @@
 #include "DllInterface.h"
 
+#include <locale>
+#include <codecvt>
+
 #ifndef PLATFORM_WIN32
 #include <dlfcn.h>
 #endif
@@ -23,7 +26,8 @@ bool model_dll_interface::Load(const char *DllName)
 	UnLoad();
 	
 #ifdef PLATFORM_WIN32
-	hinstModelDll = LoadLibraryA(DllName);
+	std::u16string Filename16 = std::wstring_convert<std::codecvt_utf8_utf16<char16_t>, char16_t>{}.from_bytes(DllName);
+	hinstModelDll = LoadLibraryW((wchar_t *)Filename16.data());
 	#define LoadProc(Handle, Name) GetProcAddress(Handle, Name)
 #else
 	hinstModelDll = dlopen(DllName, RTLD_LAZY);
