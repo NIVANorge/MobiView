@@ -4,6 +4,8 @@ MobiView is a GUI for the model building system [Mobius](https://github.com/NIVA
 
 MobiView can load and work with any Mobius model that has been compiled to a .dll using the Mobius dll interface. It understands the .dat format for parameters and inputs that is specified in the [Mobius file format documentation](https://github.com/NIVANorge/Mobius/blob/master/Documentation/file_format_documentation.pdf).
 
+[The MobiView user manual](https://github.com/NIVANorge/Mobius/blob/master/Documentation/mobiview_documentation.pdf)
+
 MobiView is made using the [Ultimate++](https://www.ultimatepp.org/) GUI library.
 
 ![Example of MobiView viewing the PERSiST model](img/MobiView.png)
