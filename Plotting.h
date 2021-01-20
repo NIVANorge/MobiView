@@ -97,7 +97,9 @@ struct plot_data_storage
 {
 	plot_data_storage()
 	{
-		Data.reserve(1024); //NOTE: We should never allow the outer vector to resize, because that could invalidate references to inner vectors.
+		//NOTE: We should never allow the outer vector to resize, because that could invalidate references to inner vectors.
+		//TODO: This is a really crappy way of doing it, and is error prone.
+		Data.reserve(1024);
 	}
 	
 	std::vector<std::vector<double>> Data;
