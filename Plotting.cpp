@@ -1861,12 +1861,13 @@ void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
 	}
 	else                        //Timestep magnitude measured in months.
 	{
-		T.month += (int)Timesteps*TimestepSize.Magnitude;
-		while(T.month > 12)
+		int Month = (int)T.month + (int)Timesteps*TimestepSize.Magnitude;  //NOTE: Can't use T.month directly here since it is 8-bit and will overflow.
+		while(Month > 12)
 		{
-			T.month -= 12;
+			Month -= 12;
 			T.year++;
 		}
+		T.month = Month;
 	}
 }
 
