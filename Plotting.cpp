@@ -63,7 +63,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 MyPlot::MyPlot()
 {
 	
-	this->SetFastViewX(true);
+	//this->SetFastViewX(true);            //NOTE: Turned off because it is buggy!
 	this->SetSequentialXAll(true);
 	
 	Size PlotReticleSize = GetTextSize("00000", this->GetReticleFont());
@@ -110,6 +110,8 @@ void PlotCtrl::GatherCurrentPlotSetup(plot_setup &C)
 		C.ScatterInputs = ScatterInputs.Get();
 	else
 		C.ScatterInputs = false;
+	
+	if(!Parent->ModelDll.IsLoaded() || !Parent->DataSet) return;
 	
 	int InputRowCount = Parent->InputSelecter.GetCount();
 	for(int Row = 0; Row < InputRowCount; ++Row)
@@ -883,6 +885,8 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 
 void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize)
 {
+	//this->ZoomToFit();
+	//return;
 	
 	this->SetGridLinesX.Clear();
 	
@@ -1931,12 +1935,14 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 		{
 			WriteX[Idx] = (double)(CurTime - ReferenceTime);
 			
-			CurTime.month += TimestepSize.Magnitude;
-			while(CurTime.month > 12)
+			int Month = (int)CurTime.month + TimestepSize.Magnitude;
+			//CurTime.month += TimestepSize.Magnitude;
+			while(Month > 12)
 			{
-				CurTime.month -= 12;
+				Month -= 12;
 				CurTime.year++;
 			}
+			CurTime.month = Month;
 		}
 	}
 }

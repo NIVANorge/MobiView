@@ -23,6 +23,9 @@ void SearchWindow::Find()
 	
 	if(ModelDll.IsLoaded() && DataSet)
 	{
+		//NOTE: For some reason the callback is called by ResultField.Clear() below, causing a crash unless we remove the callback and re-add it later.
+		ResultField.WhenSel.Clear();
+		
 		ResultField.Clear();
 		
 		String Match = SearchField.GetData();
@@ -56,6 +59,7 @@ void SearchWindow::Find()
 			}
 		}
 		
+		ResultField.WhenSel = THISBACK(SelectItem);
 		
 		ParentWindow->CheckDllUserError();
 	}
