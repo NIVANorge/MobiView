@@ -164,7 +164,7 @@ struct plot_setup
 
 class MobiView;
 
-void NullifyNans(double *Data, size_t Len);
+//void NullifyNans(double *Data, size_t Len);
 void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize);
 int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize);
 int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size TimestepSize);

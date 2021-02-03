@@ -563,7 +563,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					else
 						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data.data(), ProfileIndexSet, Row);
 					
-					NullifyNans(Data.data(), Data.size());
+					//NullifyNans(Data.data(), Data.size());
 					
 					if(IntervalType != Aggregation_None)
 					{
@@ -656,7 +656,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					else
 						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data, ProfileIndexSet, Row);
 					
-					NullifyNans(Data, Timesteps);
+					//NullifyNans(Data, Timesteps);
 					
 					for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
 					
@@ -708,7 +708,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String BS;
 			String Unit;
 			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->BaselineDataSet, PlotSetup.SelectedResults[0], BS, Unit, Baseline.data());
-			NullifyNans(Baseline.data(), Baseline.size());
+			//NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
 			double *BaselineXValues = PlotData.Allocate(BaselineTimesteps).data();
@@ -724,7 +724,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
 			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], CurrentLegend, Unit, Current.data());
-			NullifyNans(Current.data(), Current.size());
+			//NullifyNans(Current.data(), Current.size());
 			
 			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
 			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
@@ -747,7 +747,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				String InputLegend;
 				String Unit;
 				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
-				NullifyNans(Obs.data(), Obs.size());
+				//NullifyNans(Obs.data(), Obs.size());
 				
 				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
@@ -843,7 +843,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
 					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, InputStartTime, ResultStartTime, Parent->TimestepSize);
 					
-					NullifyNans(Residuals.data(), Residuals.size());
+					//NullifyNans(Residuals.data(), Residuals.size());
 					
 					String TL = "Trend line";
 					AddTrendLine(TL, XYCovar, XVar, ResidualStats.MeanError, XMean, StartX, EndX);
@@ -1411,7 +1411,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		
 		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo, Col);
 		
-		NullifyNans(Dat, Len);
+		//NullifyNans(Dat, Len);
 	}
 	else
 	{
@@ -1845,17 +1845,6 @@ void MyPlot::ClearAll(bool FullClear)
 	if(FullClear) PlotWasAutoResized = false;
 }
 
-
-
-void NullifyNans(double *Data, size_t Len)
-{
-	//NOTE: We do this because the ScatterDraw does not draw gaps in the line at NaNs, only at
-	//Null.
-	for(size_t Idx = 0; Idx < Len; ++Idx)
-	{
-		if(std::isnan(Data[Idx])) Data[Idx] = Null;
-	}
-}
 
 void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
 {

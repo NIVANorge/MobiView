@@ -214,7 +214,7 @@ SensitivityViewWindow::Run()
 		String Legend;
 		String Unit;
 		ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, false);
-		NullifyNans(InputYValues, InputTimesteps);
+		//NullifyNans(InputYValues, InputTimesteps);
 		
 		Color InputColor(0, 130, 200);
 		
@@ -280,7 +280,7 @@ SensitivityViewWindow::Run()
 		String Legend;
 		String Unit;
 		ParentWindow->GetSingleSelectedResultSeries(Plot.PlotSetup, DataSetCopy, Plot.PlotSetup.SelectedResults[0], Legend, Unit, ResultYValues);
-		NullifyNans(ResultYValues, ResultTimesteps);
+		//NullifyNans(ResultYValues, ResultTimesteps);
 		
 		//Note: override the legend:
 		Legend = Format("%g", Val);
