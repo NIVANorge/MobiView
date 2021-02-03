@@ -4,6 +4,10 @@ uses
 
 file
 	MobiView.h,
+	PlotCtrl.h,
+	Plotting.h,
+	SetStatSettings.h,
+	MyRichView.h,
 	main.cpp,
 	ParameterEditing.cpp,
 	Statistics.cpp,
@@ -16,10 +20,6 @@ file
 	SearchWindow.cpp,
 	SensitivityViewWindow.cpp,
 	AdditionalPlotView.cpp,
-	PlotCtrl.h,
-	Plotting.h,
-	SetStatSettings.h,
-	MyRichView.h,
 	DllInterface.h,
 	DllInterface.cpp,
 	StarOption.h,
