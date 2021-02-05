@@ -59,7 +59,25 @@ ParseParameterType(const char *Name)
 class MobiView;
 
 
-class ParameterCtrl : public WithParameterCtrlLayout<ParentCtrl> {
+
+struct parameter_index
+{
+	bool Locked = false;
+	std::string Name;  //May be invalid if Locked=true
+};
+
+struct indexed_parameter
+{
+	bool Valid = false;
+	std::string Name;
+	parameter_type Type;
+	std::vector<std::string>     IndexSetNames;
+	std::vector<parameter_index> Indexes;
+};
+
+
+class ParameterCtrl : public WithParameterCtrlLayout<ParentCtrl>
+{
 public:
 	typedef ParameterCtrl CLASSNAME;
 	
@@ -67,7 +85,8 @@ public:
 };
 
 
-class SearchWindow : public WithSearchLayout<TopWindow> {
+class SearchWindow : public WithSearchLayout<TopWindow>
+{
 public:
 	typedef SearchWindow CLASSNAME;
 	
@@ -81,7 +100,8 @@ public:
 
 class ChangeIndexesWindow;
 
-class VisualizeBranches : public Ctrl {
+class VisualizeBranches : public Ctrl
+{
 public :
 	VisualizeBranches();
 	
@@ -91,7 +111,8 @@ public :
 	virtual void Paint(Draw &W);
 };
 
-class StructureViewWindow : public WithStructureViewLayout<TopWindow> {
+class StructureViewWindow : public WithStructureViewLayout<TopWindow>
+{
 public:
 	typedef StructureViewWindow CLASSNAME;
 	
@@ -102,7 +123,8 @@ public:
 	void RefreshText();
 };
 
-class ModelInfoViewWindow : public WithModelInfoLayout<TopWindow> {
+class ModelInfoViewWindow : public WithModelInfoLayout<TopWindow>
+{
 public:
 	typedef ModelInfoViewWindow CLASSNAME;
 	
@@ -113,7 +135,8 @@ public:
 	void RefreshText();
 };
 
-class EditStatSettingsWindow : public WithEditStatSettingsLayout<TopWindow> {
+class EditStatSettingsWindow : public WithEditStatSettingsLayout<TopWindow>
+{
 public:
 	typedef EditStatSettingsWindow CLASSNAME;
 	
@@ -129,7 +152,8 @@ public:
 
 
 
-class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow> {
+class ChangeIndexesWindow : public WithChangeIndexesLayout<TopWindow>
+{
 public:
 	typedef ChangeIndexesWindow CLASSNAME;
 	
@@ -210,14 +234,16 @@ public:
 	void Update();
 	void Run();
 	
-private:
-	int FindSelectedParameterRow();
+	private :
+		indexed_parameter CurrentParameter;
+	
 };
 
 
 
 
-class MobiView : public TopWindow {
+class MobiView : public TopWindow
+{
 	
 public:
 	typedef MobiView CLASSNAME;
@@ -314,6 +340,10 @@ public:
 	void ExpandIndexSetClicked(size_t IndexSet);
 	void RefreshParameterView(bool RefreshValuesOnly = false);
 	
+	
+	bool GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, String &GroupNameOut);
+	int FindSelectedParameterRow();
+	indexed_parameter GetSelectedParameter();
 	
 	int ExpandedSetLocal;
 	int SecondExpandedSetLocal;

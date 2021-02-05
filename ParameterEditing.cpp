@@ -40,6 +40,105 @@ void MobiView::ExpandIndexSetClicked(size_t IndexSet)
 	RefreshParameterView();
 }
 
+
+int
+MobiView::FindSelectedParameterRow()
+{
+	int SelectedRow = -1;
+	for(int Row = 0; Row < Params.ParameterView.GetCount(); ++Row)
+	{
+		if(Params.ParameterView.IsSel(Row))
+		{
+			SelectedRow = Row;
+			break;
+		}
+	}
+	return SelectedRow;
+}
+
+bool
+MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, String &GroupNameOut)
+{
+	Vector<int> Selected = ParameterGroupSelecter.GetSel();
+	if(Selected.size() == 0) return false;
+	
+	//NOTE: Only one group can be selected at a time.
+	GroupNameOut = ParameterGroupSelecter.Get(Selected[0]).ToString();
+	std::string SelectedGroupName = GroupNameOut.ToStd();
+	
+	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
+	if (CheckDllUserError()) return false;
+	
+	IndexSetsOut.resize(IndexSetCount);
+	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetsOut.data());
+	if (CheckDllUserError()) return false;
+	
+	return true;
+}
+
+
+indexed_parameter
+MobiView::GetSelectedParameter()
+{
+	//NOTE: This currently only works for non-bool parameters!
+	
+	indexed_parameter Result = {};
+	//NOTE: This is not in use yet!
+	
+	int Row = FindSelectedParameterRow();
+	if(Row == -1) return Result;
+	
+	Result.Type = CurrentParameterTypes[Row];
+	if(Result.Type == ParameterType_Bool) return Result;
+	
+	Result.Name = Params.ParameterView.Get(Row, Id("__name")).ToString().ToStd();
+	
+	//TODO: Is it necessary to look up the group here? Can't we just use the parameter name to
+	//look up the index sets?
+	
+	String SelectedGroupName;
+	std::vector<char *> IndexSetNames;
+	bool Success = GetSelectedParameterGroupIndexSets(IndexSetNames, SelectedGroupName);
+	if(!Success) return Result;
+	
+	int IdxIdx = 0;
+	for(char * IndexSetName : IndexSetNames)
+	{
+		Result.IndexSetNames.push_back(std::string(IndexSetName));
+		int IdxSetId = IndexSetNameToId[IndexSetName];
+	 	
+	 	parameter_index Idx = {};
+	 	String IndexName;
+	 	if(SecondExpandedSetLocal == IdxIdx)
+	 	{
+	 		//NOTE: This is a "little" hacky...
+	 		for(int Col = 0; Col < Params.ParameterView.GetColumnCount(); ++Col)
+	 		{
+	 			LineEdit *Control = (LineEdit *)Params.ParameterView.GetCtrl(Row, Col);
+	 			if(Control->HasFocus())
+	 			{
+	 				IndexName = Params.ParameterView.GetId(Col);
+	 				break;
+	 			}
+	 		}
+	 	}
+	 	else if(ExpandedSetLocal == IdxIdx)
+	 		IndexName = Params.ParameterView.Get(Row, Id("__index"));
+	 	else
+	 		IndexName = IndexList[IdxSetId]->Get();
+
+		Idx.Name = IndexName.ToStd();
+		Idx.Locked = (bool)IndexLock[IdxSetId]->Get();
+		Result.Indexes.push_back(Idx);
+		
+		++IdxIdx;
+	}
+	
+	Result.Valid = true;
+	
+	return Result;
+}
+
 void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 {
 	if(!RefreshValuesOnly)
@@ -67,30 +166,17 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	}
 	
 	
+	String SelectedGroupNameStr;
+	std::vector<char *> IndexSetNames;
+	bool Success = GetSelectedParameterGroupIndexSets(IndexSetNames, SelectedGroupNameStr);
+	if(!Success) return;
+	std::string SelectedGroupName = SelectedGroupNameStr.ToStd();
 	
-	Vector<int> Selected = ParameterGroupSelecter.GetSel();
-	if(Selected.size() == 0 || Selected[0] == 0) return;
-	
-	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
-	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
-
-	if(SelectedGroupName.empty()) return;
-	
-	if(!ModelDll.IsParameterGroupName(DataSet, SelectedGroupName.data())) return;
-	
-	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<char *> IndexSetNames(IndexSetCount);
-	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
-	
-	
-	
-	std::vector<std::string> Indexes_String(IndexSetCount);
-	std::vector<char *> Indexes(IndexSetCount);
+	std::vector<std::string> Indexes_String(IndexSetNames.size());
+	std::vector<char *> Indexes(IndexSetNames.size());
 	
 	bool ExpandedSetIsActive = false;
-	for(size_t Idx = 0; Idx < IndexSetCount; ++Idx)
+	for(size_t Idx = 0; Idx < IndexSetNames.size(); ++Idx)
 	{
 		size_t Id = IndexSetNameToId[IndexSetNames[Idx]];
 		if(Id != ExpandedSet)  IndexList[Id]->Enable();
@@ -133,8 +219,8 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	
 	
 	//NOTE: If the last two index sets are the same, display this as a row
-	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetCount-1], IndexSetNames[IndexSetCount-2]) == 0))
-		SecondExpandedSetLocal = IndexSetCount-1;
+	if(IndexSetNames.size() >= 2 && (strcmp(IndexSetNames[IndexSetNames.size()-1], IndexSetNames[IndexSetNames.size()-2]) == 0))
+		SecondExpandedSetLocal = IndexSetNames.size()-1;
 	
 	if(ExpandedSetLocal == SecondExpandedSetLocal) ExpandedSetLocal--;  //NOTE: Ensure that we don't expand it twice in the same position.
 	
@@ -168,21 +254,35 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		{
 			// Otherwise regular editing of just one value
 			Params.ParameterView.AddColumn(Id("__value"), "Value");
-			Params.ParameterView.AddColumn(Id("__min"), "Min");
-			Params.ParameterView.AddColumn(Id("__max"), "Max");
-			Params.ParameterView.AddColumn(Id("__unit"), "Unit");
-			Params.ParameterView.AddColumn(Id("__description"), "Description");
-			
+		}
+		else
+		{	
+			for(char *IndexName : SecondExpandedIndexSet)
+				Params.ParameterView.AddColumn(Id(IndexName), IndexName);
+		}
+		
+		Params.ParameterView.AddColumn(Id("__min"), "Min");
+		Params.ParameterView.AddColumn(Id("__max"), "Max");
+		Params.ParameterView.AddColumn(Id("__unit"), "Unit");
+		Params.ParameterView.AddColumn(Id("__description"), "Description");
+		
+		if(SecondExpandedSetLocal < 0)
+		{
 			//TODO: Since these are user-configurable, it would be better to store the previous sizing of these and reuse that.
 			if(ExpandedSet >= 0)
 				Params.ParameterView.ColumnWidths("20 12 12 10 10 10 26");
 			else
 				Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 		}
-		else
+		if(SecondExpandedSetLocal >= 0)
 		{
-			for(char *IndexName : SecondExpandedIndexSet)
-				Params.ParameterView.AddColumn(Id(IndexName), IndexName);
+			//NOTE Hide the min, max, unit fields. We still have to add them since we use the
+			//info stored in them some other places.
+			int TabBase = 1 + (int)(ExpandedSetLocal >= 0) + SecondExpandedIndexSet.size();
+			Params.ParameterView.HeaderObject().HideTab(TabBase + 0);
+			Params.ParameterView.HeaderObject().HideTab(TabBase + 1);
+			Params.ParameterView.HeaderObject().HideTab(TabBase + 2);
+			Params.ParameterView.HeaderObject().HideTab(TabBase + 3);
 		}
 	
 		ParameterControls.Clear();
@@ -221,7 +321,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				
 				if(strcmp(Type, "double") == 0)
 				{
-					RowData.Set(ValueColumn, ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetCount));
+					RowData.Set(ValueColumn, ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					double Min, Max;
 					ModelDll.GetParameterDoubleMinMax(DataSet, Name, &Min, &Max);
 					RowData.Set("__min", Min);
@@ -236,7 +336,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				{
 					//TODO: Converting to int potentially loses precision. However Value has no uint64
 					//subtype
-					RowData.Set(ValueColumn, (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetCount));
+					RowData.Set(ValueColumn, (int64)ModelDll.GetParameterUInt(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					uint64 Min, Max;
 					ModelDll.GetParameterUIntMinMax(DataSet, Name, &Min, &Max);
 					int64 M = (int64)Max;
@@ -256,7 +356,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				}
 				else if(strcmp(Type, "bool") == 0)
 				{
-					RowData.Set(ValueColumn, ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetCount));
+					RowData.Set(ValueColumn, ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					if(CheckDllUserError()) return;
 					
 					if(!RefreshValuesOnly) ParameterControls.Create<Option>();
@@ -265,7 +365,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				else if(strcmp(Type, "time") == 0)
 				{
 					char TimeVal[256];
-					ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetCount, TimeVal);
+					ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetNames.size(), TimeVal);
 	
 					Time D;
 					StrToTime(D, TimeVal); //Error handling? But should not be necessary.
@@ -277,7 +377,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				}
 				else if(strcmp(Type, "enum") == 0)
 				{
-					const char *Val = ModelDll.GetParameterEnum(DataSet, Name, Indexes.data(), IndexSetCount);
+					const char *Val = ModelDll.GetParameterEnum(DataSet, Name, Indexes.data(), IndexSetNames.size());
 					String Val2 = Val;
 					RowData.Set(ValueColumn, Val);
 					
@@ -408,22 +508,12 @@ MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level
 
 void MobiView::ParameterEditAccepted(int Row, Id ValueColumn, void *DataSet, Value OverrideValue)
 {
-	//TODO: High degree of copypaste from above. Factor this out.
-	Vector<int> Selected = ParameterGroupSelecter.GetSel();
-	if(Selected.size() == 0) return;
+	String SelectedGroupName;
+	std::vector<char *> IndexSetNames;
+	bool Success = GetSelectedParameterGroupIndexSets(IndexSetNames, SelectedGroupName);
+	if(!Success) return;
 	
-	//NOTE: Only one group can be selected at a time.
-	Value SelectedGroup = ParameterGroupSelecter.Get(Selected[0]);
-	std::string SelectedGroupName = SelectedGroup.ToString().ToStd();
-	
-	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<char *> IndexSetNames(IndexSetCount);
-	ModelDll.GetParameterGroupIndexSets(DataSet, SelectedGroupName.data(), IndexSetNames.data());
-	if (CheckDllUserError()) return;
-	
-	std::vector<std::string> CurrentIndexes(IndexSetCount);
+	std::vector<std::string> CurrentIndexes(IndexSetNames.size());
 	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
 	
 	//NOTE: This is just because of the special use case we have currently where this is only

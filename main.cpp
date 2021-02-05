@@ -148,12 +148,12 @@ MobiView::MobiView() : Plotter(this)
 	
 	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
 	
-	Params.ParameterView.AddColumn("Name").HeaderTab();
-	Params.ParameterView.AddColumn("Value").HeaderTab();
-	Params.ParameterView.AddColumn("Min").HeaderTab();
-	Params.ParameterView.AddColumn("Max").HeaderTab();
-	Params.ParameterView.AddColumn("Unit").HeaderTab();
-	Params.ParameterView.AddColumn("Description").HeaderTab();
+	Params.ParameterView.AddColumn("Name");
+	Params.ParameterView.AddColumn("Value");
+	Params.ParameterView.AddColumn("Min");
+	Params.ParameterView.AddColumn("Max");
+	Params.ParameterView.AddColumn("Unit");
+	Params.ParameterView.AddColumn("Description");
 	
 	Params.ParameterView.ColumnWidths("20 12 10 10 10 38");
 	
@@ -204,6 +204,7 @@ MobiView::MobiView() : Plotter(this)
 		IndexList[Idx]->WhenAction << [this](){ RefreshParameterView(false); };
 		
 		IndexLock[Idx]->Hide();
+		IndexLock[Idx]->WhenAction << SensitivityWindowUpdate;
 		IndexExpand[Idx]->Hide();
 		IndexExpand[Idx]->WhenAction << [this, Idx](){ ExpandIndexSetClicked(Idx); };
 	}
@@ -213,8 +214,8 @@ MobiView::MobiView() : Plotter(this)
 	
 	EquationSelecter.NoGrid();
 	EquationSelecter.Disable();
-	EquationSelecter.AddColumn("Equation").HeaderTab();
-	EquationSelecter.AddColumn("F.").HeaderTab();
+	EquationSelecter.AddColumn("Equation");
+	EquationSelecter.AddColumn("F.");
 	EquationSelecter.AddColumn();
 	EquationSelecter.WhenSel = THISBACK(PlotModeChange);
 	EquationSelecter.MultiSelect();

@@ -34,36 +34,22 @@ SensitivityViewWindow::SensitivityViewWindow()
 	SelectStat.SetIndex(0);
 }
 
-int
-SensitivityViewWindow::FindSelectedParameterRow()
-{
-	ParameterCtrl &Params = ParentWindow->Params;
-	int SelectedRow = -1;
-	for(int Row = 0; Row < Params.ParameterView.GetCount(); ++Row)
-	{
-		if(Params.ParameterView.IsSel(Row))
-		{
-			SelectedRow = Row;
-			break;
-		}
-	}
-	return SelectedRow;
-}
-
 void
 SensitivityViewWindow::Update()
 {
 	ErrorLabel.SetText("");
 	ParamLabel.SetText("");
 	
-	int SelectedRow = FindSelectedParameterRow();
+	std::string PrevName = CurrentParameter.Name;
 	
-	bool Error = (SelectedRow == -1);
+	int SelectedRow = ParentWindow->FindSelectedParameterRow();
+	this->CurrentParameter = ParentWindow->GetSelectedParameter();
+	
+	bool Error = (SelectedRow == -1) || !CurrentParameter.Valid;
 	
 	if(!Error)
 	{
-		parameter_type Type = ParentWindow->CurrentParameterTypes[SelectedRow];
-		if(Type != ParameterType_Double)
+		if(CurrentParameter.Type != ParameterType_Double)
 		{
 			//TODO: Allow UInts too?
 			Error = true;
@@ -73,11 +59,13 @@ SensitivityViewWindow::Update()
 	else
 		ErrorLabel.SetText("Select a parameter in the main view");
 	
+	/*
 	if(!Error && ParentWindow->SecondExpandedSetLocal >= 0)
 	{
 		Error = true;
 		ErrorLabel.SetText("We currently don't have this functionality for matrix parameters");
 	}
+	*/
 	
 	if(Error)
 	{
@@ -86,16 +74,35 @@ SensitivityViewWindow::Update()
 		return;
 	}
 	
-	double Min = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__min"));
-	double Max = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__max"));
-	
-	String Parname = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name"));
 	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit"));
 	
-	ParamLabel.SetText(Format("%s [%s]", Parname, ParUnit));
+	String LabelText = Format("%s [%s]", CurrentParameter.Name.data(), ParUnit);
+	if(CurrentParameter.Indexes.size() > 0)
+	{
+		LabelText << " (";
+		int Idx = 0;
+		for(parameter_index &Index : CurrentParameter.Indexes)
+		{
+			if(Index.Locked)
+				LabelText << "<locked>";               //TODO: This is a bit unclear as to what index set is locked
+			else
+				LabelText << "\"" << Index.Name.data() << "\"";
+			if(Idx != CurrentParameter.Indexes.size()-1) LabelText << " ";
+			++Idx;
+		}
+		LabelText << ")";
+	}
 	
-	EditMin.SetData(Min);
-	EditMax.SetData(Max);
+	ParamLabel.SetText(LabelText);
+	
+	if(PrevName != CurrentParameter.Name)
+	{
+		double Min = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__min"));
+		double Max = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__max"));
+		
+		EditMin.SetData(Min);
+		EditMax.SetData(Max);
+	}
 }
 
 void
@@ -104,19 +111,13 @@ SensitivityViewWindow::Run()
 	double Min = EditMin.GetData();
 	double Max = EditMax.GetData();
 	
-	int SelectedRow = FindSelectedParameterRow();
+	int SelectedRow = ParentWindow->FindSelectedParameterRow();
 	
 	ErrorLabel.SetText("");
 	
-	if(SelectedRow == -1)
+	if(SelectedRow == -1 || !CurrentParameter.Valid)
 	{
 		ErrorLabel.SetText("Select a parameter in the main view");
-		return;
-	}
-	
-	if(ParentWindow->SecondExpandedSetLocal >= 0)
-	{
-		ErrorLabel.SetText("We currently don't have this functionality for matrix parameters");
 		return;
 	}
 	
@@ -185,13 +186,11 @@ SensitivityViewWindow::Run()
 	StatPlot.SetLabelX(" ");
 	StatPlot.SetLabelY(" ");
 	
-	String Parname = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__name")).ToString();
-	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit")).ToString();
 	//TODO: This should say indexes too!
-	Plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to \"%s\" [%s]",
+	Plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to %s",
 		Plot.PlotSetup.SelectedResults[0].data(),
 		ParentWindow->ModelDll.GetResultUnit(ParentWindow->DataSet, Plot.PlotSetup.SelectedResults[0].data()),
-		Parname, ParUnit));
+		ParamLabel.GetText()));
 	
 	bool HasInput = Plot.PlotSetup.SelectedInputs.size() == 1;
 	
@@ -230,7 +229,7 @@ SensitivityViewWindow::Run()
 		Color StatColor(0, 130, 200);
 		StatPlot.AddSeries(ParValues, StatData, NSteps).MarkBorderColor(StatColor).MarkColor(StatColor).Stroke(1.5, StatColor).Opacity(0.5).MarkStyle<CircleMarkPlot>();
 		
-		StatPlot.SetLabels(Parname, StatName);
+		StatPlot.SetLabels(CurrentParameter.Name.data(), StatName);
 		StatPlot.ShowLegend(false);
 		StatPlot.SetMouseHandling(false, false);
 		
@@ -238,7 +237,7 @@ SensitivityViewWindow::Run()
 		Size PlotReticleSize = GetTextSize("00000", StatPlot.GetReticleFont());
 		Size PlotUnitSize    = GetTextSize("[dummy]", StatPlot.GetLabelsFont());
 		StatPlot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
-		//StatPlot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+		StatPlot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
 		
 		StatPlot.SetXYMin(Min);
 		StatPlot.SetRange(Max-Min);
@@ -328,17 +327,6 @@ SensitivityViewWindow::Run()
 		#undef SET_SETTING
 		#undef SET_RES_SETTING
 		
-		
-		/*
-		if(HasInput)
-		{
-			//TODO: Use GOF interval!
-			int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize);
-			ComputeResidualStats(ResidualStats, InputYValues+ResultOffset, ResultYValues, ResultTimesteps);
-			//TODO: Allow selecting other stats!
-			StatData[NStep] = ResidualStats.NS;
-		}
-		*/
 		
 		bool Error = ParentWindow->CheckDllUserError();
 		if(Error)

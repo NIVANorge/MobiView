@@ -69,7 +69,7 @@ MyPlot::MyPlot()
 	Size PlotReticleSize = GetTextSize("000000", this->GetReticleFont());
 	Size PlotUnitSize    = GetTextSize("[dummy]", this->GetLabelsFont());
 	this->SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
-	this->SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+	this->SetPlotAreaBottomMargin(PlotReticleSize.cy*2 + PlotUnitSize.cy + 20);
 	
 	this->SetGridDash("");
 	Color Grey(180, 180, 180);
