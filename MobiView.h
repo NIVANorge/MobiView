@@ -49,6 +49,7 @@ ParseParameterType(const char *Name)
 	else if(strcmp(Name, "uint") == 0) Type = ParameterType_UInt;
 	else if(strcmp(Name, "bool") == 0) Type = ParameterType_Bool;
 	else if(strcmp(Name, "time") == 0) Type = ParameterType_Time;
+	else if(strcmp(Name, "enum") == 0) Type = ParameterType_Enum;
 	//Error handling?
 	return Type;
 }
@@ -63,6 +64,7 @@ class MobiView;
 struct parameter_index
 {
 	bool Locked = false;
+	std::string IndexSetName;
 	std::string Name;  //May be invalid if Locked=true
 };
 
@@ -71,7 +73,6 @@ struct indexed_parameter
 	bool Valid = false;
 	std::string Name;
 	parameter_type Type;
-	std::vector<std::string>     IndexSetNames;
 	std::vector<parameter_index> Indexes;
 };
 
@@ -347,8 +348,8 @@ public:
 	
 	int ExpandedSetLocal;
 	int SecondExpandedSetLocal;
-	void RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, void *DataSet, Value OverrideValue);
-	void ParameterEditAccepted(int Row, Id ValueColumn, void *DataSet, Value OverrideValue=Null);
+	void RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentIndexes, const indexed_parameter &Parameter, void *DataSet, Value Val);
+	void ParameterEditAccepted(const indexed_parameter &Parameter, void *DataSet, Value Val, bool UpdateLock=false);
 	
 	
 	void GetResultDataRecursive(std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, uint64 Timesteps, std::vector<std::vector<double>> &PushTo, std::vector<std::string> &PushNamesTo);

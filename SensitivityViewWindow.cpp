@@ -84,7 +84,7 @@ SensitivityViewWindow::Update()
 		for(parameter_index &Index : CurrentParameter.Indexes)
 		{
 			if(Index.Locked)
-				LabelText << "<locked>";               //TODO: This is a bit unclear as to what index set is locked
+				LabelText << "<locked \"" << Index.IndexSetName.data() << "\">";               //TODO: This is a bit unclear as to what index set is locked
 			else
 				LabelText << "\"" << Index.Name.data() << "\"";
 			if(Idx != CurrentParameter.Indexes.size()-1) LabelText << " ";
@@ -257,7 +257,7 @@ SensitivityViewWindow::Run()
 		double Val = ParValues[NStep];
 		
 		// Write the value into the DataSet
-		ParentWindow->ParameterEditAccepted(SelectedRow, Id("__value"), DataSetCopy, Val);
+		ParentWindow->ParameterEditAccepted(CurrentParameter, DataSetCopy, Val);
 		
 		// Run the model
 		ParentWindow->ModelDll.RunModel(DataSetCopy);

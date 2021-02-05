@@ -66,6 +66,9 @@ MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, 
 	GroupNameOut = ParameterGroupSelecter.Get(Selected[0]).ToString();
 	std::string SelectedGroupName = GroupNameOut.ToStd();
 	
+	if(!ModelDll.IsParameterGroupName(DataSet, SelectedGroupName.data()))
+		return false;
+	
 	uint64 IndexSetCount = ModelDll.GetParameterGroupIndexSetsCount(DataSet, SelectedGroupName.data());
 	if (CheckDllUserError()) return false;
 	
@@ -104,7 +107,6 @@ MobiView::GetSelectedParameter()
 	int IdxIdx = 0;
 	for(char * IndexSetName : IndexSetNames)
 	{
-		Result.IndexSetNames.push_back(std::string(IndexSetName));
 		int IdxSetId = IndexSetNameToId[IndexSetName];
 	 	
 	 	parameter_index Idx = {};
@@ -127,8 +129,9 @@ MobiView::GetSelectedParameter()
 	 	else
 	 		IndexName = IndexList[IdxSetId]->Get();
 
+		Idx.IndexSetName = std::string(IndexSetName);
 		Idx.Name = IndexName.ToStd();
-		Idx.Locked = (bool)IndexLock[IdxSetId]->Get();
+		Idx.Locked = IndexLock[IdxSetId]->IsEnabled() && ((bool)IndexLock[IdxSetId]->Get());
 		Result.Indexes.push_back(Idx);
 		
 		++IdxIdx;
@@ -288,9 +291,26 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		ParameterControls.Clear();
 		CurrentParameterTypes.clear();
 	}
+	
+	indexed_parameter Parameter = {};
+	if(!RefreshValuesOnly)
+	{
+		Parameter.Valid = true;
+		Parameter.Indexes.resize(IndexSetNames.size());
+		for(size_t Idx = 0; Idx < IndexSetNames.size(); ++Idx)
+		{
+			Parameter.Indexes[Idx].IndexSetName = IndexSetNames[Idx];
+			Parameter.Indexes[Idx].Name = Indexes_String[Idx];
+			//NOTE: We don't store info about it being locked here, since that has to be
+			//overridden later anyway (the lock status can have changed since the table was
+			//constructed.
+			Parameter.Indexes[Idx].Locked = false; 
+		}
+	}
 		
 	int Row = 0;
-		
+	int CtrlIdx = 0;
+	
 	for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
 	{
 		const char *Name = ParameterNames[Idx];
@@ -305,10 +325,17 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		
 		for(char *ExpandedIndex : ExpandedIndexSet)
 		{
+			Parameter.Name    = Name;
+			Parameter.Type    = ParseParameterType(Type);
+			
 			if(!RefreshValuesOnly) Params.ParameterView.Add();
 			
 			RowData.Set("__index", ExpandedIndex);
-			if(ExpandedSetLocal >= 0) Indexes[ExpandedSetLocal] = ExpandedIndex;
+			if(ExpandedSetLocal >= 0)
+			{
+				Indexes[ExpandedSetLocal] = ExpandedIndex;
+				Parameter.Indexes[ExpandedSetLocal].Name = ExpandedIndex;
+			}
 		
 			for(char *SecondExpandedIndex : SecondExpandedIndexSet)
 			{
@@ -317,9 +344,10 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				{
 					ValueColumn = SecondExpandedIndex;
 					Indexes[SecondExpandedSetLocal] = SecondExpandedIndex;
+					Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;
 				}
 				
-				if(strcmp(Type, "double") == 0)
+				if(Parameter.Type == ParameterType_Double)
 				{
 					RowData.Set(ValueColumn, ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					double Min, Max;
@@ -327,12 +355,24 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					RowData.Set("__min", Min);
 					RowData.Set("__max", Max);
 					
-					if(!RefreshValuesOnly) ParameterControls.Create<EditDoubleNotNull>();
+					if(!RefreshValuesOnly)
+					{
+						ParameterControls.Create<EditDoubleNotNull>();
+						
+						ParameterControls[CtrlIdx].WhenAction = [Parameter, CtrlIdx, this]()
+						{
+							//NOTE: It is very important that we re-extract the value inside the
+							//lambda of course!
+							EditDoubleNotNull *ValueField = (EditDoubleNotNull *)&this->ParameterControls[CtrlIdx];
+							double Val = *ValueField;
+							ParameterEditAccepted(Parameter, this->DataSet, Val, true);
+						};
+					}
 					CurrentParameterTypes.push_back(ParameterType_Double);
 					
 					if (CheckDllUserError()) return;
 				}
-				else if(strcmp(Type, "uint") == 0)
+				else if(Parameter.Type == ParameterType_UInt)
 				{
 					//TODO: Converting to int potentially loses precision. However Value has no uint64
 					//subtype
@@ -347,39 +387,67 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					if(!RefreshValuesOnly)
 					{
 						ParameterControls.Create<EditInt64NotNullSpin>();
-						EditInt64NotNullSpin *ctrl = (EditInt64NotNullSpin *)&ParameterControls.Top();
+						EditInt64NotNullSpin *ctrl = (EditInt64NotNullSpin *)&ParameterControls[CtrlIdx];
 						ctrl->Min(0);
+						
+						ParameterControls[CtrlIdx].WhenAction = [Parameter, CtrlIdx, this]()
+						{
+							EditInt64NotNullSpin *ValueField = (EditInt64NotNullSpin *)&this->ParameterControls[CtrlIdx];
+							int64 Val = *ValueField;
+							ParameterEditAccepted(Parameter, this->DataSet, Val, true);
+						};
 					}
 					CurrentParameterTypes.push_back(ParameterType_UInt);
 					
 					if (CheckDllUserError()) return;
 				}
-				else if(strcmp(Type, "bool") == 0)
+				else if(Parameter.Type == ParameterType_Bool)
 				{
 					RowData.Set(ValueColumn, ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					if(CheckDllUserError()) return;
 					
-					if(!RefreshValuesOnly) ParameterControls.Create<Option>();
+					if(!RefreshValuesOnly)
+					{
+						ParameterControls.Create<Option>();
+						
+						ParameterControls[CtrlIdx].WhenAction = [Parameter, CtrlIdx, this]()
+						{
+							Option *ValueField = (Option *)&this->ParameterControls[CtrlIdx];
+							bool Val = (bool)ValueField->Get();
+							ParameterEditAccepted(Parameter, this->DataSet, Val, true);
+						};
+					}
 					CurrentParameterTypes.push_back(ParameterType_Bool);
 				}
-				else if(strcmp(Type, "time") == 0)
+				else if(Parameter.Type == ParameterType_Time)
 				{
 					char TimeVal[256];
 					ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetNames.size(), TimeVal);
-	
+					if(CheckDllUserError()) return;
+					
 					Time D;
 					StrToTime(D, TimeVal); //Error handling? But should not be necessary.
 					RowData.Set(ValueColumn, D);
 					
-					if(!RefreshValuesOnly) ParameterControls.Create<EditTimeNotNull>();
+					if(!RefreshValuesOnly) 
+					{
+						ParameterControls.Create<EditTimeNotNull>();
+						
+						ParameterControls[CtrlIdx].WhenAction = [Parameter, CtrlIdx, this]()
+						{
+							EditTimeNotNull *ValueField = (EditTimeNotNull *)&this->ParameterControls[CtrlIdx];
+							Time Val = ValueField->GetData();
+							ParameterEditAccepted(Parameter, this->DataSet, Val, true);
+						};
+					}
 					CurrentParameterTypes.push_back(ParameterType_Time);
-					if(CheckDllUserError()) return;
+					
 				}
-				else if(strcmp(Type, "enum") == 0)
+				else if(Parameter.Type == ParameterType_Enum)
 				{
 					const char *Val = ModelDll.GetParameterEnum(DataSet, Name, Indexes.data(), IndexSetNames.size());
-					String Val2 = Val;
-					RowData.Set(ValueColumn, Val);
+					if(CheckDllUserError()) return;
+					RowData.Set(ValueColumn, String(Val));
 					
 					if(!RefreshValuesOnly)
 					{
@@ -392,17 +460,22 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 						
 						for(const char *Name : EnumNames)
 							EnumList->Add(Name);
+						
+						ParameterControls[CtrlIdx].WhenAction = [Parameter, CtrlIdx, this]()
+						{
+							DropList *ValueField = (DropList *)&this->ParameterControls[CtrlIdx];
+							String Val = ValueField->GetData();
+							ParameterEditAccepted(Parameter, this->DataSet, Val, true);
+						};
 					}
 					
 					CurrentParameterTypes.push_back(ParameterType_Enum);
-					if(CheckDllUserError()) return;
 				}
 				
 				if(!RefreshValuesOnly)
-				{
-					Params.ParameterView.SetCtrl(Row, Params.ParameterView.GetPos(ValueColumn), ParameterControls.Top());
-					ParameterControls.Top().WhenAction = [=]() { ParameterEditAccepted(Row, ValueColumn, this->DataSet); };
-				}
+					Params.ParameterView.SetCtrl(Row, Params.ParameterView.GetPos(ValueColumn), ParameterControls[CtrlIdx]);
+				
+				++CtrlIdx;
 			}
 			
 			Params.ParameterView.SetMap(Row, RowData);
@@ -414,9 +487,9 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 
 
 void
-MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level, std::vector<std::string> &CurrentIndexes, int Row, Id ValueColumn, void *DataSet, Value OverrideValue)
+MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentIndexes, const indexed_parameter &Parameter, void *DataSet, Value Val)
 {
-	if(Level == IndexSetNames.size())
+	if(Level == Parameter.Indexes.size())
 	{
 		//Do the actual update.
 		size_t IndexCount = CurrentIndexes.size();
@@ -426,40 +499,44 @@ MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level
 			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
 		}
 		
-		std::string Name = Params.ParameterView.Get(Row, Id("__name")).ToString().ToStd();
-		parameter_type Type = CurrentParameterTypes[Row];
+		//std::string Name = Params.ParameterView.Get(Row, Id("__name")).ToString().ToStd();
+		//parameter_type Type = CurrentParameterTypes[Row];
+		const std::string &Name = Parameter.Name;
+		parameter_type Type = Parameter.Type;
 		
-		int Col = Params.ParameterView.GetPos(ValueColumn);
+		//int Col = Params.ParameterView.GetPos(ValueColumn);
 		
 		switch(Type)
 		{
 			case ParameterType_Double:
 			{
-				double V = Params.ParameterView.Get(Row, ValueColumn);
-				if(!IsNull(OverrideValue)) V = OverrideValue;
-				if(!IsNull(V))
-					ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
+				//double V = Params.ParameterView.Get(Row, ValueColumn);
+				//if(!IsNull(OverrideValue)) V = OverrideValue;
+				if(!IsNull(Val))
+					ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), (double)Val);
 			} break;
 			
 			case ParameterType_UInt:
 			{
-				int64 V = Params.ParameterView.Get(Row, ValueColumn);
-				if(!IsNull(OverrideValue)) V = OverrideValue;
-				if(!IsNull(V))
-					ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)V);
+				//int64 V = Params.ParameterView.Get(Row, ValueColumn);
+				//if(!IsNull(OverrideValue)) V = OverrideValue;
+				if(!IsNull(Val))
+					ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)(int64)Val);
 			} break;
 			
 			case ParameterType_Bool:
 			{
-				Ctrl *ctrl = Params.ParameterView.GetCtrl(Row, Col);
-				bool V = (bool)((Option*)ctrl)->Get();
-				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), V);
+				//Ctrl *ctrl = Params.ParameterView.GetCtrl(Row, Col);
+				//bool V = (bool)((Option*)ctrl)->Get();
+				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), (bool)Val);
 			} break;
 			
 			case ParameterType_Time:
 			{
-				EditTimeNotNull *ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col);
-				Time D = ctrl->GetData();
+				//EditTimeNotNull *ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col);
+				//Time D = ctrl->GetData();
+				Time D = (Time)Val;
+				
 				std::string V = Format(D, true).ToStd();
 				if(V.size() > 0)    // Seems like D.IsValid() and !IsNull(D)  don't work correctly, so we do this instead.
 					ModelDll.SetParameterTime(DataSet, Name.data(), Indexes.data(), Indexes.size(), V.data());
@@ -467,9 +544,10 @@ MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level
 			
 			case ParameterType_Enum:
 			{
-				DropList *ctrl = (DropList *)Params.ParameterView.GetCtrl(Row, Col);
-				String V = ctrl->GetData();
-				std::string V2 = V.ToStd();
+				//DropList *ctrl = (DropList *)Params.ParameterView.GetCtrl(Row, Col);
+				//String V = ctrl->GetData();
+				//std::string V2 = V.ToStd();
+				std::string V2 = Val.ToString().ToStd();
 				ModelDll.SetParameterEnum(DataSet, Name.data(), Indexes.data(), Indexes.size(), V2.data());
 			} break;
 		}
@@ -477,10 +555,9 @@ MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level
 	}
 	else
 	{
-		const char *IndexSetName = IndexSetNames[Level];
-		size_t Id = IndexSetNameToId[IndexSetName];
+		const char *IndexSetName = Parameter.Indexes[Level].IndexSetName.data();
 		
-		if(IndexLock[Id]->IsEnabled() && IndexLock[Id]->Get())
+		if(Parameter.Indexes[Level].Locked)
 		{
 			size_t IndexCount = ModelDll.GetIndexCount(DataSet, IndexSetName);
 			std::vector<char *> IndexNames(IndexCount);
@@ -488,37 +565,51 @@ MobiView::RecursiveUpdateParameter(std::vector<char *> &IndexSetNames, int Level
 			for(size_t Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				CurrentIndexes[Level] = IndexNames[Idx];
-				RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
+				RecursiveUpdateParameter(Level + 1, CurrentIndexes, Parameter, DataSet, Val);
 			}
 		}
 		else
 		{
+			/*
 			if(SecondExpandedSetLocal >= 0 && SecondExpandedSetLocal == Level)
 				CurrentIndexes[Level] = ValueColumn.ToString().ToStd();
 			else if(ExpandedSetLocal >= 0 && ExpandedSetLocal == Level)
 				CurrentIndexes[Level] = Params.ParameterView.Get(Row, "__index").ToString().ToStd();
 			else
 				CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
+			*/
+			CurrentIndexes[Level] = Parameter.Indexes[Level].Name;
 			
-			RecursiveUpdateParameter(IndexSetNames, Level + 1, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
+			RecursiveUpdateParameter(Level + 1, CurrentIndexes, Parameter, DataSet, Val);
 		}
 	}
 }
 
 
-void MobiView::ParameterEditAccepted(int Row, Id ValueColumn, void *DataSet, Value OverrideValue)
+void MobiView::ParameterEditAccepted(const indexed_parameter &Parameter, void *DataSet, Value Val, bool UpdateLocks)
 {
-	String SelectedGroupName;
-	std::vector<char *> IndexSetNames;
-	bool Success = GetSelectedParameterGroupIndexSets(IndexSetNames, SelectedGroupName);
-	if(!Success) return;
+	if(!Parameter.Valid)
+		Log(Format("Internal bug: Trying to set value of parameter that is flagged as invalid: %s", Parameter.Name.data()), true);
 	
-	std::vector<std::string> CurrentIndexes(IndexSetNames.size());
-	RecursiveUpdateParameter(IndexSetNames, 0, CurrentIndexes, Row, ValueColumn, DataSet, OverrideValue);
+	std::vector<std::string> CurrentIndexes(Parameter.Indexes.size());
 	
-	//NOTE: This is just because of the special use case we have currently where this is only
-	//overridden if used on a dataset copy, not the main DataSet.
-	if(IsNull(OverrideValue))
+	//TODO: Implement UpdateLocks
+	if(UpdateLocks)
+	{
+		indexed_parameter Par2 = Parameter; //Ugh, causes a lot of vector and string copies, but we have to have the incoming one being const :(
+		
+		for(parameter_index &Index : Par2.Indexes)
+		{
+			size_t Id = IndexSetNameToId[Index.IndexSetName];
+			Index.Locked = IndexLock[Id]->IsEnabled() && (bool)IndexLock[Id]->Get();
+		}
+		
+		RecursiveUpdateParameter(0, CurrentIndexes, Par2, DataSet, Val);
+	}
+	else
+		RecursiveUpdateParameter(0, CurrentIndexes, Parameter, DataSet, Val);
+	
+	if(DataSet == this->DataSet) //NOTE: Some sensitivty and calibration routines can operate on a copy of the data set.
 		ParametersWereChangedSinceLastSave = true;
 }
 
