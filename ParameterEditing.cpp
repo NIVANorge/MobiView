@@ -12,6 +12,42 @@ ParameterCtrl::ParameterCtrl()
 };
 
 
+String MakeParameterIndexString(const indexed_parameter &Parameter)
+{
+	String Result = "";
+	if(Parameter.Indexes.size() > 0)
+	{
+		Result << "(";
+		int Idx = 0;
+		for(const parameter_index &Index : Parameter.Indexes)
+		{
+			if(Index.Locked)
+				Result << "<locked \"" << Index.IndexSetName.data() << "\">";               //TODO: This is a bit unclear as to what index set is locked
+			else
+				Result << "\"" << Index.Name.data() << "\"";
+			if(Idx != Parameter.Indexes.size()-1) Result << " ";
+			++Idx;
+		}
+		Result << ")";
+	}
+	return Result;
+}
+
+bool ParameterIsSubsetOf(const indexed_parameter &Parameter, const indexed_parameter &CompareTo)
+{
+	if(Parameter.Name == CompareTo.Name)
+	{
+		for(int Idx = 0; Idx < Parameter.Indexes.size(); ++Idx)
+		{
+			if(CompareTo.Indexes[Idx].Locked) continue;
+			if(Parameter.Indexes[Idx].Locked) return false;
+			if(CompareTo.Indexes[Idx].Name != Parameter.Indexes[Idx].Name) return false;
+		}
+		return true;
+	}
+	return false;
+}
+
 void MobiView::ExpandIndexSetClicked(size_t IndexSet)
 {
 	bool Checked = IndexExpand[IndexSet]->Get();
@@ -79,17 +115,10 @@ MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, 
 	return true;
 }
 
-
 indexed_parameter
-MobiView::GetSelectedParameter()
+MobiView::GetParameterAtRow(int Row)
 {
-	//NOTE: This currently only works for non-bool parameters!
-	
 	indexed_parameter Result = {};
-	//NOTE: This is not in use yet!
-	
-	int Row = FindSelectedParameterRow();
-	if(Row == -1) return Result;
 	
 	Result.Type = CurrentParameterTypes[Row];
 	if(Result.Type == ParameterType_Bool) return Result;
@@ -138,6 +167,23 @@ MobiView::GetSelectedParameter()
 	}
 	
 	Result.Valid = true;
+	
+	return Result;
+}
+
+
+indexed_parameter
+MobiView::GetSelectedParameter()
+{
+	//NOTE: This currently only works for non-bool parameters!
+	
+	indexed_parameter Result = {};
+	//NOTE: This is not in use yet!
+	
+	int Row = FindSelectedParameterRow();
+	if(Row == -1) return Result;
+	
+	Result = GetParameterAtRow(Row);
 	
 	return Result;
 }
@@ -489,6 +535,8 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 void
 MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentIndexes, const indexed_parameter &Parameter, void *DataSet, Value Val)
 {
+	if(IsNull(Val)) return;
+	
 	if(Level == Parameter.Indexes.size())
 	{
 		//Do the actual update.
@@ -499,42 +547,28 @@ MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentI
 			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
 		}
 		
-		//std::string Name = Params.ParameterView.Get(Row, Id("__name")).ToString().ToStd();
-		//parameter_type Type = CurrentParameterTypes[Row];
 		const std::string &Name = Parameter.Name;
 		parameter_type Type = Parameter.Type;
-		
-		//int Col = Params.ParameterView.GetPos(ValueColumn);
 		
 		switch(Type)
 		{
 			case ParameterType_Double:
 			{
-				//double V = Params.ParameterView.Get(Row, ValueColumn);
-				//if(!IsNull(OverrideValue)) V = OverrideValue;
-				if(!IsNull(Val))
-					ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), (double)Val);
+				ModelDll.SetParameterDouble(DataSet, Name.data(), Indexes.data(), Indexes.size(), (double)Val);
 			} break;
 			
 			case ParameterType_UInt:
 			{
-				//int64 V = Params.ParameterView.Get(Row, ValueColumn);
-				//if(!IsNull(OverrideValue)) V = OverrideValue;
-				if(!IsNull(Val))
-					ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)(int64)Val);
+				ModelDll.SetParameterUInt(DataSet, Name.data(), Indexes.data(), Indexes.size(), (uint64)(int64)Val);
 			} break;
 			
 			case ParameterType_Bool:
 			{
-				//Ctrl *ctrl = Params.ParameterView.GetCtrl(Row, Col);
-				//bool V = (bool)((Option*)ctrl)->Get();
 				ModelDll.SetParameterBool(DataSet, Name.data(), Indexes.data(), Indexes.size(), (bool)Val);
 			} break;
 			
 			case ParameterType_Time:
 			{
-				//EditTimeNotNull *ctrl = (EditTimeNotNull*)Params.ParameterView.GetCtrl(Row, Col);
-				//Time D = ctrl->GetData();
 				Time D = (Time)Val;
 				
 				std::string V = Format(D, true).ToStd();
@@ -544,9 +578,6 @@ MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentI
 			
 			case ParameterType_Enum:
 			{
-				//DropList *ctrl = (DropList *)Params.ParameterView.GetCtrl(Row, Col);
-				//String V = ctrl->GetData();
-				//std::string V2 = V.ToStd();
 				std::string V2 = Val.ToString().ToStd();
 				ModelDll.SetParameterEnum(DataSet, Name.data(), Indexes.data(), Indexes.size(), V2.data());
 			} break;
@@ -570,14 +601,6 @@ MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentI
 		}
 		else
 		{
-			/*
-			if(SecondExpandedSetLocal >= 0 && SecondExpandedSetLocal == Level)
-				CurrentIndexes[Level] = ValueColumn.ToString().ToStd();
-			else if(ExpandedSetLocal >= 0 && ExpandedSetLocal == Level)
-				CurrentIndexes[Level] = Params.ParameterView.Get(Row, "__index").ToString().ToStd();
-			else
-				CurrentIndexes[Level] = IndexList[Id]->Get().ToString().ToStd();
-			*/
 			CurrentIndexes[Level] = Parameter.Indexes[Level].Name;
 			
 			RecursiveUpdateParameter(Level + 1, CurrentIndexes, Parameter, DataSet, Val);
@@ -589,7 +612,12 @@ MobiView::RecursiveUpdateParameter(int Level, std::vector<std::string> &CurrentI
 void MobiView::ParameterEditAccepted(const indexed_parameter &Parameter, void *DataSet, Value Val, bool UpdateLocks)
 {
 	if(!Parameter.Valid)
+	{
 		Log(Format("Internal bug: Trying to set value of parameter that is flagged as invalid: %s", Parameter.Name.data()), true);
+		return;
+	}
+	
+	if(IsNull(Val)) return;
 	
 	std::vector<std::string> CurrentIndexes(Parameter.Indexes.size());
 	

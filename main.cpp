@@ -88,6 +88,7 @@ void MobiView::SubBar(Bar &bar)
 	//bar.Gap(60);
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
 	bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
+	bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization setup");
 	bar.Separator();
 	bar.Add(IconImg::StatSettings(), THISBACK(OpenStatSettings)).Tip("Edit statistics settings");
 	bar.Add(IconImg::BatchStructure(), THISBACK(OpenStructureView)).Tip("View model equation batch structure");
@@ -365,6 +366,7 @@ MobiView::MobiView() : Plotter(this)
 	OtherPlots.ParentWindow = this;
 	ModelInfo.ParentWindow = this;
 	SensitivityWindow.ParentWindow = this;
+	OptimizationWin.ParentWindow = this;
 }
 
 
@@ -467,6 +469,20 @@ void MobiView::OpenSensitivityView()
 	if(!SensitivityWindow.IsOpen())
 	{
 		SensitivityWindow.Open();
+	}
+}
+
+void MobiView::OpenOptimizationView()
+{
+	if(!ModelDll.IsLoaded() || !DataSet)
+	{
+		Log("Can't do an optimization setup before a dataset is loaded.", true);
+		return;
+	}
+	
+	if(!OptimizationWin.IsOpen())
+	{
+		OptimizationWin.Open();
 	}
 }
 

@@ -20,6 +20,7 @@ file
 	SearchWindow.cpp,
 	SensitivityViewWindow.cpp,
 	AdditionalPlotView.cpp,
+	OptimizationWindow.cpp,
 	DllInterface.h,
 	DllInterface.cpp,
 	StarOption.h,

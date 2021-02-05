@@ -76,6 +76,8 @@ struct indexed_parameter
 	std::vector<parameter_index> Indexes;
 };
 
+String MakeParameterIndexString(const indexed_parameter &Parameter);
+bool   ParameterIsSubsetOf(const indexed_parameter &Parameter, const indexed_parameter &CompareTo);
 
 class ParameterCtrl : public WithParameterCtrlLayout<ParentCtrl>
 {
@@ -240,6 +242,30 @@ public:
 	
 };
 
+class OptimizationWindow : public WithOptimizationLayout<TopWindow>
+{
+public:
+	typedef OptimizationWindow CLASSNAME;
+	
+	OptimizationWindow();
+	
+	void AddParameterClicked();
+	void AddGroupClicked();
+	void RemoveParameterClicked();
+	void ClearAllClicked();
+	void RunClicked();
+	
+	MobiView *ParentWindow;
+	
+private:
+	
+	void AddSingleParameter(indexed_parameter &Parameter, int SourceRow);
+	
+	std::vector<indexed_parameter> Parameters;
+	
+	Array<EditDoubleNotNull> EditMinCtrls;
+	Array<EditDoubleNotNull> EditMaxCtrls;
+};
 
 
 
@@ -319,6 +345,9 @@ public:
 	void OpenSensitivityView();
 	SensitivityViewWindow SensitivityWindow;
 	
+	void OpenOptimizationView();
+	OptimizationWindow OptimizationWin;
+	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);
 	
@@ -344,6 +373,7 @@ public:
 	
 	bool GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, String &GroupNameOut);
 	int FindSelectedParameterRow();
+	indexed_parameter GetParameterAtRow(int Row);
 	indexed_parameter GetSelectedParameter();
 	
 	int ExpandedSetLocal;

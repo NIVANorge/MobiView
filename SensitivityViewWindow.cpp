@@ -76,22 +76,8 @@ SensitivityViewWindow::Update()
 	
 	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit"));
 	
-	String LabelText = Format("%s [%s]", CurrentParameter.Name.data(), ParUnit);
-	if(CurrentParameter.Indexes.size() > 0)
-	{
-		LabelText << " (";
-		int Idx = 0;
-		for(parameter_index &Index : CurrentParameter.Indexes)
-		{
-			if(Index.Locked)
-				LabelText << "<locked \"" << Index.IndexSetName.data() << "\">";               //TODO: This is a bit unclear as to what index set is locked
-			else
-				LabelText << "\"" << Index.Name.data() << "\"";
-			if(Idx != CurrentParameter.Indexes.size()-1) LabelText << " ";
-			++Idx;
-		}
-		LabelText << ")";
-	}
+	String LabelText = Format("%s [%s] ", CurrentParameter.Name.data(), ParUnit);
+	LabelText << MakeParameterIndexString(CurrentParameter);
 	
 	ParamLabel.SetText(LabelText);
 	
