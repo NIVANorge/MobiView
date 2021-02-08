@@ -242,7 +242,9 @@ struct optimization_model
 			InputData.resize(Timesteps);
 			//NOTE: The final 'true' signifies that we align with the result series, so that it
 			//is in fact safe to use the result timesteps for the size here.
-			ParentWindow->ModelDll.GetInputSeries(DataSetCopy, InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData.data(), true); 
+			ParentWindow->ModelDll.GetInputSeries(DataSetCopy, InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData.data(), true);
+			
+			ValuesLoadedOnce = true;
 		}
 		
 		//NOTE: We have to allocate this for each call, for thread safety. There is no other
