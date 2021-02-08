@@ -44,6 +44,7 @@ If you want to build MobiView yourself (for instance to be guaranteed to always 
 - Extract the archive somewhere. On Windows may need to install [7zip](https://www.7-zip.org/) to be able to extract it.
 - If you are on Linux you first have to build the Ultimate++ ide. The instructions for this are at their website.
 - Inside the upp folder, create a MyApps folder, and clone **this** repository to upp/MyApps/MobiView.
+- Download [dlib](http://dlib.net/) . Extract the archive and copy the "dlib" subfolder (i.e. the folder that directly contains "global_optimization.h") into the MyApps/MobiView folder.
 - Run upp/theide.exe
 - In theide, select the MyApps folder and the MobiView project for loading and click ok.
 - Windows: Where it says MingW Debug in the top bar, change it to MingW Release. Then click 'MingW Release' to get the output mode dialog. Change build method to 'MingWx64' and click ok.
