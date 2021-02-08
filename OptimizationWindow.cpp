@@ -351,7 +351,8 @@ void OptimizationWindow::RunClicked()
 	
 	optimization_model OptimizationModel(ParentWindow, &Parameters, Res, InputName, InputIndexes, ResultName, ResultIndexes);
 	
-	ParentWindow->Log("Running optimization. This can take a few minutes or more.");
+	ParentWindow->Log("Running optimization. This may take a few minutes or more.");
+	ErrorLabel.SetText("Running optimization. This may take a few minutes or more.");
 	
 	ParentWindow->ProcessEvents();
 	
@@ -369,6 +370,8 @@ void OptimizationWindow::RunClicked()
 	ParentWindow->Log(Format("Optimization finished, with new best %s : %g. Remember to save to a different file if you don't want to lose your old calibration.",
 		SelectStat.GetValue().ToString(), Result.y));
 	ParentWindow->RunModel();
+	
+	ErrorLabel.SetText("");
 	
 	Close();
 }
