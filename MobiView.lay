@@ -140,8 +140,8 @@ LAYOUT(SensitivityLayout, 884, 448)
 	ITEM(Upp::DropList, SelectStat, RightPosZ(4, 344).TopPosZ(56, 19))
 END_LAYOUT
 
-LAYOUT(OptimizationLayout, 592, 244)
-	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(4, 52))
+LAYOUT(OptimizationLayout, 584, 308)
+	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 52))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 92).BottomPosZ(28, 20))
 	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(292, 92).BottomPosZ(28, 20))
 	ITEM(Upp::Button, PushAddGroup, SetLabel(t_("Add group")).LeftPosZ(100, 92).BottomPosZ(28, 20))
@@ -149,6 +149,9 @@ LAYOUT(OptimizationLayout, 592, 244)
 	ITEM(Upp::Label, StatLabel, SetLabel(t_("Target stat:")).LeftPosZ(4, 92).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).LeftPosZ(196, 92).BottomPosZ(4, 20))
 	ITEM(Upp::DropList, SelectStat, LeftPosZ(100, 92).BottomPosZ(4, 20))
-	ITEM(Upp::Label, ErrorLabel, HSizePosZ(292, 8).TopPosZ(220, 20))
+	ITEM(Upp::Label, ErrorLabel, HSizePosZ(292, 4).BottomPosZ(4, 20))
+	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(388, 56).BottomPosZ(28, 20))
+	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(448, 64).BottomPosZ(28, 20))
+	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running this overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 19))
 END_LAYOUT
 

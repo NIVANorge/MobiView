@@ -259,12 +259,18 @@ public:
 	
 private:
 	
-	void AddSingleParameter(indexed_parameter &Parameter, int SourceRow);
+	bool AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
+	
+	void SubBar(Bar &bar);
+	void WriteToJson();
+	void LoadFromJson();
 	
 	std::vector<indexed_parameter> Parameters;
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
+	
+	ToolBar Tool;
 };
 
 
@@ -359,6 +365,8 @@ public:
 	void PlotRebuild();
 	void UpdateEquationSelecter();
 	
+	
+	bool GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexesOut);
 	
 	void GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo);
 	void GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults);

@@ -1995,27 +1995,49 @@ void MobiView::GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::s
 	CheckDllUserError();
 }
 
+bool MobiView::GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexesOut)
+{
+	uint64 IndexSetCount;
+	if(Type == 0)
+		IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
+	else
+		IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
+	
+	std::vector<char *> IndexSets(IndexSetCount);
+	if(Type == 0)
+		ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+	else
+		ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
+	if(CheckDllUserError()) return false;
+	
+	IndexesOut.resize(IndexSets.size());
+	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
+	{
+		size_t Id = IndexSetNameToId[IndexSets[Idx]];
+		IndexesOut[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
+	}
+	
+	if(CheckDllUserError()) return false;
+	
+	return true;
+}
+
+
 
 void MobiView::GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo)
 {
-	uint64 IndexSetCount = ModelDll.GetResultIndexSetsCount(DataSet, Name.data());
-	std::vector<char *> IndexSets(IndexSetCount);
-	ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
-	Unit = ModelDll.GetResultUnit(DataSet, Name.data());
-	if(CheckDllUserError()) return;
+	std::vector<char *> Indexes;
 	
-	std::vector<char *> Indexes(IndexSets.size());
-	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
-	{
-		const char *IndexSet = IndexSets[Idx];
-		size_t Id = IndexSetNameToId[IndexSet];
-		
-		Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
-	}
+	bool Success = GetSelectedIndexesForSeries(PlotSetup, DataSet, Name, 0, Indexes);
+	if(!Success) return;
 	
 	ModelDll.GetResultSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo);
-	CheckDllUserError();
+	if(CheckDllUserError()) return;
 	
+	Unit = ModelDll.GetResultUnit(DataSet, Name.data());
+	
+	
+	//TODO: Make a function that creates a stringified list out of a list like this!
 	Legend << Name.data();
 	if(Indexes.size() > 0)
 	{
@@ -2031,23 +2053,15 @@ void MobiView::GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSe
 
 void MobiView::GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
 {
-	uint64 IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
-	std::vector<char *> IndexSets(IndexSetCount);
-	ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
-	Unit = ModelDll.GetInputUnit(DataSet, Name.data());
-	if(CheckDllUserError()) return;
+	std::vector<char *> Indexes;
 	
-	std::vector<char *> Indexes(IndexSets.size());
-	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
-	{
-		const char *IndexSet = IndexSets[Idx];
-		size_t Id = IndexSetNameToId[IndexSet];
-		
-		Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
-	}
+	bool Success = GetSelectedIndexesForSeries(PlotSetup, DataSet, Name, 1, Indexes);
+	if(!Success) return;
 	
 	ModelDll.GetInputSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo, AlignWithResults);
-	CheckDllUserError();
+	if(CheckDllUserError()) return;CheckDllUserError();
+	
+	Unit = ModelDll.GetInputUnit(DataSet, Name.data());
 	
 	Legend << Name.data();
 	if(Indexes.size() > 0)
@@ -2061,8 +2075,6 @@ void MobiView::GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet
 		Legend << ")";
 	}
 }
-
-
 
 
 //TODO: Unify this with AddPlotRecursive!!

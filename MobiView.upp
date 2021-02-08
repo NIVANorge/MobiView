@@ -30,7 +30,9 @@ file
 	MobiView.iml,
 	star.iml,
 	logos.iml,
-	images.iml;
+	images.iml,
+	dlib\global_optimization\global_function_search.cpp,
+	dlib\threads\thread_pool_extension.cpp;
 
 mainconfig
 	"" = "GUI";
