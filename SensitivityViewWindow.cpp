@@ -6,6 +6,11 @@
 #include <Draw/iml.h>
 
 
+StatPlotCtrl::StatPlotCtrl()
+{
+	CtrlLayout(*this);
+}
+
 SensitivityViewWindow::SensitivityViewWindow()
 {
 	CtrlLayout(*this, "MobiView perturbation view");
@@ -20,10 +25,10 @@ SensitivityViewWindow::SensitivityViewWindow()
 	
 	RunProgress.Hide();
 	
-	SelectStat.Add("(none)");
+	StatPlot.SelectStat.Add("(none)");
 	
 	#define SET_SETTING(Handle, Name, Type) \
-		SelectStat.Add(Name);
+		StatPlot.SelectStat.Add(Name);
 	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 	
 	#include "SetStatSettings.h"
@@ -31,7 +36,14 @@ SensitivityViewWindow::SensitivityViewWindow()
 	#undef SET_SETTING
 	#undef SET_RES_SETTING
 	
-	SelectStat.SetIndex(0);
+	StatPlot.SelectStat.SetIndex(0);
+	
+	MainHorizontal.Horz();
+	MainHorizontal.Add(Plot);
+	MainHorizontal.Add(StatPlot);
+	MainHorizontal.SetPos(7500, 0);
+	
+	Add(MainHorizontal.VSizePos(52, 32).HSizePos());
 }
 
 void
@@ -167,10 +179,10 @@ SensitivityViewWindow::Run()
 	Plot.ClearAll(false);
 	Plot.PlotData.Data.reserve(2*NSteps + 3);
 	
-	StatPlot.RemoveAllSeries();
-	StatPlot.SetTitle(" ");
-	StatPlot.SetLabelX(" ");
-	StatPlot.SetLabelY(" ");
+	StatPlot.Plot.RemoveAllSeries();
+	StatPlot.Plot.SetTitle(" ");
+	StatPlot.Plot.SetLabelX(" ");
+	StatPlot.Plot.SetLabelY(" ");
 	
 	//TODO: This should say indexes too!
 	Plot.SetTitle(Format("Sensitivity of \"%s\" [%s] to %s",
@@ -208,32 +220,32 @@ SensitivityViewWindow::Run()
 		//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 	}
 	
-	String StatName = SelectStat.Get();
+	String StatName = StatPlot.SelectStat.Get();
 	
 	if(StatName != "(none)")
 	{
 		Color StatColor(0, 130, 200);
-		StatPlot.AddSeries(ParValues, StatData, NSteps).MarkBorderColor(StatColor).MarkColor(StatColor).Stroke(1.5, StatColor).Opacity(0.5).MarkStyle<CircleMarkPlot>();
+		StatPlot.Plot.AddSeries(ParValues, StatData, NSteps).MarkBorderColor(StatColor).MarkColor(StatColor).Stroke(1.5, StatColor).Opacity(0.5).MarkStyle<CircleMarkPlot>();
 		
-		StatPlot.SetLabels(CurrentParameter.Name.data(), StatName);
-		StatPlot.ShowLegend(false);
-		StatPlot.SetMouseHandling(false, false);
+		StatPlot.Plot.SetLabels(CurrentParameter.Name.data(), StatName);
+		StatPlot.Plot.ShowLegend(false);
+		StatPlot.Plot.SetMouseHandling(false, false);
 		
 		//This is a little stupid, but whatever...
-		Size PlotReticleSize = GetTextSize("00000", StatPlot.GetReticleFont());
-		Size PlotUnitSize    = GetTextSize("[dummy]", StatPlot.GetLabelsFont());
-		StatPlot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
-		StatPlot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
+		Size PlotReticleSize = GetTextSize("00000", StatPlot.Plot.GetReticleFont());
+		Size PlotUnitSize    = GetTextSize("[dummy]", StatPlot.Plot.GetLabelsFont());
+		StatPlot.Plot.SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
+		StatPlot.Plot.SetPlotAreaBottomMargin(PlotReticleSize.cy + PlotUnitSize.cy + 20);
 		
-		StatPlot.SetXYMin(Min);
-		StatPlot.SetRange(Max-Min);
-		StatPlot.SetMajorUnitsNum(std::min(NSteps-1, 9));     //TODO: This should be better!
+		StatPlot.Plot.SetXYMin(Min);
+		StatPlot.Plot.SetRange(Max-Min);
+		StatPlot.Plot.SetMajorUnitsNum(std::min(NSteps-1, 9));     //TODO: This should be better!
 		
 		//StatPlot.Refresh();
 	}
 	else
 	{
-		StatPlot.SetTitle("Select a statistic to display");
+		StatPlot.Plot.SetTitle("Select a statistic to display");
 	}
 	
 	int NStep = 0;
@@ -304,7 +316,7 @@ SensitivityViewWindow::Run()
 					StatData[NStep] = ResidualStats.Handle; \
 				}                                   \
 				else                                \
-					StatPlot.SetTitle("Select an input series to compute the residual stat"); \
+					StatPlot.Plot.SetTitle("Select an input series to compute the residual stat"); \
 			}
 		
 		if(StatName == "(none)") {}
@@ -325,7 +337,7 @@ SensitivityViewWindow::Run()
 		{
 			RunProgress.Set(NStep+1);
 			
-			StatPlot.ZoomToFit(true, true);
+			StatPlot.Plot.ZoomToFit(true, true);
 			//StatPlot.Refresh();
 			
 			this->ProcessEvents();

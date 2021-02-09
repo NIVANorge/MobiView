@@ -76,6 +76,8 @@ struct indexed_parameter
 	std::vector<parameter_index> Indexes;
 };
 
+String MakeIndexString(const std::vector<char *> &Indexes);
+String MakeIndexString(const std::vector<std::string> &Indexes);
 String MakeParameterIndexString(const indexed_parameter &Parameter);
 bool   ParameterIsSubsetOf(const indexed_parameter &Parameter, const indexed_parameter &CompareTo);
 
@@ -225,6 +227,14 @@ private:
 	void SubBar(Bar &bar);
 };
 
+class StatPlotCtrl : public WithSensitivityStatPlotLayout<Ctrl>
+{
+public:
+	typedef StatPlotCtrl CLASSNAME;
+	
+	StatPlotCtrl();		
+};
+
 class SensitivityViewWindow : public WithSensitivityLayout<TopWindow>
 {
 public:
@@ -237,12 +247,42 @@ public:
 	void Update();
 	void Run();
 	
-	private :
-		indexed_parameter CurrentParameter;
+private :
 	
+	indexed_parameter CurrentParameter;
+	
+	Splitter     MainHorizontal;
+	MyPlot       Plot;
+	StatPlotCtrl StatPlot;
 };
 
-class OptimizationWindow : public WithOptimizationLayout<TopWindow>
+class OptimizationParameterSetup : public WithOptimizationLayout<Ctrl>
+{
+public:
+	typedef OptimizationParameterSetup CLASSNAME;
+	
+	OptimizationParameterSetup();
+};
+
+class OptimizationTargetSetup : public WithOptimizationTargetLayout<Ctrl>
+{
+public:
+	typedef OptimizationTargetSetup CLASSNAME;
+	
+	OptimizationTargetSetup();
+};
+
+struct optimization_target
+{
+	std::string ResultName;
+	std::vector<std::string> ResultIndexes;
+	std::string InputName;
+	std::vector<std::string> InputIndexes;
+	residual_type Stat;
+	double Weight;
+};
+
+class OptimizationWindow : public TopWindow
 {
 public:
 	typedef OptimizationWindow CLASSNAME;
@@ -252,7 +292,14 @@ public:
 	void AddParameterClicked();
 	void AddGroupClicked();
 	void RemoveParameterClicked();
-	void ClearAllClicked();
+	void ClearParametersClicked();
+	
+	void AddTargetClicked();
+	void RemoveTargetClicked();
+	void ClearTargetsClicked();
+	
+	void ClearAll();
+	
 	void RunClicked();
 	
 	MobiView *ParentWindow;
@@ -260,6 +307,7 @@ public:
 private:
 	
 	bool AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
+	void AddOptimizationTarget(optimization_target &Target);
 	
 	void SubBar(Bar &bar);
 	void WriteToJson();
@@ -270,7 +318,16 @@ private:
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
 	
+	Array<DropList>          TargetStatCtrls;
+	Array<EditDoubleNotNull> TargetWeightCtrls;
+	
 	ToolBar Tool;
+	
+	std::vector<optimization_target> Targets;
+	
+	Splitter MainVertical;
+	OptimizationParameterSetup ParSetup;
+	OptimizationTargetSetup    TargetSetup;
 };
 
 

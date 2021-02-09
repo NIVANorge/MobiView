@@ -638,6 +638,8 @@ void MobiView::CleanInterface()
 	OtherPlots.ClearAll();
 	
 	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
+	
+	OptimizationWin.ClearAll();
 }
 
 

@@ -11,6 +11,41 @@ ParameterCtrl::ParameterCtrl()
 	CtrlLayout(*this);
 };
 
+String MakeIndexString(const std::vector<char *> &Indexes)
+{
+	String Result = "";
+	if(Indexes.size() > 0)
+	{
+		Result << "(";
+		int Idx = 0;
+		for(char *Index : Indexes)
+		{
+			Result << "\"" << Index << "\"";
+			if(Idx != Indexes.size()-1) Result << " ";
+			++Idx;
+		}
+		Result << ")";
+	}
+	return Result;
+}
+
+String MakeIndexString(const std::vector<std::string> &Indexes)
+{
+	String Result = "";
+	if(Indexes.size() > 0)
+	{
+		Result << "(";
+		int Idx = 0;
+		for(const std::string &Index : Indexes)
+		{
+			Result << "\"" << Index.data() << "\"";
+			if(Idx != Indexes.size()-1) Result << " ";
+			++Idx;
+		}
+		Result << ")";
+	}
+	return Result;
+}
 
 String MakeParameterIndexString(const indexed_parameter &Parameter)
 {

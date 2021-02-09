@@ -2036,19 +2036,8 @@ void MobiView::GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSe
 	
 	Unit = ModelDll.GetResultUnit(DataSet, Name.data());
 	
-	
-	//TODO: Make a function that creates a stringified list out of a list like this!
 	Legend << Name.data();
-	if(Indexes.size() > 0)
-	{
-		Legend << " (";
-		for(size_t Idx = 0; Idx < Indexes.size(); ++Idx)
-		{
-			Legend << Indexes[Idx];
-			if(Idx < Indexes.size()-1) Legend << ", ";
-		}
-		Legend << ")";
-	}
+	Legend << MakeIndexString(Indexes);
 }
 
 void MobiView::GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo, bool AlignWithResults)
@@ -2064,16 +2053,7 @@ void MobiView::GetSingleSelectedInputSeries(plot_setup &PlotSetup, void *DataSet
 	Unit = ModelDll.GetInputUnit(DataSet, Name.data());
 	
 	Legend << Name.data();
-	if(Indexes.size() > 0)
-	{
-		Legend << " (";
-		for(size_t Idx = 0; Idx < Indexes.size(); ++Idx)
-		{
-			Legend << Indexes[Idx];
-			if(Idx < Indexes.size()-1) Legend << ", ";
-		}
-		Legend << ")";
-	}
+	Legend << MakeIndexString(Indexes);
 }
 
 

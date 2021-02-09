@@ -19,54 +19,62 @@
 
 
 
-#define SET_SETTING(Handle, Name, Type)
-#define SET_RES_SETTING(Handle, Name, Type)   ResidualType_##Handle,
-enum residual_type
+
+
+
+OptimizationParameterSetup::OptimizationParameterSetup()
 {
-	#include "SetStatSettings.h"
-};
-#undef SET_SETTING
-#undef SET_RES_SETTING
+	CtrlLayout(*this);
+}
+
+OptimizationTargetSetup::OptimizationTargetSetup()
+{
+	CtrlLayout(*this);
+}
 
 OptimizationWindow::OptimizationWindow()
 {
-	CtrlLayout(*this, "MobiView optimization setup");
+	//CtrlLayout(*this, "MobiView optimization setup");
 	
-	Sizeable().Zoomable();
+	SetRect(0, 0, 700, 700);
+	Title("MobiView optimization setup").Sizeable().Zoomable();
 	
-	PushRun.SetImage(IconImg4::Run());
+	ParSetup.ParameterView.AddColumn(Id("__name"), "Name");
+	ParSetup.ParameterView.AddColumn(Id("__indexes"), "Indexes");
+	ParSetup.ParameterView.AddColumn(Id("__min"), "Min");
+	ParSetup.ParameterView.AddColumn(Id("__max"), "Max");
+	ParSetup.ParameterView.AddColumn(Id("__unit"), "Unit");
 	
+	TargetSetup.TargetView.AddColumn(Id("__resultname"), "Result name");
+	TargetSetup.TargetView.AddColumn(Id("__resultindexes"), "Result idxs.");
+	TargetSetup.TargetView.AddColumn(Id("__inputname"), "Input name");
+	TargetSetup.TargetView.AddColumn(Id("__inputindexes"), "Input idxs.");
+	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Target stat.");
+	TargetSetup.TargetView.AddColumn(Id("__weight"), "Weight");
 	
-	#define SET_SETTING(Handle, Name, Type)
-	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type) \
-		if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
+	ParSetup.PushAddParameter.WhenPush    = THISBACK(AddParameterClicked);
+	ParSetup.PushAddGroup.WhenPush        = THISBACK(AddGroupClicked);
+	ParSetup.PushRemoveParameter.WhenPush = THISBACK(RemoveParameterClicked);
+	ParSetup.PushClearParameters.WhenPush = THISBACK(ClearParametersClicked);
 	
-	#include "SetStatSettings.h"
+	TargetSetup.PushAddTarget.WhenPush    = THISBACK(AddTargetClicked);
+	TargetSetup.PushRemoveTarget.WhenPush = THISBACK(RemoveTargetClicked);
+	TargetSetup.PushClearTargets.WhenPush = THISBACK(ClearTargetsClicked);
 	
-	#undef SET_SETTING
-	#undef SET_RES_SETTING
-	
-	SelectStat.GoBegin();
-	
-	ParameterView.AddColumn(Id("__name"), "Name");
-	ParameterView.AddColumn(Id("__indexes"), "Indexes");
-	ParameterView.AddColumn(Id("__min"), "Min");
-	ParameterView.AddColumn(Id("__max"), "Max");
-	ParameterView.AddColumn(Id("__unit"), "Unit");
-	
-	
-	PushAddParameter.WhenPush    = THISBACK(AddParameterClicked);
-	PushAddGroup.WhenPush        = THISBACK(AddGroupClicked);
-	PushRemoveParameter.WhenPush = THISBACK(RemoveParameterClicked);
-	PushClearParameters.WhenPush = THISBACK(ClearAllClicked);
-	PushRun.WhenPush             = THISBACK(RunClicked);
+	TargetSetup.PushRun.SetImage(IconImg4::Run());	
+	TargetSetup.PushRun.WhenPush          = THISBACK(RunClicked);
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
 	
-	EditMaxEvals.Min(1);
-	EditMaxEvals.SetData(1000);
+	TargetSetup.EditMaxEvals.Min(1);
+	TargetSetup.EditMaxEvals.SetData(1000);
+	
+	MainVertical.Vert();
+	MainVertical.Add(ParSetup);
+	MainVertical.Add(TargetSetup);
+	Add(MainVertical.SizePos());
 }
 
 void OptimizationWindow::SubBar(Bar &bar)
@@ -115,18 +123,18 @@ bool OptimizationWindow::AddSingleParameter(indexed_parameter &Parameter, int So
 			ParUnit = ParentWindow->Params.ParameterView.Get(SourceRow, Id("__unit"));
 		}
 		
-		ParameterView.Add(Parameter.Name.data(), Indexes, Min, Max, ParUnit);
+		ParSetup.ParameterView.Add(Parameter.Name.data(), Indexes, Min, Max, ParUnit);
 		
 		EditMinCtrls.Create<EditDoubleNotNull>();
 		EditMaxCtrls.Create<EditDoubleNotNull>();
 		
 		int Row = Parameters.size()-1;
-		ParameterView.SetCtrl(Row, 2, EditMinCtrls[Row]);
-		ParameterView.SetCtrl(Row, 3, EditMaxCtrls[Row]);
+		ParSetup.ParameterView.SetCtrl(Row, 2, EditMinCtrls[Row]);
+		ParSetup.ParameterView.SetCtrl(Row, 3, EditMaxCtrls[Row]);
 	}
 	else
 	{
-		ParameterView.Set(OverrideRow, 1, Indexes);
+		ParSetup.ParameterView.Set(OverrideRow, 1, Indexes);
 	}
 	
 	return true;
@@ -156,9 +164,9 @@ void OptimizationWindow::AddGroupClicked()
 void OptimizationWindow::RemoveParameterClicked()
 {
 	int SelectedRow = -1;
-	for(int Row = 0; Row < ParameterView.GetCount(); ++Row)
+	for(int Row = 0; Row < ParSetup.ParameterView.GetCount(); ++Row)
 	{
-		if(ParameterView.IsSel(Row))
+		if(ParSetup.ParameterView.IsSel(Row))
 		{
 			SelectedRow = Row;
 			break;
@@ -167,19 +175,135 @@ void OptimizationWindow::RemoveParameterClicked()
 	
 	if(SelectedRow == -1) return;
 	
-	ParameterView.Remove(SelectedRow);
+	ParSetup.ParameterView.Remove(SelectedRow);
 	Parameters.erase(Parameters.begin()+SelectedRow);
 	EditMinCtrls.Remove(SelectedRow);
 	EditMaxCtrls.Remove(SelectedRow);
 }
 
-void OptimizationWindow::ClearAllClicked()
+void OptimizationWindow::ClearParametersClicked()
 {
-	ParameterView.Clear();
+	ParSetup.ParameterView.Clear();
 	Parameters.clear();
 	EditMinCtrls.Clear();
 	EditMaxCtrls.Clear();
 }
+
+
+void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
+{
+	Targets.push_back(Target);
+	
+	String InputIndexStr = MakeIndexString(Target.InputIndexes);
+	String ResultIndexStr = MakeIndexString(Target.ResultIndexes);
+	
+	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, (int)Target.Stat, Target.Weight);
+	
+	TargetStatCtrls.Create<DropList>();
+	DropList &SelectStat = TargetStatCtrls.Top();
+	
+	#define SET_SETTING(Handle, Name, Type)
+	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type) \
+		if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
+	
+	#include "SetStatSettings.h"
+	
+	#undef SET_SETTING
+	#undef SET_RES_SETTING
+	
+	//SelectStat.GoBegin();
+	
+	int Row = TargetSetup.TargetView.GetCount() - 1;
+	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
+	TargetSetup.TargetView.SetCtrl(Row, Col, SelectStat);
+	
+	TargetWeightCtrls.Create<EditDoubleNotNull>();
+	EditDoubleNotNull &EditWt = TargetWeightCtrls.Top();
+	EditWt.Min(0.0);
+	Col     = TargetSetup.TargetView.GetPos(Id("__weight"));
+	TargetSetup.TargetView.SetCtrl(Row, Col, EditWt);
+}
+
+void OptimizationWindow::AddTargetClicked()
+{
+	plot_setup PlotSetup;
+	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
+	
+	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1)
+	{
+		TargetSetup.ErrorLabel.SetText("This only works with a single selected result series and input series.");
+		return;
+	}
+	
+	for(int Idx = 0; Idx < PlotSetup.SelectedIndexes.size(); ++Idx)
+	{
+		if(PlotSetup.SelectedIndexes[Idx].size() != 1 && PlotSetup.IndexSetIsActive[Idx])
+		{
+			TargetSetup.ErrorLabel.SetText("This currently only works with a single selected index combination");
+			return;
+		}
+	}
+	
+	optimization_target Target = {};
+	Target.ResultName = PlotSetup.SelectedResults[0];
+	Target.InputName  = PlotSetup.SelectedInputs[0];
+	
+	std::vector<char *> InputIndexes;
+	std::vector<char *> ResultIndexes;
+	
+	bool Success = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.InputName, 1, InputIndexes);
+	if(!Success) return;
+	Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.ResultName, 0, ResultIndexes);
+	if(!Success) return;
+	
+	//Ugh, super annoying to have to convert back and forth between char* and string to ensure
+	//storage...
+	for(const char *Idx : InputIndexes)
+		Target.InputIndexes.push_back(std::string(Idx));
+	for(const char *Idx : ResultIndexes)
+		Target.ResultIndexes.push_back(std::string(Idx));
+	
+	Target.Stat = ResidualType_MAE;
+	Target.Weight = 1.0;
+	
+	AddOptimizationTarget(Target);
+}
+
+void OptimizationWindow::RemoveTargetClicked()
+{
+	int SelectedRow = -1;
+	for(int Row = 0; Row < TargetSetup.TargetView.GetCount(); ++Row)
+	{
+		if(TargetSetup.TargetView.IsSel(Row))
+		{
+			SelectedRow = Row;
+			break;
+		}
+	}
+	
+	if(SelectedRow == -1) return;
+	
+	TargetSetup.TargetView.Remove(SelectedRow);
+	Targets.erase(Targets.begin()+SelectedRow);
+	TargetWeightCtrls.Remove(SelectedRow);
+	TargetStatCtrls.Remove(SelectedRow);
+}
+
+void OptimizationWindow::ClearTargetsClicked()
+{
+	TargetSetup.TargetView.Clear();
+	Targets.clear();
+	TargetWeightCtrls.Clear();
+	TargetStatCtrls.Clear();
+}
+	
+void OptimizationWindow::ClearAll()
+{
+	ClearParametersClicked();
+	ClearTargetsClicked();
+}
+
+
 
 
 typedef dlib::matrix<double,0,1> column_vector;
@@ -198,29 +322,108 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 
 struct optimization_model
 {
-	MobiView                       *ParentWindow;
-	std::vector<indexed_parameter> *Parameters;
-	residual_type                   Res;
+	MobiView                         *ParentWindow;
+	std::vector<indexed_parameter>   *Parameters;
+	std::vector<optimization_target> *Targets;
 	
-	bool                            ValuesLoadedOnce = false;
-	std::vector<double>             InputData;
+	//residual_type                    Res;
 	
+	bool                             ValuesLoadedOnce = false;
+	std::vector<std::vector<double>> InputData;
+	
+	/*
 	std::string                     InputName;
 	std::string                     ResultName;
 	std::vector<char *>             InputIndexes;
 	std::vector<char *>             ResultIndexes;
+	*/
 	
-	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, residual_type Res,
-		std::string &InputName, const std::vector<char *> &InputIndexes, std::string &ResultName, const std::vector<char *> &ResultIndexes)
+	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets)
+	//residual_type Res, std::string &InputName, const std::vector<char *> &InputIndexes, std::string &ResultName, const std::vector<char *> &ResultIndexes)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
-		this->Res          = Res;
+		this->Targets      = Targets;
 		
+		/*
+		this->Res          = Res;
 		this->InputName    = InputName;
 		this->ResultName   = ResultName;
 		this->InputIndexes = InputIndexes;
 		this->ResultIndexes= ResultIndexes;
+		*/
+	}
+	
+	double EvaluateObjectives(void *DataSet)
+	{
+		ParentWindow->ModelDll.RunModel(DataSet);
+		
+		// Extract result and input values to compute them.
+		
+		//TODO: We should use the GOF interval!!
+		
+		if(!ValuesLoadedOnce)
+		{
+			uint64 Timesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
+			InputData.resize(Targets->size());
+			
+			for(int Obj = 0; Obj < Targets->size(); ++Obj)
+			{
+				optimization_target &Target = (*Targets)[Obj];
+				InputData[Obj].resize(Timesteps);
+				std::vector<const char *> InputIndexes(Target.InputIndexes.size());
+				for(int Idx = 0; Idx < InputIndexes.size(); ++Idx)
+					InputIndexes[Idx] = Target.InputIndexes[Idx].data();
+				
+				//NOTE: The final 'true' signifies that we align with the result series, so that it
+				//is in fact safe to use the result timesteps for the size here.
+				ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData[Obj].data(), true);
+			}
+			
+			ValuesLoadedOnce = true;
+		}
+		
+		double Aggregate = 0.0;
+		
+		//NOTE: We have to allocate this for each call, for thread safety. There is no other
+		//way unless Dlib could tell us what thread Id we are in, which it doesn't.
+		//NOTE: Although, right now we haven't got threading to work any way...
+		std::vector<double> ResultData(InputData[0].size());
+		
+		for(int Obj = 0; Obj < Targets->size(); ++Obj)
+		{
+			optimization_target &Target = (*Targets)[Obj];
+			
+			std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
+			for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
+				ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
+			
+			ParentWindow->ModelDll.GetResultSeries(DataSet, Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultData.data());
+			
+			//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
+			//untangle their computations.
+			residual_stats ResidualStats;
+			ComputeResidualStats(ResidualStats, InputData[Obj].data(), ResultData.data(), ResultData.size());
+			
+			double Value;
+			
+			if(false){}
+			#define SET_SETTING(Handle, Name, Type)
+			#define SET_RES_SETTING(Handle, Name, Type) \
+				else if(Target.Stat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
+	
+			#include "SetStatSettings.h"
+			
+			#undef SET_SETTING
+			#undef SET_RES_SETTING
+			
+			Aggregate += Value*Target.Weight;
+		}
+		
+		//ParentWindow->Log(Format("Ran once, value is %g", Aggregate));
+		//ParentWindow->ProcessEvents();
+		
+		return Aggregate;
 	}
 	
 	double operator()(const column_vector& Par)
@@ -229,52 +432,9 @@ struct optimization_model
 		
 		SetParameters(ParentWindow, DataSetCopy, Parameters, Par);
 		
-		ParentWindow->ModelDll.RunModel(DataSetCopy);
-		
-		
-		// Extract result and input values to compute them.
-		
-		//TODO: We should use the GOF interval!!
-		
-		if(!ValuesLoadedOnce)
-		{
-			uint64 Timesteps = ParentWindow->ModelDll.GetTimesteps(DataSetCopy);
-			InputData.resize(Timesteps);
-			//NOTE: The final 'true' signifies that we align with the result series, so that it
-			//is in fact safe to use the result timesteps for the size here.
-			ParentWindow->ModelDll.GetInputSeries(DataSetCopy, InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData.data(), true);
-			
-			ValuesLoadedOnce = true;
-		}
-		
-		//NOTE: We have to allocate this for each call, for thread safety. There is no other
-		//way unless Dlib could tell us what thread Id we are in, which it doesn't.
-		std::vector<double> ResultData(InputData.size());
-		
-		ParentWindow->ModelDll.GetResultSeries(DataSetCopy, ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultData.data());
-		
-		//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
-		//untangle their computations.
-		residual_stats ResidualStats;
-		ComputeResidualStats(ResidualStats, InputData.data(), ResultData.data(), ResultData.size());
-		
-		double Value;
-		
-		if(false){}
-		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) \
-			else if(Res == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
-
-		#include "SetStatSettings.h"
-		
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-		
+		double Value = EvaluateObjectives(DataSetCopy);
 		
 		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
-		
-		//ParentWindow->Log(Format("Ran once, value is %g", Value));
-		//ParentWindow->ProcessEvents();
 		
 		return Value;
 	}
@@ -283,20 +443,22 @@ struct optimization_model
 
 void OptimizationWindow::RunClicked()
 {
-	ErrorLabel.SetText("");
+	TargetSetup.ErrorLabel.SetText("");
 	
 	if(Parameters.empty())
 	{
-		ErrorLabel.SetText("At least one parameter must be added before running");
+		TargetSetup.ErrorLabel.SetText("At least one parameter must be added before running");
+		ProcessEvents();
 		return;
 	}
 	
+	/*
 	plot_setup PlotSetup;
 	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
 	
 	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1)
 	{
-		ErrorLabel.SetText("This only works with a single selected result series and input series.");
+		TargetSetup.ErrorLabel.SetText("This only works with a single selected result series and input series.");
 		return;
 	}
 	
@@ -304,7 +466,7 @@ void OptimizationWindow::RunClicked()
 	{
 		if(PlotSetup.SelectedIndexes[Idx].size() != 1 && PlotSetup.IndexSetIsActive[Idx])
 		{
-			ErrorLabel.SetText("This currently only works with a single selected index combination");
+			TargetSetup.ErrorLabel.SetText("This currently only works with a single selected index combination");
 			return;
 		}
 	}
@@ -320,58 +482,133 @@ void OptimizationWindow::RunClicked()
 	Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, ResultName, 0, ResultIndexes);
 	if(!Success) return;
 	
-	residual_type Res = (residual_type)(int)SelectStat.GetKey(SelectStat.GetIndex());
+	residual_type Res = (residual_type)(int)TargetSetup.SelectStat.GetKey(TargetSetup.SelectStat.GetIndex());
+	*/
 	
+	if(Targets.empty())
+	{
+		TargetSetup.ErrorLabel.SetText("There must be at least one optimization target.");
+		return;
+	}
+	
+	
+	//NOTE: Since we haven't wired all of the background data to the edit fields, we have to
+	//gather some of it here.
+	int RowCount = TargetSetup.TargetView.GetCount();
 	bool PositiveGood;
-	if(false){}
-	#define SET_SETTING(Handle, Name, Type)
-	#define SET_RES_SETTING(Handle, Name, Type) \
-		else if(Res == ResidualType_##Handle) PositiveGood = (Type==1);
-	
-	#include "SetStatSettings.h"
-	
-	#undef SET_SETTING
-	#undef SET_RES_SETTING
-	
-	int RowCount = ParameterView.GetCount();
-	column_vector MinBound(RowCount);
-	column_vector MaxBound(RowCount);
-	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
-		MinBound(Row) = (double)ParameterView.Get(Row, Id("__min"));
-		MaxBound(Row) = (double)ParameterView.Get(Row, Id("__max"));
+		residual_type Stat = (residual_type)(int)TargetSetup.TargetView.Get(Row, Id("__targetstat"));
+		double Weight      = (double)TargetSetup.TargetView.Get(Row, Id("__weight"));
+		
+		bool PositiveGoodLocal;
+		if(false){}
+		#define SET_SETTING(Handle, Name, Type)
+		#define SET_RES_SETTING(Handle, Name, Type) \
+			else if(Stat == ResidualType_##Handle) PositiveGoodLocal = (Type==1);
+		
+		#include "SetStatSettings.h"
+		
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+		
+		//NOTE: We could allow people to set negative weights in order to mix different types
+		//of target, but I don't see a good use case for it.
+		
+		if(Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
+		{
+			TargetSetup.ErrorLabel.SetText("Negative weights are not allowed.");
+			return;
+		}
+		
+		if(Row != 0 && (PositiveGoodLocal != PositiveGood))
+		{
+			TargetSetup.ErrorLabel.SetText("All optimization targets have to be either minimized or maximized, no mixing is allowed.");
+			return;
+		}
+		PositiveGood = PositiveGoodLocal;
+		
+		Targets[Row].Weight = Weight;
+		Targets[Row].Stat   = Stat;
+	}
+	
+	
+	
+	int ParCount = ParSetup.ParameterView.GetCount();
+	column_vector MinBound(ParCount);
+	column_vector MaxBound(ParCount);
+	
+	for(int Row = 0; Row < ParCount; ++Row)
+	{
+		MinBound(Row) = (double)ParSetup.ParameterView.Get(Row, Id("__min"));
+		MaxBound(Row) = (double)ParSetup.ParameterView.Get(Row, Id("__max"));
 		
 		if(MinBound(Row) >= MaxBound(Row))
 		{
-			ErrorLabel.SetText(Format("The min value is larger than or equal to the max value for the parameter %s", Parameters[Row].Name.data()));
+			TargetSetup.ErrorLabel.SetText(Format("The min value is larger than or equal to the max value for the parameter %s", Parameters[Row].Name.data()));
 			return;
 		}
 	}
 	
-	optimization_model OptimizationModel(ParentWindow, &Parameters, Res, InputName, InputIndexes, ResultName, ResultIndexes);
+	int Cl = 1;
+	if(ParentWindow->ParametersWereChangedSinceLastSave)
+		Cl = PromptYesNo("The main parameter set has been edited since the last save. If run the optimizer now it will overwrite these changes. Do you still want to run the optimizer?");
+	if(!Cl)
+		return;
+	
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets);
+	
+	// Initial evaluation on the parameters given in the main dataset.
+	column_vector InitialPars(ParCount);
+	int ParIdx;
+	for(indexed_parameter Par : Parameters)
+	{
+		std::vector<const char *> Indexes;
+		for(parameter_index &Index : Par.Indexes)
+			Indexes.push_back(Index.Name.data());
+		
+		InitialPars(ParIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
+		
+		++ParIdx;
+	}
+	double InitialScore = OptimizationModel(InitialPars);
+	
+	dlib::function_evaluation InitialEval;
+	InitialEval.x = InitialPars;
+	InitialEval.y = InitialScore;
+	
+	std::vector<dlib::function_evaluation> InitialEvals = {InitialEval};
+	
+	if(ParentWindow->CheckDllUserError())
+		return;
+	
 	
 	ParentWindow->Log("Running optimization. This may take a few minutes or more.");
-	ErrorLabel.SetText("Running optimization. This may take a few minutes or more.");
+	TargetSetup.ErrorLabel.SetText("Running optimization. This may take a few minutes or more.");
 	
 	ParentWindow->ProcessEvents();
 	
-	int MaxFunctionCalls = EditMaxEvals.GetData();
+	int MaxFunctionCalls = TargetSetup.EditMaxEvals.GetData();
 	dlib::function_evaluation Result;
+	
+	auto BeginTime = std::chrono::high_resolution_clock::now();
 	
 	if(PositiveGood)
 		//Result = dlib::find_max_global(dlib::default_thread_pool(), OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
-		Result = dlib::find_max_global(OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
+		Result = dlib::find_max_global(OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
 	else
 		//Result = dlib::find_min_global(dlib::default_thread_pool(), OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
-		Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
+		Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+	
+	auto EndTime = std::chrono::high_resolution_clock::now();
+	double Duration = 1e-3 * std::chrono::duration_cast<std::chrono::milliseconds>(EndTime - BeginTime).count();
 	
 	SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x);
-	ParentWindow->Log(Format("Optimization finished, with new best %s : %g. Remember to save to a different file if you don't want to lose your old calibration.",
-		SelectStat.GetValue().ToString(), Result.y));
+	ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g. Remember to save the parameters to a new file if you don't want to lose your old calibration.", 
+		Duration, Result.y));
 	ParentWindow->RunModel();
 	
-	ErrorLabel.SetText("");
+	TargetSetup.ErrorLabel.SetText("");
 	
 	Close();
 }
@@ -398,7 +635,7 @@ void OptimizationWindow::LoadFromJson()
 		return;
 	}
 	
-	ClearAllClicked();
+	ClearAll();
 	
 	String SetupFile = LoadFile(Filename);
 	
@@ -407,29 +644,8 @@ void OptimizationWindow::LoadFromJson()
 	
 	Value MaxEvalsJson = SetupJson["MaxEvals"];
 	if(!IsNull(MaxEvalsJson))
-		EditMaxEvals.SetData((int)MaxEvalsJson);
+		TargetSetup.EditMaxEvals.SetData((int)MaxEvalsJson);
 
-	
-
-	Value StatNameJson = SetupJson["TargetStat"];
-	if(!IsNull(StatNameJson))
-	{
-		residual_type Res;
-
-		if(false){}
-		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) \
-			else if(String(Name) == StatNameJson.ToString()) Res = ResidualType_##Handle;
-		
-		#include "SetStatSettings.h"
-		
-		#undef SET_SETTING
-		#undef SET_RES_SETTING	
-		
-		SelectStat.SetData((int)Res);
-	}
-	else
-		SelectStat.GoBegin();
 	
 	ValueArray ParameterArr = SetupJson["Parameters"];
 	if(!IsNull(ParameterArr))
@@ -469,14 +685,78 @@ void OptimizationWindow::LoadFromJson()
 			if(Added)
 			{
 				Value UnitVal = ParamJson["Unit"];
-				ParameterView.Set(ValidRow, Id("__unit"), UnitVal);
+				ParSetup.ParameterView.Set(ValidRow, Id("__unit"), UnitVal);
 				Value MinVal  = ParamJson["Min"];
-				ParameterView.Set(ValidRow, Id("__min"), MinVal);
+				ParSetup.ParameterView.Set(ValidRow, Id("__min"), MinVal);
 				Value MaxVal  = ParamJson["Max"];
-				ParameterView.Set(ValidRow, Id("__max"), MaxVal);
+				ParSetup.ParameterView.Set(ValidRow, Id("__max"), MaxVal);
 				
 				++ValidRow;
 			}
+		}
+	}
+	
+	ValueArray TargetArr = SetupJson["Targets"];
+	if(!IsNull(TargetArr))
+	{
+		int Count = TargetArr.GetCount();
+		for(int Row = 0; Row < Count; ++Row)
+		{
+			Value TargetJson = TargetArr[Row];
+			
+			optimization_target Target = {};
+			
+			String ResultName = TargetJson["ResultName"];
+			if(!IsNull(ResultName))
+				Target.ResultName = ResultName.ToStd();
+			
+			String InputName  = TargetJson["InputName"];
+			if(!IsNull(InputName))
+				Target.InputName  = InputName.ToStd();
+			
+			Target.Stat = ResidualType_MAE;
+			
+			String StatName = SetupJson["TargetStat"];
+			if(!IsNull(StatName))
+			{
+				if(false){}
+				#define SET_SETTING(Handle, Name, Type)
+				#define SET_RES_SETTING(Handle, Name, Type) \
+					else if(String(Name) == StatName) Target.Stat = ResidualType_##Handle;
+				
+				#include "SetStatSettings.h"
+				
+				#undef SET_SETTING
+				#undef SET_RES_SETTING	
+				
+				//TargetSetup.SelectStat.SetData((int)Res); //TODO: Move to other proc
+			}
+			
+			ValueArray ResultIndexArr = TargetJson["ResultIndexes"];
+			if(!IsNull(ResultIndexArr))
+			{
+				int Count2 = ResultIndexArr.GetCount();
+				for(int Row2 = 0; Row2 < Count2; ++Row2)
+				{
+					String Index = ResultIndexArr[Row2];
+					Target.ResultIndexes.push_back(Index.ToStd());
+				}
+			}
+			
+			ValueArray InputIndexArr = TargetJson["InputIndexes"];
+			if(!IsNull(InputIndexArr))
+			{
+				int Count2 = InputIndexArr.GetCount();
+				for(int Row2 = 0; Row2 < Count2; ++Row2)
+				{
+					String Index = InputIndexArr[Row2];
+					Target.InputIndexes.push_back(Index.ToStd());
+				}
+			}
+			
+			//TODO: Load weight!!!
+			
+			AddOptimizationTarget(Target);
 		}
 	}
 }
@@ -505,11 +785,7 @@ void OptimizationWindow::WriteToJson()
 	
 	Json MainFile;
 	
-	MainFile("MaxEvals", EditMaxEvals.GetData());
-	
-	String StatName = SelectStat.GetValue();
-	
-	MainFile("TargetStat", StatName);
+	MainFile("MaxEvals", TargetSetup.EditMaxEvals.GetData());
 	
 	JsonArray ParameterArr;
 	
@@ -520,9 +796,9 @@ void OptimizationWindow::WriteToJson()
 		Json ParJson;
 		ParJson("Name", Par.Name.data());
 		
-		ParJson("Unit", ParameterView.Get(Row, Id("__unit")));
-		ParJson("Min", (double)ParameterView.Get(Row, Id("__min")));
-		ParJson("Max", (double)ParameterView.Get(Row, Id("__max")));
+		ParJson("Unit", ParSetup.ParameterView.Get(Row, Id("__unit")));
+		ParJson("Min", (double)ParSetup.ParameterView.Get(Row, Id("__min")));
+		ParJson("Max", (double)ParSetup.ParameterView.Get(Row, Id("__max")));
 		
 		JsonArray IndexArr;
 		for(parameter_index &Index : Par.Indexes)
@@ -541,6 +817,38 @@ void OptimizationWindow::WriteToJson()
 	}
 	
 	MainFile("Parameters", ParameterArr);
+	
+	JsonArray TargetArr;
+	
+	Row = 0;
+	for(optimization_target &Target : Targets)
+	{
+		Json TargetJson;
+		TargetJson("ResultName", Target.ResultName.data());
+		TargetJson("InputName", Target.InputName.data());
+		
+		JsonArray ResultIndexArr;
+		for(std::string &Index : Target.ResultIndexes)
+			ResultIndexArr << Index.data();
+		TargetJson("ResultIndexes", ResultIndexArr);
+		
+		JsonArray InputIndexArr;
+		for(std::string &Index : Target.InputIndexes)
+			InputIndexArr << Index.data();
+		TargetJson("InputIndexes", InputIndexArr);
+		
+		String StatName = TargetStatCtrls[Row].GetValue();
+		double Weight   = TargetSetup.TargetView.Get(Row, Id("__weight"));
+		
+		TargetJson("Stat", StatName);
+		TargetJson("Weight", Weight);
+		
+		TargetArr << TargetJson;
+		
+		++Row;
+	}
+	
+	MainFile("Targets", TargetArr);
 	
 	
 	SaveFile(Filename, MainFile.ToString());

@@ -57,8 +57,7 @@ struct timeseries_stats
 #undef SET_SETTING
 #undef SET_RES_SETTING
 
-#define SET_RES_SETTING(Handle, Name, Type) \
-	double Handle;
+#define SET_RES_SETTING(Handle, Name, Type) double Handle;
 #define SET_SETTING(Handle, Name, Type)
 
 struct residual_stats
@@ -77,8 +76,18 @@ struct residual_stats
 #undef SET_SETTING
 #undef SET_RES_SETTING
 
-#define SET_SETTING(Handle, Name, Type) \
-	bool Display##Handle = true;
+
+#define SET_SETTING(Handle, Name, Type)
+#define SET_RES_SETTING(Handle, Name, Type)   ResidualType_##Handle,
+enum residual_type
+{
+	#include "SetStatSettings.h"
+};
+#undef SET_SETTING
+#undef SET_RES_SETTING
+
+
+#define SET_SETTING(Handle, Name, Type) bool Display##Handle = true;
 #define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
 
 struct StatisticsSettings

@@ -124,8 +124,12 @@ LAYOUT(MiniPlotLayout, 568, 100)
 	ITEM(Upp::Button, PushMain, SetLabel(t_(">>")).RightPosZ(244, 32).BottomPosZ(1, 15))
 END_LAYOUT
 
+LAYOUT(SensitivityStatPlotLayout, 116, 152)
+	ITEM(Upp::ScatterCtrl, Plot, HSizePosZ(4, 4).VSizePosZ(32, 4))
+	ITEM(Upp::DropList, SelectStat, HSizePosZ(4, 4).TopPosZ(4, 24))
+END_LAYOUT
+
 LAYOUT(SensitivityLayout, 884, 448)
-	ITEM(MyPlot, Plot, HSizePosZ(4, 352).VSizePosZ(52, 32))
 	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(36, 64).TopPosZ(4, 19))
 	ITEM(Upp::Label, LabelMax, SetLabel(t_("Max")).LeftPosZ(196, 24).TopPosZ(4, 19))
 	ITEM(Upp::Label, LabelSteps, SetLabel(t_("Steps")).LeftPosZ(4, 32).TopPosZ(4, 19))
@@ -136,22 +140,25 @@ LAYOUT(SensitivityLayout, 884, 448)
 	ITEM(Upp::Label, ErrorLabel, HSizePosZ(4, 4).TopPosZ(28, 19))
 	ITEM(Upp::ProgressIndicator, RunProgress, HSizePosZ(4, 4).BottomPosZ(4, 24))
 	ITEM(Upp::Label, ParamLabel, HSizePosZ(352, 4).TopPosZ(4, 19))
-	ITEM(Upp::ScatterCtrl, StatPlot, RightPosZ(4, 344).TopPosZ(80, 336))
-	ITEM(Upp::DropList, SelectStat, RightPosZ(4, 344).TopPosZ(56, 19))
 END_LAYOUT
 
-LAYOUT(OptimizationLayout, 584, 308)
-	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 52))
-	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 92).BottomPosZ(28, 20))
-	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(292, 92).BottomPosZ(28, 20))
-	ITEM(Upp::Button, PushAddGroup, SetLabel(t_("Add group")).LeftPosZ(100, 92).BottomPosZ(28, 20))
-	ITEM(Upp::Button, PushRemoveParameter, SetLabel(t_("Remove selected")).LeftPosZ(196, 92).BottomPosZ(28, 20))
-	ITEM(Upp::Label, StatLabel, SetLabel(t_("Target stat:")).LeftPosZ(4, 92).BottomPosZ(4, 20))
+LAYOUT(OptimizationLayout, 628, 228)
+	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 28))
+	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 92).BottomPosZ(4, 20))
+	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(292, 92).BottomPosZ(4, 20))
+	ITEM(Upp::Button, PushAddGroup, SetLabel(t_("Add group")).LeftPosZ(100, 92).BottomPosZ(4, 20))
+	ITEM(Upp::Button, PushRemoveParameter, SetLabel(t_("Remove selected")).LeftPosZ(196, 92).BottomPosZ(4, 20))
+	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 19))
+END_LAYOUT
+
+LAYOUT(OptimizationTargetLayout, 628, 284)
 	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).LeftPosZ(196, 92).BottomPosZ(4, 20))
-	ITEM(Upp::DropList, SelectStat, LeftPosZ(100, 92).BottomPosZ(4, 20))
 	ITEM(Upp::Label, ErrorLabel, HSizePosZ(292, 4).BottomPosZ(4, 20))
-	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(388, 56).BottomPosZ(28, 20))
-	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(448, 64).BottomPosZ(28, 20))
-	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running this overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 19))
+	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(40, 56).BottomPosZ(4, 20))
+	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(100, 92).BottomPosZ(4, 20))
+	ITEM(Upp::ArrayCtrl, TargetView, HSizePosZ(4, 4).VSizePosZ(4, 52))
+	ITEM(Upp::Button, PushRemoveTarget, SetLabel(t_("Remove selected")).LeftPosZ(100, 92).BottomPosZ(28, 20))
+	ITEM(Upp::Button, PushClearTargets, SetLabel(t_("Clear all")).LeftPosZ(196, 92).BottomPosZ(28, 20))
+	ITEM(Upp::Button, PushAddTarget, SetLabel(t_("Add target")).LeftPosZ(4, 92).BottomPosZ(28, 20))
 END_LAYOUT
 
