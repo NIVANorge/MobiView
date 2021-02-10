@@ -211,8 +211,6 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	#undef SET_SETTING
 	#undef SET_RES_SETTING
 	
-	//SelectStat.GoBegin();
-	
 	int Row = TargetSetup.TargetView.GetCount() - 1;
 	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
 	TargetSetup.TargetView.SetCtrl(Row, Col, SelectStat);
@@ -716,7 +714,7 @@ void OptimizationWindow::LoadFromJson()
 			
 			Target.Stat = ResidualType_MAE;
 			
-			String StatName = SetupJson["TargetStat"];
+			String StatName = TargetJson["Stat"];
 			if(!IsNull(StatName))
 			{
 				if(false){}
@@ -728,8 +726,6 @@ void OptimizationWindow::LoadFromJson()
 				
 				#undef SET_SETTING
 				#undef SET_RES_SETTING	
-				
-				//TargetSetup.SelectStat.SetData((int)Res); //TODO: Move to other proc
 			}
 			
 			ValueArray ResultIndexArr = TargetJson["ResultIndexes"];
@@ -754,7 +750,8 @@ void OptimizationWindow::LoadFromJson()
 				}
 			}
 			
-			//TODO: Load weight!!!
+			Value WeightVal = TargetJson["Weight"];
+			if(!IsNull(WeightVal)) Target.Weight = (double)WeightVal;
 			
 			AddOptimizationTarget(Target);
 		}
