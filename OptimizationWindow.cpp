@@ -329,6 +329,9 @@ struct optimization_model
 	bool                             ValuesLoadedOnce = false;
 	std::vector<std::vector<double>> InputData;
 	
+	int64 GofOffset;
+	int64 GofTimesteps;
+	
 	/*
 	std::string                     InputName;
 	std::string                     ResultName;
@@ -358,8 +361,6 @@ struct optimization_model
 		
 		// Extract result and input values to compute them.
 		
-		//TODO: We should use the GOF interval!!
-		
 		if(!ValuesLoadedOnce)
 		{
 			uint64 Timesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
@@ -376,6 +377,16 @@ struct optimization_model
 				//NOTE: The final 'true' signifies that we align with the result series, so that it
 				//is in fact safe to use the result timesteps for the size here.
 				ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData[Obj].data(), true);
+			
+				char TimeStr[256];
+				uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
+				ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
+				Time ResultStartTime;
+				StrToTime(ResultStartTime, TimeStr);
+			
+				Time GofStartTime;
+				Time GofEndTime;
+				ParentWindow->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, this->GofOffset, this->GofTimesteps);
 			}
 			
 			ValuesLoadedOnce = true;
@@ -401,7 +412,7 @@ struct optimization_model
 			//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
 			//untangle their computations.
 			residual_stats ResidualStats;
-			ComputeResidualStats(ResidualStats, InputData[Obj].data(), ResultData.data(), ResultData.size());
+			ComputeResidualStats(ResidualStats, InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps);
 			
 			double Value;
 			
@@ -569,6 +580,8 @@ void OptimizationWindow::RunClicked()
 		
 		++ParIdx;
 	}
+	if(ParentWindow->CheckDllUserError()) return;
+	
 	double InitialScore = OptimizationModel(InitialPars);
 	
 	dlib::function_evaluation InitialEval;

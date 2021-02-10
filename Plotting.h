@@ -175,7 +175,7 @@ class MobiView;
 
 //void NullifyNans(double *Data, size_t Len);
 void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize);
-int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize);
+int64 TimestepsBetween(const Time &T1, const Time &T2, timestep_size TimestepSize);
 int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size TimestepSize);
 void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, timestep_size TimestepSize, double *WriteX);
 

@@ -142,13 +142,13 @@ LAYOUT(SensitivityLayout, 884, 448)
 	ITEM(Upp::Label, ParamLabel, HSizePosZ(352, 4).TopPosZ(4, 19))
 END_LAYOUT
 
-LAYOUT(OptimizationLayout, 628, 228)
-	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 28))
+LAYOUT(OptimizationLayout, 628, 256)
+	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(32, 28))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 92).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(292, 92).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushAddGroup, SetLabel(t_("Add group")).LeftPosZ(100, 92).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushRemoveParameter, SetLabel(t_("Remove selected")).LeftPosZ(196, 92).BottomPosZ(4, 20))
-	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 19))
+	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.\nNote: The calibration uses the GOF interval that you can set in the main window when you are in Residual plot mode.")).HSizePosZ(4, 4).TopPosZ(4, 28))
 END_LAYOUT
 
 LAYOUT(OptimizationTargetLayout, 628, 284)

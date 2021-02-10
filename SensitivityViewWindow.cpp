@@ -248,6 +248,10 @@ SensitivityViewWindow::Run()
 		StatPlot.Plot.SetTitle("Select a statistic to display");
 	}
 	
+	Time GofStartTime;
+	Time GofEndTime;
+	bool HasResidual = false;
+	
 	int NStep = 0;
 	for(int NStep = 0; NStep < NSteps; ++NStep)
 	{
@@ -299,31 +303,45 @@ SensitivityViewWindow::Run()
 		//TODO: It is a tiny bit inefficient to do the string comparison here every time, but
 		//it should be fine
 		
-		#define SET_SETTING(Handle, Name, Type) \
-			else if(Name == StatName)           \
-			{                                   \
-				ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings); \
-				StatData[NStep] = TimeseriesStats.Handle;                                                            \
-			}
-		//TODO: Use the GOF interval!
-		#define SET_RES_SETTING(Handle, Name, Type) \
-			else if(Name == StatName)               \
-			{                                       \
-				if(HasInput)                        \
+		
+		if(HasInput && StatName != "(none)")
+		{
+			
+			int64 GofOffset;
+			int64 GofTimesteps;
+			ParentWindow->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+			
+			int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize);
+			
+			#define SET_SETTING(Handle, Name, Type) \
+				else if(Name == StatName)           \
 				{                                   \
-					int64 ResultOffset = TimestepsBetween(InputStartTime, ResultStartTime, ParentWindow->TimestepSize); \
-					ComputeResidualStats(ResidualStats, InputYValues+ResultOffset, ResultYValues, ResultTimesteps);     \
-					StatData[NStep] = ResidualStats.Handle; \
-				}                                   \
-				else                                \
-					StatPlot.Plot.SetTitle("Select an input series to compute the residual stat"); \
-			}
+					ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings); \
+					StatData[NStep] = TimeseriesStats.Handle;                                                            \
+				}
+			//TODO: Use the GOF interval!
+			#define SET_RES_SETTING(Handle, Name, Type) \
+				else if(Name == StatName)               \
+				{                                       \
+					if(HasInput)                        \
+					{                                   \
+						ComputeResidualStats(ResidualStats, InputYValues+ResultOffset+GofOffset, ResultYValues+GofOffset, GofTimesteps);     \
+						StatData[NStep] = ResidualStats.Handle; \
+						HasResidual = true;             \
+					}                                   \
+					else                                \
+						StatPlot.Plot.SetTitle("Select an input series to compute the residual stat"); \
+				}
+			
+			if(StatName == "(none)") {}
+			#include "SetStatSettings.h"
+			
+			#undef SET_SETTING
+			#undef SET_RES_SETTING
 		
-		if(StatName == "(none)") {}
-		#include "SetStatSettings.h"
+		}
 		
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
+		
 		
 		
 		bool Error = ParentWindow->CheckDllUserError();
@@ -346,6 +364,19 @@ SensitivityViewWindow::Run()
 	
 	//Plot.FormatAxes(MajorMode_Regular, 0, InputStartTime, ParentWindow->TimestepSize);
 	RunProgress.Hide();
+	
+	StatPlot.Plot.ZoomToFit(true, true);
+	
+	if(HasResidual)
+	{
+		double StartX = (double)(GofStartTime - InputStartTime);
+		double EndX   = (double)(GofEndTime   - InputStartTime);
+		
+		Plot.AddLine(Null, StartX, StartX, Plot.GetYMin(), Plot.GetYMax(), Red());
+		Plot.AddLine(Null, EndX, EndX,     Plot.GetYMin(), Plot.GetYMax(), Red());
+	}
+	
+	Plot.Refresh();
 	
 	ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
 	

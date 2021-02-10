@@ -773,20 +773,11 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		}
 		else
 		{
-			Time ResultEndTime = ResultStartTime;
-			AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, Parent->TimestepSize);
-			
-			Time GofStartTime = Parent->CalibrationIntervalStart.GetData();
-			Time GofEndTime   = Parent->CalibrationIntervalEnd.GetData();
-			
-			
-			if(IsNull(GofStartTime) || !GofStartTime.IsValid()  || GofStartTime < ResultStartTime   || GofStartTime > ResultEndTime)                                GofStartTime = ResultStartTime;
-			if(IsNull(GofEndTime)   || !GofEndTime.IsValid()    || GofEndTime   < ResultStartTime   || GofEndTime   > ResultEndTime || GofEndTime < GofStartTime)   GofEndTime   = ResultEndTime;
-			
-			//TODO! Should probably ensure that GofStartTime matches an exact timestep.
-			
-			int64 GofTimesteps = TimestepsBetween(GofStartTime, GofEndTime, Parent->TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
-			int64 GofOffset    = TimestepsBetween(ResultStartTime, GofStartTime, Parent->TimestepSize);
+			Time GofStartTime;
+			Time GofEndTime;
+			int64 GofOffset;
+			int64 GofTimesteps;
+			Parent->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
 			
 			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
 			std::vector<double> ModeledSeries(ResultTimesteps);
@@ -1864,7 +1855,7 @@ void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
 	}
 }
 
-int64 TimestepsBetween(Time &T1, Time &T2, timestep_size TimestepSize)
+int64 TimestepsBetween(const Time &T1, const Time &T2, timestep_size TimestepSize)
 {
 	//NOTE: This could be quite tricky to get correct unless we can guarantee that T1 hits a
 	//timestep exactly. So that should be ensured by the caller!
@@ -1936,8 +1927,25 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 	}
 }
 
-
-
+void MobiView::GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut)
+{
+	Time ReferenceEndTime = ReferenceTime;
+	AdvanceTimesteps(ReferenceEndTime, ReferenceTimesteps-1, TimestepSize);
+	
+	BeginOut = CalibrationIntervalStart.GetData();
+	EndOut   = CalibrationIntervalEnd.GetData();
+	
+	
+	if(IsNull(BeginOut) || !BeginOut.IsValid()  || BeginOut < ReferenceTime   || BeginOut > ReferenceEndTime)
+		BeginOut = ReferenceTime;
+	if(IsNull(EndOut)   || !EndOut.IsValid()    || EndOut   < ReferenceTime   || EndOut   > ReferenceEndTime || EndOut < BeginOut)
+		EndOut   = ReferenceEndTime;
+	
+	//TODO! Should probably ensure that BeginOut matches an exact timestep.
+	
+	GofTimestepsOut = TimestepsBetween(BeginOut, EndOut, TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
+	GofOffsetOut    = TimestepsBetween(ReferenceTime, BeginOut, TimestepSize);
+}
 
 
 void MobiView::GetSingleResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, double *WriteTo, size_t SelectRowFor, std::string &Row)
