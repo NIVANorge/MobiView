@@ -1334,7 +1334,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 		}
 		else
 		{
-			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");
+			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");//.Fill(GraphColor).Opacity(0.7).Stacked();
 		}
 	}
 	

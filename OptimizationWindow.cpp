@@ -12,13 +12,10 @@
 
 #include "MobiView.h"
 
-// NOTE: A little bad we have to re-include this here just to generate the Run icon.
+
 #define IMAGECLASS IconImg4
 #define IMAGEFILE <MobiView/images.iml>
 #include <Draw/iml.h>
-
-
-
 
 
 
@@ -44,6 +41,13 @@ OptimizationWindow::OptimizationWindow()
 	ParSetup.ParameterView.AddColumn(Id("__min"), "Min");
 	ParSetup.ParameterView.AddColumn(Id("__max"), "Max");
 	ParSetup.ParameterView.AddColumn(Id("__unit"), "Unit");
+	ParSetup.ParameterView.AddColumn(Id("__sym"), "Sym.");
+	ParSetup.ParameterView.AddColumn(Id("__expr"), "Expr.");
+	
+	ParSetup.OptionUseExpr.Set((int)false);
+	ParSetup.OptionUseExpr.WhenAction     = THISBACK(EnableExpressionsClicked);
+	ParSetup.ParameterView.HeaderObject().HideTab(5);
+	ParSetup.ParameterView.HeaderObject().HideTab(6);
 	
 	TargetSetup.TargetView.AddColumn(Id("__resultname"), "Result name");
 	TargetSetup.TargetView.AddColumn(Id("__resultindexes"), "Result idxs.");
@@ -57,9 +61,18 @@ OptimizationWindow::OptimizationWindow()
 	ParSetup.PushRemoveParameter.WhenPush = THISBACK(RemoveParameterClicked);
 	ParSetup.PushClearParameters.WhenPush = THISBACK(ClearParametersClicked);
 	
+	ParSetup.PushAddParameter.SetImage(IconImg4::Add());
+	ParSetup.PushAddGroup.SetImage(IconImg4::AddGroup());
+	ParSetup.PushRemoveParameter.SetImage(IconImg4::Remove());
+	ParSetup.PushClearParameters.SetImage(IconImg4::RemoveGroup());
+	
 	TargetSetup.PushAddTarget.WhenPush    = THISBACK(AddTargetClicked);
 	TargetSetup.PushRemoveTarget.WhenPush = THISBACK(RemoveTargetClicked);
 	TargetSetup.PushClearTargets.WhenPush = THISBACK(ClearTargetsClicked);
+	
+	TargetSetup.PushAddTarget.SetImage(IconImg4::Add());
+	TargetSetup.PushRemoveTarget.SetImage(IconImg4::Remove());
+	TargetSetup.PushClearTargets.SetImage(IconImg4::RemoveGroup());
 	
 	TargetSetup.PushRun.SetImage(IconImg4::Run());	
 	TargetSetup.PushRun.WhenPush          = THISBACK(RunClicked);
@@ -74,7 +87,7 @@ OptimizationWindow::OptimizationWindow()
 	MainVertical.Vert();
 	MainVertical.Add(ParSetup);
 	MainVertical.Add(TargetSetup);
-	Add(MainVertical.SizePos());
+	Add(MainVertical.SizePos());	
 }
 
 void OptimizationWindow::SubBar(Bar &bar)
@@ -83,8 +96,24 @@ void OptimizationWindow::SubBar(Bar &bar)
 	bar.Add(IconImg4::Save(), THISBACK(WriteToJson)).Tip("Save setup to file");
 }
 
+void OptimizationWindow::EnableExpressionsClicked()
+{
+	bool Value = (bool)ParSetup.OptionUseExpr.Get();
+	
+	if(Value)
+	{
+		ParSetup.ParameterView.HeaderObject().ShowTab(5);
+		ParSetup.ParameterView.HeaderObject().ShowTab(6);
+	}
+	else
+	{
+		ParSetup.ParameterView.HeaderObject().HideTab(5);
+		ParSetup.ParameterView.HeaderObject().HideTab(6);
+	}
+}
 
-bool OptimizationWindow::AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData)
+
+bool OptimizationWindow::AddSingleParameter(const indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData)
 {
 	if(SourceRow == -1) return false;
 	
@@ -131,6 +160,11 @@ bool OptimizationWindow::AddSingleParameter(indexed_parameter &Parameter, int So
 		int Row = Parameters.size()-1;
 		ParSetup.ParameterView.SetCtrl(Row, 2, EditMinCtrls[Row]);
 		ParSetup.ParameterView.SetCtrl(Row, 3, EditMaxCtrls[Row]);
+		
+		EditSymCtrls.Create<EditField>();
+		EditExprCtrls.Create<EditField>();
+		ParSetup.ParameterView.SetCtrl(Row, 5, EditSymCtrls[Row]);
+		ParSetup.ParameterView.SetCtrl(Row, 6, EditExprCtrls[Row]);
 	}
 	else
 	{
@@ -143,7 +177,7 @@ bool OptimizationWindow::AddSingleParameter(indexed_parameter &Parameter, int So
 void OptimizationWindow::AddParameterClicked()
 {
 	int SelectedRow             = ParentWindow->FindSelectedParameterRow();
-	indexed_parameter Parameter = ParentWindow->GetSelectedParameter();
+	indexed_parameter &Parameter = ParentWindow->CurrentSelectedParameter;
 	if(SelectedRow==-1 || !Parameter.Valid) return;  //TODO: Some kind of error message explaining how to use the feature?
 	
 	AddSingleParameter(Parameter, SelectedRow);
@@ -307,15 +341,54 @@ void OptimizationWindow::ClearAll()
 typedef dlib::matrix<double,0,1> column_vector;
 
 
-inline void
-SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_parameter> *Parameters, const column_vector& Par)
+inline int
+SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_parameter> *Parameters, const column_vector& Par, int ExprCount, const Array<String> &Syms, const Array<String> &Exprs)
 {
-	int ParIdx = 0;
-	for(indexed_parameter &Param : *Parameters)
+	//NOTE: The length of Par has to be equal to the length of Parameters - ExprCount
+	
+	if(ExprCount == 0)
 	{
-		ParentWindow->ParameterEditAccepted(Param, DataSet, Par(ParIdx));
-		++ParIdx;
+		int ParIdx = 0;
+		for(indexed_parameter &Param : *Parameters)
+		{
+			ParentWindow->ParameterEditAccepted(Param, DataSet, Par(ParIdx));
+			++ParIdx;
+		}
 	}
+	else
+	{
+		EvalExpr Expression;
+		Expression.SetErrorUndefined(true); //NOTE: Necessary for it to return Null when encountering an undefined variable
+		
+		int ParIdx = 0;
+		int ActiveIdx = 0;
+		for(indexed_parameter &Param : *Parameters)
+		{
+			double Val;
+			if(!IsNull(Exprs[ParIdx]))
+			{
+				auto Res = Expression.Eval(Exprs[ParIdx]);
+				if(IsNull(Res)) return ParIdx;
+				Val = Res.val;
+			}
+			else
+			{
+				Val = Par(ActiveIdx);
+				++ActiveIdx;
+			}
+			
+			if(!IsNull(Syms[ParIdx]))
+			{
+				auto Res = Expression.AssignVariable(Syms[ParIdx], Val);
+				if(IsNull(Res)) return ParIdx;
+			}
+			
+			ParentWindow->ParameterEditAccepted(Param, DataSet, Val);
+			++ParIdx;
+		}
+	}
+	
+	return -1;
 }
 
 struct optimization_model
@@ -324,35 +397,25 @@ struct optimization_model
 	std::vector<indexed_parameter>   *Parameters;
 	std::vector<optimization_target> *Targets;
 	
-	//residual_type                    Res;
-	
 	bool                             ValuesLoadedOnce = false;
 	std::vector<std::vector<double>> InputData;
 	
 	int64 GofOffset;
 	int64 GofTimesteps;
 	
-	/*
-	std::string                     InputName;
-	std::string                     ResultName;
-	std::vector<char *>             InputIndexes;
-	std::vector<char *>             ResultIndexes;
-	*/
+	int ExprCount;
+	const Array<String> *Syms;
+	const Array<String> *Exprs;
 	
-	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets)
-	//residual_type Res, std::string &InputName, const std::vector<char *> &InputIndexes, std::string &ResultName, const std::vector<char *> &ResultIndexes)
+	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets,
+		int ExprCount, const Array<String> &Syms, const Array<String> &Exprs)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
 		this->Targets      = Targets;
-		
-		/*
-		this->Res          = Res;
-		this->InputName    = InputName;
-		this->ResultName   = ResultName;
-		this->InputIndexes = InputIndexes;
-		this->ResultIndexes= ResultIndexes;
-		*/
+		this->ExprCount    = ExprCount;
+		this->Syms         = &Syms;
+		this->Exprs        = &Exprs;
 	}
 	
 	double EvaluateObjectives(void *DataSet)
@@ -439,7 +502,7 @@ struct optimization_model
 	{
 		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);   //NOTE: This is for thread safety.
 		
-		SetParameters(ParentWindow, DataSetCopy, Parameters, Par);
+		SetParameters(ParentWindow, DataSetCopy, Parameters, Par, ExprCount, *Syms, *Exprs);
 		
 		double Value = EvaluateObjectives(DataSetCopy);
 		
@@ -460,39 +523,6 @@ void OptimizationWindow::RunClicked()
 		ProcessEvents();
 		return;
 	}
-	
-	/*
-	plot_setup PlotSetup;
-	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
-	
-	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1)
-	{
-		TargetSetup.ErrorLabel.SetText("This only works with a single selected result series and input series.");
-		return;
-	}
-	
-	for(int Idx = 0; Idx < PlotSetup.SelectedIndexes.size(); ++Idx)
-	{
-		if(PlotSetup.SelectedIndexes[Idx].size() != 1 && PlotSetup.IndexSetIsActive[Idx])
-		{
-			TargetSetup.ErrorLabel.SetText("This currently only works with a single selected index combination");
-			return;
-		}
-	}
-	
-	std::string &InputName = PlotSetup.SelectedInputs[0];
-	std::string &ResultName = PlotSetup.SelectedResults[0];
-	
-	std::vector<char *> InputIndexes;
-	std::vector<char *> ResultIndexes;
-	
-	bool Success = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, InputName, 1, InputIndexes);
-	if(!Success) return;
-	Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, ResultName, 0, ResultIndexes);
-	if(!Success) return;
-	
-	residual_type Res = (residual_type)(int)TargetSetup.SelectStat.GetKey(TargetSetup.SelectStat.GetIndex());
-	*/
 	
 	if(Targets.empty())
 	{
@@ -544,18 +574,54 @@ void OptimizationWindow::RunClicked()
 	
 	
 	int ParCount = ParSetup.ParameterView.GetCount();
-	column_vector MinBound(ParCount);
-	column_vector MaxBound(ParCount);
 	
+	Array<String> Syms(ParCount);
+	Array<String> Exprs(ParCount);
+	int ExprCount = 0;
+	if((bool)ParSetup.OptionUseExpr.Get())
+	{
+		EvalExpr TestExpression;
+		for(int Row = 0; Row < ParCount; ++Row)
+		{
+			String Sym  = ParSetup.ParameterView.Get(Row, Id("__sym"));
+			String Expr = ParSetup.ParameterView.Get(Row, Id("__expr"));
+			
+			if(!IsNull(Expr) && Expr != "")
+				++ExprCount;
+			else
+				Expr = Null;
+			
+			if(Sym == "") Sym = Null;
+			
+			Syms[Row]  = Sym;
+			Exprs[Row] = Expr;
+		}
+	}
+	
+	if(ParCount == ExprCount)
+	{
+		TargetSetup.ErrorLabel.SetText("Some parameters must be free, you can't have an expression on every one");
+	}
+	
+	column_vector MinBound(ParCount - ExprCount);
+	column_vector MaxBound(ParCount - ExprCount);
+	
+	int ActiveIdx = 0;
 	for(int Row = 0; Row < ParCount; ++Row)
 	{
-		MinBound(Row) = (double)ParSetup.ParameterView.Get(Row, Id("__min"));
-		MaxBound(Row) = (double)ParSetup.ParameterView.Get(Row, Id("__max"));
-		
-		if(MinBound(Row) >= MaxBound(Row))
+		if(IsNull(Exprs[Row]))
 		{
-			TargetSetup.ErrorLabel.SetText(Format("The min value is larger than or equal to the max value for the parameter %s", Parameters[Row].Name.data()));
-			return;
+			
+			MinBound(ActiveIdx) = (double)ParSetup.ParameterView.Get(Row, Id("__min"));
+			MaxBound(ActiveIdx) = (double)ParSetup.ParameterView.Get(Row, Id("__max"));
+			
+			if(MinBound(ActiveIdx) >= MaxBound(ActiveIdx))
+			{
+				TargetSetup.ErrorLabel.SetText(Format("The min value is larger than or equal to the max value for the parameter %s", Parameters[Row].Name.data()));
+				return;
+			}
+			
+			++ActiveIdx;
 		}
 	}
 	
@@ -565,24 +631,40 @@ void OptimizationWindow::RunClicked()
 	if(!Cl)
 		return;
 	
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets);
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ExprCount, Syms, Exprs);
 	
 	// Initial evaluation on the parameters given in the main dataset.
-	column_vector InitialPars(ParCount);
-	int ParIdx;
+	column_vector InitialPars(ParCount - ExprCount);
+	
+	int ParIdx    = 0;
+	ActiveIdx = 0;
 	for(indexed_parameter Par : Parameters)
 	{
-		std::vector<const char *> Indexes;
-		for(parameter_index &Index : Par.Indexes)
-			Indexes.push_back(Index.Name.data());
-		
-		InitialPars(ParIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
+		if(IsNull(Exprs[ParIdx]))
+		{
+			std::vector<const char *> Indexes;
+			for(parameter_index &Index : Par.Indexes)
+				Indexes.push_back(Index.Name.data());
+			
+			InitialPars(ActiveIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
+			++ActiveIdx;
+		}
 		
 		++ParIdx;
 	}
 	if(ParentWindow->CheckDllUserError()) return;
 	
+	//NOTE: This sets the parameters twice, but that should not be a problem
+	int ErrorAtRow = SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, InitialPars, ExprCount, Syms, Exprs);
+	if(ErrorAtRow != -1)
+	{
+		TargetSetup.ErrorLabel.SetText(Format("Unable to parse the expression \"%s\" at row %d", Exprs[ErrorAtRow], ErrorAtRow));
+		return;
+	}
+	
 	double InitialScore = OptimizationModel(InitialPars);
+	
+	//PromptOK("Got here!");
 	
 	dlib::function_evaluation InitialEval;
 	InitialEval.x = InitialPars;
@@ -614,7 +696,7 @@ void OptimizationWindow::RunClicked()
 	auto EndTime = std::chrono::high_resolution_clock::now();
 	double Duration = 1e-3 * std::chrono::duration_cast<std::chrono::milliseconds>(EndTime - BeginTime).count();
 	
-	SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x);
+	SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
 	ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g. Remember to save the parameters to a new file if you don't want to lose your old calibration.", 
 		Duration, Result.y));
 	ParentWindow->RunModel();
@@ -702,10 +784,20 @@ void OptimizationWindow::LoadFromJson()
 				Value MaxVal  = ParamJson["Max"];
 				ParSetup.ParameterView.Set(ValidRow, Id("__max"), MaxVal);
 				
+				Value SymVal  = ParamJson["Sym"];
+				ParSetup.ParameterView.Set(ValidRow, Id("__sym"), SymVal);
+				Value ExprVal = ParamJson["Expr"];
+				ParSetup.ParameterView.Set(ValidRow, Id("__expr"), ExprVal);
+				
+				
 				++ValidRow;
 			}
 		}
 	}
+	
+	Value EnableExpr = SetupJson["EnableExpr"];
+	if(!IsNull(EnableExpr))
+		ParSetup.OptionUseExpr.Set((int)EnableExpr);
 	
 	ValueArray TargetArr = SetupJson["Targets"];
 	if(!IsNull(TargetArr))
@@ -769,6 +861,8 @@ void OptimizationWindow::LoadFromJson()
 			AddOptimizationTarget(Target);
 		}
 	}
+	
+	EnableExpressionsClicked();
 }
 
 void OptimizationWindow::WriteToJson()
@@ -809,6 +903,8 @@ void OptimizationWindow::WriteToJson()
 		ParJson("Unit", ParSetup.ParameterView.Get(Row, Id("__unit")));
 		ParJson("Min", (double)ParSetup.ParameterView.Get(Row, Id("__min")));
 		ParJson("Max", (double)ParSetup.ParameterView.Get(Row, Id("__max")));
+		ParJson("Sym", ParSetup.ParameterView.Get(Row, Id("__sym")));
+		ParJson("Expr", ParSetup.ParameterView.Get(Row, Id("__expr")));
 		
 		JsonArray IndexArr;
 		for(parameter_index &Index : Par.Indexes)
@@ -827,6 +923,9 @@ void OptimizationWindow::WriteToJson()
 	}
 	
 	MainFile("Parameters", ParameterArr);
+	
+	bool EnableExpr = (bool)ParSetup.OptionUseExpr.Get();
+	MainFile("EnableExpr", EnableExpr);
 	
 	JsonArray TargetArr;
 	

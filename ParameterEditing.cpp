@@ -395,7 +395,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
 	{
 		const char *Name = ParameterNames[Idx];
-		const char *Type = ParameterTypes[Idx];
+		const char *TypeName = ParameterTypes[Idx];
 		
 		ValueMap RowData;
 		RowData.Set("__name", Name);
@@ -406,17 +406,24 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		
 		for(char *ExpandedIndex : ExpandedIndexSet)
 		{
-			Parameter.Name    = Name;
-			Parameter.Type    = ParseParameterType(Type);
+			parameter_type Type = ParseParameterType(TypeName);
 			
-			if(!RefreshValuesOnly) Params.ParameterView.Add();
+			if(!RefreshValuesOnly)
+			{
+				Parameter.Name    = Name;
+				Parameter.Type    = Type;
+				
+				Params.ParameterView.Add();
+				
+				if(ExpandedSetLocal >= 0)
+					Parameter.Indexes[ExpandedSetLocal].Name = ExpandedIndex;
+			}
+			
+			if(ExpandedSetLocal >= 0)
+				Indexes[ExpandedSetLocal] = ExpandedIndex;
 			
 			RowData.Set("__index", ExpandedIndex);
-			if(ExpandedSetLocal >= 0)
-			{
-				Indexes[ExpandedSetLocal] = ExpandedIndex;
-				Parameter.Indexes[ExpandedSetLocal].Name = ExpandedIndex;
-			}
+			
 		
 			for(char *SecondExpandedIndex : SecondExpandedIndexSet)
 			{
@@ -425,10 +432,11 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				{
 					ValueColumn = SecondExpandedIndex;
 					Indexes[SecondExpandedSetLocal] = SecondExpandedIndex;
-					Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;
+					if(!RefreshValuesOnly)
+						Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;  //error happened here
 				}
 				
-				if(Parameter.Type == ParameterType_Double)
+				if(Type == ParameterType_Double)
 				{
 					RowData.Set(ValueColumn, ModelDll.GetParameterDouble(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					double Min, Max;
@@ -453,7 +461,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					
 					if (CheckDllUserError()) return;
 				}
-				else if(Parameter.Type == ParameterType_UInt)
+				else if(Type == ParameterType_UInt)
 				{
 					//TODO: Converting to int potentially loses precision. However Value has no uint64
 					//subtype
@@ -482,7 +490,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					
 					if (CheckDllUserError()) return;
 				}
-				else if(Parameter.Type == ParameterType_Bool)
+				else if(Type == ParameterType_Bool)
 				{
 					RowData.Set(ValueColumn, ModelDll.GetParameterBool(DataSet, Name, Indexes.data(), IndexSetNames.size()));
 					if(CheckDllUserError()) return;
@@ -500,7 +508,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					}
 					CurrentParameterTypes.push_back(ParameterType_Bool);
 				}
-				else if(Parameter.Type == ParameterType_Time)
+				else if(Type == ParameterType_Time)
 				{
 					char TimeVal[256];
 					ModelDll.GetParameterTime(DataSet, Name, Indexes.data(), IndexSetNames.size(), TimeVal);
@@ -524,7 +532,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					CurrentParameterTypes.push_back(ParameterType_Time);
 					
 				}
-				else if(Parameter.Type == ParameterType_Enum)
+				else if(Type == ParameterType_Enum)
 				{
 					const char *Val = ModelDll.GetParameterEnum(DataSet, Name, Indexes.data(), IndexSetNames.size());
 					if(CheckDllUserError()) return;

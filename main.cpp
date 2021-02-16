@@ -186,11 +186,21 @@ MobiView::MobiView() : Plotter(this)
 	IndexExpand[4]    = &Params.IndexExpand5;
 	IndexExpand[5]    = &Params.IndexExpand6;
 	
+	CurrentSelectedParameter.Valid = false;
+	
 	auto SensitivityWindowUpdate = [this]()
 	{
+		//NOTE: This HAS to be done before the update of the sensitivity window.
+		//It is also used by the Optimization window. We have to do it here since
+		//the parameters can be out of focus when in the other window!
+		this->CurrentSelectedParameter = this->GetSelectedParameter();
+		
 		SensitivityWindow.Update();
 	};
 	
+	//TODO: This is not sufficient. It is not updated when selection changes within an individual row!
+	// What we want is something like WhenLeftClick, but that
+	// doesn't work either! Maybe we have to set one on each individual control?
 	Params.ParameterView.WhenSel << SensitivityWindowUpdate;
 	
 	ParameterGroupSelecter.WhenSel << [this](){ RefreshParameterView(false); };

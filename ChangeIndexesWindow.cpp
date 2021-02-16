@@ -1,6 +1,11 @@
 #include "MobiView.h"
 
 
+#define IMAGECLASS IconImg5
+#define IMAGEFILE <MobiView/images.iml>
+#include <Draw/iml.h>
+
+
 ChangeIndexesWindow::ChangeIndexesWindow()
 {
 	CtrlLayout(*this, "Edit index sets");
@@ -16,8 +21,11 @@ ChangeIndexesWindow::ChangeIndexesWindow()
 	SelectBranchedSet.WhenAction = THISBACK(SelectedBranchListUpdate);
 	
 	PushAddIndex.WhenAction = THISBACK(AddIndexPushed);
+	PushAddIndex.SetImage(IconImg5::Add());
 	
 	PushDeleteIndex.WhenAction = THISBACK(DeleteSelectedPushed);
+	PushDeleteIndex.SetImage(IconImg5::Remove());
+	
 	
 	IndexSetName[0] = &IndexSetName1;
 	IndexSetName[1] = &IndexSetName2;

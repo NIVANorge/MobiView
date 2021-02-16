@@ -52,10 +52,12 @@ SensitivityViewWindow::Update()
 	ErrorLabel.SetText("");
 	ParamLabel.SetText("");
 	
-	std::string PrevName = CurrentParameter.Name;
-	
 	int SelectedRow = ParentWindow->FindSelectedParameterRow();
-	this->CurrentParameter = ParentWindow->GetSelectedParameter();
+	//this->CurrentParameter = ParentWindow->GetSelectedParameter();
+	
+	indexed_parameter &CurrentParameter = ParentWindow->CurrentSelectedParameter;
+	
+	std::string PrevName = CurrentParameter.Name;
 	
 	bool Error = (SelectedRow == -1) || !CurrentParameter.Valid;
 	
@@ -112,6 +114,8 @@ SensitivityViewWindow::Run()
 	int SelectedRow = ParentWindow->FindSelectedParameterRow();
 	
 	ErrorLabel.SetText("");
+	
+	indexed_parameter &CurrentParameter = ParentWindow->CurrentSelectedParameter;
 	
 	if(SelectedRow == -1 || !CurrentParameter.Valid)
 	{

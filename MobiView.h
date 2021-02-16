@@ -248,9 +248,6 @@ public:
 	void Run();
 	
 private :
-	
-	indexed_parameter CurrentParameter;
-	
 	Splitter     MainHorizontal;
 	MyPlot       Plot;
 	StatPlotCtrl StatPlot;
@@ -294,6 +291,8 @@ public:
 	void RemoveParameterClicked();
 	void ClearParametersClicked();
 	
+	void EnableExpressionsClicked();
+	
 	void AddTargetClicked();
 	void RemoveTargetClicked();
 	void ClearTargetsClicked();
@@ -306,7 +305,7 @@ public:
 	
 private:
 	
-	bool AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
+	bool AddSingleParameter(const indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
 	void AddOptimizationTarget(optimization_target &Target);
 	
 	void SubBar(Bar &bar);
@@ -320,6 +319,9 @@ private:
 	
 	Array<DropList>          TargetStatCtrls;
 	Array<EditDoubleNotNull> TargetWeightCtrls;
+	
+	Array<EditField>         EditSymCtrls;
+	Array<EditField>         EditExprCtrls;
 	
 	ToolBar Tool;
 	
@@ -440,6 +442,8 @@ public:
 	int FindSelectedParameterRow();
 	indexed_parameter GetParameterAtRow(int Row);
 	indexed_parameter GetSelectedParameter();
+	
+	indexed_parameter CurrentSelectedParameter = {};
 	
 	int ExpandedSetLocal;
 	int SecondExpandedSetLocal;
