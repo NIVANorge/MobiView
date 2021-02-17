@@ -123,11 +123,14 @@ void VisualizeBranches::Paint(Draw &W)
 		
 		ArrayCtrl *BranchList = OtherParent->BranchList[Select];
 		
-		
 		int ErrorLine = -1;
+		int ErrorLine2 = -1;
+		int ErrorLine3 = -1;
 		
 		int IndexCount = BranchList->GetCount();
 		std::vector<reach_node> Reaches(IndexCount);
+		std::vector<bool> IsInput(IndexCount);
+		
 		for(int Idx = 0; Idx < IndexCount; ++Idx)
 		{
 			Reaches[Idx].Index = Idx;
@@ -136,18 +139,63 @@ void VisualizeBranches::Paint(Draw &W)
 			Reaches[Idx].Name = BranchList->Get(Idx, 1);
 			String BranchListStr = BranchList->Get(Idx,2);
 			
+			//NOTE: This may be a little expensive to do inside the draw call... but seems fine
+			//so far.
+			for(int Idx2 = 0; Idx2 < Idx; ++Idx2)
+			{
+				if(Reaches[Idx2].Name == Reaches[Idx].Name)
+				{
+					ErrorLine2 = Idx;
+					break;
+				}
+			}
+			if(ErrorLine2 >= 0) break;
+			
 			bool Success = OtherParent->ParseIntList(BranchListStr, Reaches[Idx].InIndexes, Idx);
 			if(!Success) ErrorLine = Idx;
+			
+			for(int Idx2 : Reaches[Idx].InIndexes)
+			{
+				if(IsInput[Idx2])
+				{
+					ErrorLine3 = Idx;
+					break;
+				}
+				IsInput[Idx2] = true;
+			}
+			if(ErrorLine3 >= 0) break;
 		}
 		
+		int ErrorY = 100;
+		const int ErrorYOffset = 20;
 		if(ErrorLine >= 0)
 		{
 			Font Fnt(Roman(14));
-			P.Text(10, 100, Format("Error at id %d.", ErrorLine), Fnt).Fill(Blue());
-			P.Text(10, 120, Format("The input ids has to be a comma-separated list of numbers", ErrorLine), Fnt).Fill(Blue());
-			P.Text(10, 140, Format("smaller than the line id", ErrorLine), Fnt).Fill(Blue());
+			P.Text(10, ErrorY, Format("Error at id %d.", ErrorLine), Fnt).Fill(Blue());
+			ErrorY += ErrorYOffset;
+			P.Text(10, ErrorY, Format("The input ids has to be a comma-separated list of numbers", ErrorLine), Fnt).Fill(Blue());
+			ErrorY += ErrorYOffset;
+			P.Text(10, ErrorY, Format("smaller than the line id", ErrorLine), Fnt).Fill(Blue());
+			ErrorY += 2*ErrorYOffset;
 		}
-		else
+		if(ErrorLine2 >= 0)
+		{
+			Font Fnt(Roman(14));
+			P.Text(10, ErrorY, Format("Error at id %d.", ErrorLine2), Fnt).Fill(Blue());
+			ErrorY += ErrorYOffset;
+			P.Text(10, ErrorY, Format("The name of the index is not unique", ErrorLine), Fnt).Fill(Blue());
+		}
+		if(ErrorLine3 >= 0)
+		{
+			Font Fnt(Roman(14));
+			P.Text(10, ErrorY, Format("Error at id %d.", ErrorLine3), Fnt).Fill(Blue());
+			ErrorY += ErrorYOffset;
+			P.Text(10, ErrorY, Format("This index has an input that has already appeared as an input to an earlier index.", ErrorLine), Fnt).Fill(Blue());
+			ErrorY += ErrorYOffset;
+			P.Text(10, ErrorY, Format("Currently, one branch splitting into two or more in this way is not allowed.", ErrorLine), Fnt).Fill(Blue());
+		}
+		
+		if(ErrorLine == -1 && ErrorLine2 == -1 && ErrorLine3 == -1)
 		{
 		
 			int MaxLevel = 0;

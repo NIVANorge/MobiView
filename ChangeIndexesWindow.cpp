@@ -469,7 +469,7 @@ void ChangeIndexesWindow::DeleteSelectedPushed()
 				for(int Idx = 0; Idx < NewVals.size(); ++Idx)
 				{
 					if(Idx > 0) NewValList += ",";
-					NewValList += NewVals[Idx];
+					NewValList += Format("%d", NewVals[Idx]);
 				}
 				BranchList[Select]->Set(Row, 2, NewValList);
 			}
