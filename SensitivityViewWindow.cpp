@@ -95,14 +95,12 @@ SensitivityViewWindow::Update()
 	
 	ParamLabel.SetText(LabelText);
 	
-	if(PrevName != CurrentParameter.Name)
-	{
-		double Min = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__min"));
-		double Max = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__max"));
-		
-		EditMin.SetData(Min);
-		EditMax.SetData(Max);
-	}
+	
+	double Min = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__min"));
+	double Max = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__max"));
+	
+	EditMin.SetData(Min);
+	EditMax.SetData(Max);
 }
 
 void
