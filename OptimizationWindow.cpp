@@ -666,8 +666,6 @@ void OptimizationWindow::RunClicked()
 	
 	double InitialScore = OptimizationModel(InitialPars);
 	
-	//PromptOK("Got here!");
-	
 	dlib::function_evaluation InitialEval;
 	InitialEval.x = InitialPars;
 	InitialEval.y = InitialScore;
@@ -699,13 +697,13 @@ void OptimizationWindow::RunClicked()
 	double Duration = 1e-3 * std::chrono::duration_cast<std::chrono::milliseconds>(EndTime - BeginTime).count();
 	
 	SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
-	ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g. Remember to save the parameters to a new file if you don't want to lose your old calibration.", 
-		Duration, Result.y));
-	ParentWindow->RunModel();
+	ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.", 
+		Duration, Result.y, InitialScore));
+	ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 	
 	TargetSetup.ErrorLabel.SetText("");
 	
-	Close();
+	Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
 }
 
 void OptimizationWindow::LoadFromJson()
