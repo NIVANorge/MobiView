@@ -221,6 +221,8 @@ void OptimizationWindow::ClearParametersClicked()
 	Parameters.clear();
 	EditMinCtrls.Clear();
 	EditMaxCtrls.Clear();
+	EditSymCtrls.Clear();
+	EditExprCtrls.Clear();
 }
 
 
