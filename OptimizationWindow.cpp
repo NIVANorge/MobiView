@@ -213,6 +213,8 @@ void OptimizationWindow::RemoveParameterClicked()
 	Parameters.erase(Parameters.begin()+SelectedRow);
 	EditMinCtrls.Remove(SelectedRow);
 	EditMaxCtrls.Remove(SelectedRow);
+	EditSymCtrls.Remove(SelectedRow);
+	EditExprCtrls.Remove(SelectedRow);
 }
 
 void OptimizationWindow::ClearParametersClicked()
