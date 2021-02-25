@@ -664,7 +664,6 @@ void MobiView::ParameterEditAccepted(const indexed_parameter &Parameter, void *D
 	
 	std::vector<std::string> CurrentIndexes(Parameter.Indexes.size());
 	
-	//TODO: Implement UpdateLocks
 	if(UpdateLocks)
 	{
 		indexed_parameter Par2 = Parameter; //Ugh, causes a lot of vector and string copies, but we have to have the incoming one being const :(

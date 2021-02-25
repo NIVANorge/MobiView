@@ -677,8 +677,31 @@ void OptimizationWindow::RunClicked()
 	if(ParentWindow->CheckDllUserError())
 		return;
 	
+//#define MOBIVIEW_USE_THREADS
+
+#ifdef MOBIVIEW_USE_THREADS
 	
-	ParentWindow->Log("Running optimization. This may take a few minutes or more.");
+	unsigned long ThreadCount = 0;
+	bool Found = false;
+	try
+    {
+        char* nt = getenv("DLIB_NUM_THREADS");
+        if (nt)
+        {
+            ThreadCount = dlib::string_cast<unsigned long>(nt);
+            Found = true;
+        }
+    }
+    catch(dlib::string_cast_error&) {}
+    
+    if(!Found)
+        ThreadCount = std::thread::hardware_concurrency();
+
+	ParentWindow->Log(Format("Running optimization using %d parallell threads. This may take a few minutes or more. The window will be frozen and unresponsive.", (int64)ThreadCount));
+#else		
+	ParentWindow->Log("Running optimization. This may take a few minutes or more. The window will be frozen and unresponsive.");
+#endif
+
 	TargetSetup.ErrorLabel.SetText("Running optimization. This may take a few minutes or more.");
 	
 	ParentWindow->ProcessEvents();
@@ -688,20 +711,40 @@ void OptimizationWindow::RunClicked()
 	
 	auto BeginTime = std::chrono::high_resolution_clock::now();
 	
+#ifdef MOBIVIEW_USE_THREADS
+	//dlib::thread_pool &ThreadPool = dlib::default_thread_pool();
+	dlib::thread_pool ThreadPool(ThreadCount);
+#endif
+	//Note to self: For some reason, using threads crashes the application. The debugger is not
+	//able to catch it. Is there an incompatibility with upp here?
+	
 	if(PositiveGood)
-		//Result = dlib::find_max_global(dlib::default_thread_pool(), OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
-		Result = dlib::find_max_global(OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+#ifdef MOBIVIEW_USE_THREADS
+		Result = dlib::find_max_global(ThreadPool, OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+#else		
+		Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+#endif
 	else
-		//Result = dlib::find_min_global(dlib::default_thread_pool(), OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls));
+#ifdef MOBIVIEW_USE_THREADS
+		Result = dlib::find_min_global(ThreadPool, OptimizationModel , MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+#else		
 		Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+#endif
 	
 	auto EndTime = std::chrono::high_resolution_clock::now();
 	double Duration = 1e-3 * std::chrono::duration_cast<std::chrono::milliseconds>(EndTime - BeginTime).count();
 	
-	SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
-	ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.", 
-		Duration, Result.y, InitialScore));
-	ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
+	if((PositiveGood && Result.y < InitialScore) || (!PositiveGood && Result.y > InitialScore))
+	{
+		ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
+	}
+	else
+	{
+		SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
+		ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.", 
+			Duration, Result.y, InitialScore));
+		ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
+	}
 	
 	TargetSetup.ErrorLabel.SetText("");
 	

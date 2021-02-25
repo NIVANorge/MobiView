@@ -11,7 +11,7 @@ void DisplayStat(String ValName, int PositiveGood, double ValOld, double ValNow,
 	if(!TrackedFirst) Display << "::@W ";
 	TrackedFirst = false;
 	Display << ValName << "::@W " << FormatDouble(ValNow, Precision);
-	if(DisplayChange && ValOld != ValNow)
+	if(DisplayChange && ValOld != ValNow && std::isfinite(ValOld) && std::isfinite(ValNow))
 	{
 		if((PositiveGood==1 && ValNow > ValOld) || (PositiveGood==0 && ValNow < ValOld) || (PositiveGood==-1 && std::abs(ValNow) < std::abs(ValOld)))
 			Display << "::@G ";
