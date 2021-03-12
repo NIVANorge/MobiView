@@ -105,7 +105,7 @@ public:
 
 class ChangeIndexesWindow;
 
-class VisualizeBranches : public Ctrl
+class VisualizeBranches : public ParentCtrl
 {
 public :
 	VisualizeBranches();
@@ -227,7 +227,7 @@ private:
 	void SubBar(Bar &bar);
 };
 
-class StatPlotCtrl : public WithSensitivityStatPlotLayout<Ctrl>
+class StatPlotCtrl : public WithSensitivityStatPlotLayout<ParentCtrl>
 {
 public:
 	typedef StatPlotCtrl CLASSNAME;
@@ -253,7 +253,7 @@ private :
 	StatPlotCtrl StatPlot;
 };
 
-class OptimizationParameterSetup : public WithOptimizationLayout<Ctrl>
+class OptimizationParameterSetup : public WithOptimizationLayout<ParentCtrl>
 {
 public:
 	typedef OptimizationParameterSetup CLASSNAME;
@@ -261,7 +261,7 @@ public:
 	OptimizationParameterSetup();
 };
 
-class OptimizationTargetSetup : public WithOptimizationTargetLayout<Ctrl>
+class OptimizationTargetSetup : public WithOptimizationTargetLayout<ParentCtrl>
 {
 public:
 	typedef OptimizationTargetSetup CLASSNAME;

@@ -697,9 +697,9 @@ void OptimizationWindow::RunClicked()
     if(!Found)
         ThreadCount = std::thread::hardware_concurrency();
 
-	ParentWindow->Log(Format("Running optimization using %d parallell threads. This may take a few minutes or more. The window will be frozen and unresponsive.", (int64)ThreadCount));
+	ParentWindow->Log(Format("Running optimization using %d parallell threads. This may take a few minutes or more. The window will be frozen and unresponsive until the optimization is finished.", (int64)ThreadCount));
 #else		
-	ParentWindow->Log("Running optimization. This may take a few minutes or more. The window will be frozen and unresponsive.");
+	ParentWindow->Log("Running optimization. This may take a few minutes or more. The window will be frozen and unresponsive until the optimization is finished.");
 #endif
 
 	TargetSetup.ErrorLabel.SetText("Running optimization. This may take a few minutes or more.");
