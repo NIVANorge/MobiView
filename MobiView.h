@@ -71,6 +71,7 @@ struct parameter_index
 struct indexed_parameter
 {
 	bool Valid = false;
+	bool Virtual = false;
 	std::string Name;
 	parameter_type Type;
 	std::vector<parameter_index> Indexes;
@@ -290,6 +291,7 @@ public:
 	void AddGroupClicked();
 	void RemoveParameterClicked();
 	void ClearParametersClicked();
+	void AddVirtualClicked();
 	
 	void EnableExpressionsClicked();
 	

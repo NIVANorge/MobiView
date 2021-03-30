@@ -660,6 +660,12 @@ void MobiView::ParameterEditAccepted(const indexed_parameter &Parameter, void *D
 		return;
 	}
 	
+	if(Parameter.Virtual)
+	{
+		Log(Format("Internal bug: Trying to set value of parameter that is flagged as virtual: %s", Parameter.Name.data()), true);
+		return;
+	}
+	
 	if(IsNull(Val)) return;
 	
 	std::vector<std::string> CurrentIndexes(Parameter.Indexes.size());

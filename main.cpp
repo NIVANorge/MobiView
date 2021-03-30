@@ -935,7 +935,8 @@ void MobiView::Load()
 	
 	Success = InputFile.size() > 0;
 	
-	bool ChangedInput = InputFile != PreviouslyLoadedInputFile;
+	//bool ChangedInput = InputFile != PreviouslyLoadedInputFile;
+	bool ChangedInputPath = GetFileDirectory(InputFile.data()) != GetFileDirectory(PreviouslyLoadedInputFile);
 	
 	if(!Success)
 	{
@@ -948,17 +949,11 @@ void MobiView::Load()
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
-	if(!ChangedInput && !ChangedDll && !PreviouslyLoadedParameterFile.IsEmpty() && FileExists(PreviouslyLoadedParameterFile))
-	{
-		//NOTE: Rationale for not pre-selecting the previous parameter file if the input file
-		//changed: Usually you keep one single input file together with one or more parameter files in
-		//one folder per "project".
+	if(!ChangedInputPath && !ChangedDll && !PreviouslyLoadedParameterFile.IsEmpty() && FileExists(PreviouslyLoadedParameterFile))
 		ParameterSel.PreSelect(PreviouslyLoadedParameterFile);
-	}
 	else
-	{
 		ParameterSel.ActiveDir(GetFileFolder(InputFile.data()));
-	}
+
 	ParameterSel.ExecuteOpen();
 	ParameterFile = ParameterSel.Get().ToStd();
 	
@@ -972,16 +967,15 @@ void MobiView::Load()
 	}
 	
 	Log(String("Selecting parameter file: ") + ParameterFile.data());
-	
 
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
-	if (CheckDllUserError())
+	
+	if(CheckDllUserError())
 	{
 		ModelDll.UnLoad();
 		StoreSettings(false); // So that it still remembers what files you selected for your next attempt at loading.
 		return;
 	}
-
 
 	
 	BuildInterface();

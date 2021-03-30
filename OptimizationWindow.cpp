@@ -33,7 +33,7 @@ OptimizationWindow::OptimizationWindow()
 {
 	//CtrlLayout(*this, "MobiView optimization setup");
 	
-	SetRect(0, 0, 700, 700);
+	SetRect(0, 0, 740, 740);
 	Title("MobiView optimization setup").Sizeable().Zoomable();
 	
 	ParSetup.ParameterView.AddColumn(Id("__name"), "Name");
@@ -60,11 +60,16 @@ OptimizationWindow::OptimizationWindow()
 	ParSetup.PushAddGroup.WhenPush        = THISBACK(AddGroupClicked);
 	ParSetup.PushRemoveParameter.WhenPush = THISBACK(RemoveParameterClicked);
 	ParSetup.PushClearParameters.WhenPush = THISBACK(ClearParametersClicked);
+	ParSetup.PushAddVirtual.WhenPush      = THISBACK(AddVirtualClicked);
 	
 	ParSetup.PushAddParameter.SetImage(IconImg4::Add());
 	ParSetup.PushAddGroup.SetImage(IconImg4::AddGroup());
 	ParSetup.PushRemoveParameter.SetImage(IconImg4::Remove());
 	ParSetup.PushClearParameters.SetImage(IconImg4::RemoveGroup());
+	ParSetup.PushAddVirtual.SetImage(IconImg4::Add());
+	
+	ParSetup.PushAddVirtual.Disable();
+	ParSetup.PushAddVirtual.Hide();
 	
 	TargetSetup.PushAddTarget.WhenPush    = THISBACK(AddTargetClicked);
 	TargetSetup.PushRemoveTarget.WhenPush = THISBACK(RemoveTargetClicked);
@@ -104,11 +109,15 @@ void OptimizationWindow::EnableExpressionsClicked()
 	{
 		ParSetup.ParameterView.HeaderObject().ShowTab(5);
 		ParSetup.ParameterView.HeaderObject().ShowTab(6);
+		ParSetup.PushAddVirtual.Enable();
+		ParSetup.PushAddVirtual.Show();
 	}
 	else
 	{
 		ParSetup.ParameterView.HeaderObject().HideTab(5);
 		ParSetup.ParameterView.HeaderObject().HideTab(6);
+		ParSetup.PushAddVirtual.Disable();
+		ParSetup.PushAddVirtual.Hide();
 	}
 }
 
@@ -121,16 +130,19 @@ bool OptimizationWindow::AddSingleParameter(const indexed_parameter &Parameter, 
 	
 	int OverrideRow = -1;
 	int Row = 0;
-	for(indexed_parameter &Par2 : Parameters)
+	if(!Parameter.Virtual)
 	{
-		if(ParameterIsSubsetOf(Parameter, Par2)) return false;
-		
-		if(ParameterIsSubsetOf(Par2, Parameter))
+		for(indexed_parameter &Par2 : Parameters)
 		{
-			Par2 = Parameter;
-			OverrideRow = Row;
-		}	
-		++Row;
+			if(ParameterIsSubsetOf(Parameter, Par2)) return false;
+			
+			if(ParameterIsSubsetOf(Par2, Parameter))
+			{
+				Par2 = Parameter;
+				OverrideRow = Row;
+			}	
+			++Row;
+		}
 	}
 	
 	String Indexes = MakeParameterIndexString(Parameter);
@@ -154,10 +166,10 @@ bool OptimizationWindow::AddSingleParameter(const indexed_parameter &Parameter, 
 		
 		ParSetup.ParameterView.Add(Parameter.Name.data(), Indexes, Min, Max, ParUnit);
 		
+		int Row = Parameters.size()-1;
+		
 		EditMinCtrls.Create<EditDoubleNotNull>();
 		EditMaxCtrls.Create<EditDoubleNotNull>();
-		
-		int Row = Parameters.size()-1;
 		ParSetup.ParameterView.SetCtrl(Row, 2, EditMinCtrls[Row]);
 		ParSetup.ParameterView.SetCtrl(Row, 3, EditMaxCtrls[Row]);
 		
@@ -181,6 +193,16 @@ void OptimizationWindow::AddParameterClicked()
 	if(SelectedRow==-1 || !Parameter.Valid) return;  //TODO: Some kind of error message explaining how to use the feature?
 	
 	AddSingleParameter(Parameter, SelectedRow);
+}
+
+void OptimizationWindow::AddVirtualClicked()
+{
+	indexed_parameter Parameter = {};
+	Parameter.Name    = "(virtual)";
+	Parameter.Valid   = true;
+	Parameter.Virtual = true;
+	Parameter.Type    = ParameterType_Double;
+	AddSingleParameter(Parameter, 0, false);
 }
 
 void OptimizationWindow::AddGroupClicked()
@@ -341,7 +363,6 @@ void OptimizationWindow::ClearAll()
 
 
 
-
 typedef dlib::matrix<double,0,1> column_vector;
 
 
@@ -355,7 +376,8 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 		int ParIdx = 0;
 		for(indexed_parameter &Param : *Parameters)
 		{
-			ParentWindow->ParameterEditAccepted(Param, DataSet, Par(ParIdx));
+			if(!Param.Virtual)
+				ParentWindow->ParameterEditAccepted(Param, DataSet, Par(ParIdx));
 			++ParIdx;
 		}
 	}
@@ -387,7 +409,8 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 				if(IsNull(Res)) return ParIdx;
 			}
 			
-			ParentWindow->ParameterEditAccepted(Param, DataSet, Val);
+			if(!Param.Virtual)
+				ParentWindow->ParameterEditAccepted(Param, DataSet, Val);
 			++ParIdx;
 		}
 	}
@@ -640,17 +663,27 @@ void OptimizationWindow::RunClicked()
 	// Initial evaluation on the parameters given in the main dataset.
 	column_vector InitialPars(ParCount - ExprCount);
 	
-	int ParIdx    = 0;
-	ActiveIdx = 0;
+	int ParIdx = 0;
+	ActiveIdx  = 0;
 	for(indexed_parameter Par : Parameters)
 	{
 		if(IsNull(Exprs[ParIdx]))
 		{
-			std::vector<const char *> Indexes;
-			for(parameter_index &Index : Par.Indexes)
-				Indexes.push_back(Index.Name.data());
-			
-			InitialPars(ActiveIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
+			if(Par.Virtual)
+			{
+				//NOTE: The best guess we have for the initial value of a virtual parameter is
+				//in the middle of its range. We could add a field to allow people to fill it
+				//in though.
+				InitialPars(ActiveIdx) = 0.5 * (MinBound(ActiveIdx) + MaxBound(ActiveIdx));
+			}
+			else
+			{
+				std::vector<const char *> Indexes;
+				for(parameter_index &Index : Par.Indexes)
+					Indexes.push_back(Index.Name.data());
+				
+				InitialPars(ActiveIdx) = ParentWindow->ModelDll.GetParameterDouble(ParentWindow->DataSet, Par.Name.data(), (char**)Indexes.data(), Indexes.size());
+			}
 			++ActiveIdx;
 		}
 		
@@ -802,6 +835,9 @@ void OptimizationWindow::LoadFromJson()
 			if(!IsNull(NameVal)) Parameter.Name = NameVal.ToString().ToStd();
 			else continue; // Should never happen though
 			
+			Value VirtualVal = ParamJson["Virtual"];
+			if(!IsNull(VirtualVal)) Parameter.Virtual = (bool)VirtualVal;
+			
 			ValueArray IndexesVal = ParamJson["Indexes"];
 			for(int Idx = 0; Idx < IndexesVal.GetCount(); ++Idx)
 			{
@@ -944,6 +980,7 @@ void OptimizationWindow::WriteToJson()
 	{
 		Json ParJson;
 		ParJson("Name", Par.Name.data());
+		ParJson("Virtual", Par.Virtual);
 		
 		ParJson("Unit", ParSetup.ParameterView.Get(Row, Id("__unit")));
 		ParJson("Min", (double)ParSetup.ParameterView.Get(Row, Id("__min")));
