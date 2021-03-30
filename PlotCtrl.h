@@ -15,6 +15,8 @@ public:
 	void TimestepSliderEvent();
 	void TimestepEditEvent();
 	
+	void BuildTimeIntervalsCtrl();
+	
 	void GatherCurrentPlotSetup(plot_setup &PlotSetup);
 	void SetMainPlotSetup(plot_setup &PlotSetup);
 	

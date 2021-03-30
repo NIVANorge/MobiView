@@ -43,7 +43,7 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	PlotMajorMode.Disable();
 	PlotMajorMode.WhenAction << THISBACK(PlotModeChange);
 	
-	TimeIntervals.SetData(0);
+	TimeIntervals.SetData((int)Aggregation_None);
 	TimeIntervals.Disable();
 	TimeIntervals.WhenAction << THISBACK(PlotModeChange);
 	
@@ -57,6 +57,32 @@ PlotCtrl::PlotCtrl(MobiView *Parent)
 	YAxisMode.SetData(0);
 	YAxisMode.Disable();
 	YAxisMode.WhenAction << THISBACK(PlotModeChange);
+}
+
+void PlotCtrl::BuildTimeIntervalsCtrl()
+{
+	TimeIntervals.Reset();
+	TimeIntervals.Add((int)Aggregation_None, "No aggr.");
+	TimeIntervals.SetData((int)Aggregation_None);
+	
+	if(!Parent->ModelDll.IsLoaded()) return;
+	
+	int64 Magnitude = Parent->TimestepSize.Magnitude;
+	
+	if(Parent->TimestepSize.Type == 0)  //Timestep magnitude measured in seconds.
+	{
+		if(Magnitude < 7*86400)
+			TimeIntervals.Add((int)Aggregation_Weekly, "Weekly");
+		if(Magnitude < 30*86400)
+			TimeIntervals.Add((int)Aggregation_Monthly, "Monthly");
+		if(Magnitude < 365*86400)
+			TimeIntervals.Add((int)Aggregation_Yearly, "Yearly");
+	}
+	else                        //Timestep magnitude measured in months.
+	{
+		if(Magnitude < 12)
+			TimeIntervals.Add((int)Aggregation_Yearly, "Yearly");
+	}
 }
 
 

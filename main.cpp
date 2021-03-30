@@ -657,7 +657,7 @@ void MobiView::BuildInterface()
 {
 	TimestepSize = ModelDll.GetTimestepSize(DataSet);
 	
-	
+	Plotter.BuildTimeIntervalsCtrl();
 	
 	String SettingsFile = LoadFile(GetDataFile("settings.json"));
 	Value SettingsJson = ParseJSON(SettingsFile);
