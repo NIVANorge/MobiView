@@ -152,8 +152,12 @@ MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, 
 
 indexed_parameter
 MobiView::GetParameterAtRow(int Row)
-{
+{	
 	indexed_parameter Result = {};
+	Result.Valid = false;
+	
+	if(Row == -1 || Row >= Params.ParameterView.GetCount())
+		return Result;  //NOTE: In case the function is called incorrectly, don't hard crash.
 	
 	Result.Type = CurrentParameterTypes[Row];
 	if(Result.Type == ParameterType_Bool) return Result;
@@ -213,7 +217,7 @@ MobiView::GetSelectedParameter()
 	//NOTE: This currently only works for non-bool parameters!
 	
 	indexed_parameter Result = {};
-	//NOTE: This is not in use yet!
+	Result.Valid = false;
 	
 	int Row = FindSelectedParameterRow();
 	if(Row == -1) return Result;
@@ -229,6 +233,8 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	{
 		Params.ParameterView.Clear();
 		Params.ParameterView.Reset();
+		
+		Params.ParameterView.NoVertGrid();
 	}
 	
 	int ExpandedSet = -1;
@@ -392,6 +398,8 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	int Row = 0;
 	int CtrlIdx = 0;
 	
+	Color RowColors[2] = {{255, 255, 255}, {240, 240, 255}};
+	
 	for(size_t Idx = 0; Idx < ParameterCount; ++Idx)
 	{
 		const char *Name = ParameterNames[Idx];
@@ -404,6 +412,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		const char *Description = ModelDll.GetParameterDescription(DataSet, Name);
 		if(Description) RowData.Set("__description", Description);
 		
+		int ExpandedIndexRow = 0;
 		for(char *ExpandedIndex : ExpandedIndexSet)
 		{
 			parameter_type Type = ParseParameterType(TypeName);
@@ -424,7 +433,6 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 			
 			RowData.Set("__index", ExpandedIndex);
 			
-		
 			for(char *SecondExpandedIndex : SecondExpandedIndexSet)
 			{
 				Id ValueColumn = "__value";
@@ -569,7 +577,27 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 			
 			Params.ParameterView.SetMap(Row, RowData);
 			
+			if(!RefreshValuesOnly && ExpandedIndexRow > 0)   //NOTE: Don't display the same parameter name, unit, min, max, desc for each row.
+			{
+				//NOTE: It is annoying that we have to hard code the columns here....
+				Params.ParameterView.SetDisplay(Row, 0, Params.NoDisplay);
+				if(SecondExpandedSetLocal < 0)
+				{
+					Params.ParameterView.SetDisplay(Row, 3, Params.NoDisplay);
+					Params.ParameterView.SetDisplay(Row, 4, Params.NoDisplay);
+					Params.ParameterView.SetDisplay(Row, 5, Params.NoDisplay);
+					Params.ParameterView.SetDisplay(Row, 6, Params.NoDisplay);
+				}
+			}
+			
+			if(ExpandedSetLocal >= 0)
+			{
+				Color RowCol = RowColors[Idx % 2];
+				Params.ParameterView.SetLineColor(Row, RowCol);
+			}
+			
 			++Row;
+			++ExpandedIndexRow;
 		}
 	}
 }

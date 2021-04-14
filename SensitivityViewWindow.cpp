@@ -53,40 +53,26 @@ SensitivityViewWindow::Update()
 	ParamLabel.SetText("");
 	
 	int SelectedRow = ParentWindow->FindSelectedParameterRow();
-	//this->CurrentParameter = ParentWindow->GetSelectedParameter();
-	
+
 	indexed_parameter &CurrentParameter = ParentWindow->CurrentSelectedParameter;
 	
-	std::string PrevName = CurrentParameter.Name;
-	
-	bool Error = (SelectedRow == -1) || !CurrentParameter.Valid;
-	
-	if(!Error)
+	if((SelectedRow == -1) || !CurrentParameter.Valid)
 	{
-		if(CurrentParameter.Type != ParameterType_Double)
-		{
-			//TODO: Allow UInts too?
-			Error = true;
-			ErrorLabel.SetText("Can only perturb parameters of type double");
-		}
-	}
-	else
 		ErrorLabel.SetText("Select a parameter in the main view");
-	
-	/*
-	if(!Error && ParentWindow->SecondExpandedSetLocal >= 0)
-	{
-		Error = true;
-		ErrorLabel.SetText("We currently don't have this functionality for matrix parameters");
-	}
-	*/
-	
-	if(Error)
-	{
 		EditMin.SetData(Null);
 		EditMax.SetData(Null);
 		return;
 	}
+	
+	if(CurrentParameter.Type != ParameterType_Double)
+	{
+		//TODO: Allow UInts too?
+		ErrorLabel.SetText("Can only perturb parameters of type double");
+		EditMin.SetData(Null);
+		EditMax.SetData(Null);
+		return;
+	}
+	
 	
 	String ParUnit = ParentWindow->Params.ParameterView.Get(SelectedRow, Id("__unit"));
 	

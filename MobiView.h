@@ -77,6 +77,17 @@ struct indexed_parameter
 	std::vector<parameter_index> Indexes;
 };
 
+
+class EmptyDisplay : public Display
+{
+	public :
+		virtual void Paint(Draw& w, const Rect& r, const Value& q, Color ink, Color paper, dword style) const
+		{
+			Display::Paint(w, r, Null, ink, paper, style);
+		}
+};
+
+
 String MakeIndexString(const std::vector<char *> &Indexes);
 String MakeIndexString(const std::vector<std::string> &Indexes);
 String MakeParameterIndexString(const indexed_parameter &Parameter);
@@ -88,6 +99,8 @@ public:
 	typedef ParameterCtrl CLASSNAME;
 	
 	ParameterCtrl();
+	
+	EmptyDisplay NoDisplay;
 };
 
 
