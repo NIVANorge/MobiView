@@ -275,7 +275,7 @@ SensitivityViewWindow::Run()
 		Legend = Format("%g", Val);
 		Unit = Null; //NOTE: to avoid it showing in the legend (ideally we want to be able to turn that off).
 			
-		Color GraphColor = GradientColor(Color(230, 25, 75), Color(60, 180, 75), NStep, NSteps);
+		Color GraphColor = GradientColor(Color(245, 130, 48), Color(145, 30, 180), NStep, NSteps);
 		//NOTE: It doesn't matter that we pass 0 as min and max since we disallow normalized Y
 		//axis above.
 		Plot.AddPlot(Legend, Unit, ResultXValues, ResultYValues, ResultTimesteps, false, InputStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
