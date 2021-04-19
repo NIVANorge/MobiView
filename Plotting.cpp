@@ -273,7 +273,7 @@ void PlotCtrl::PlotModeChange()
 	TimestepSlider.Hide();
 	TimestepSlider.Disable();
 	
-	if(MajorMode == MajorMode_Regular || MajorMode == MajorMode_CompareBaseline)
+	if(MajorMode == MajorMode_Regular || MajorMode == MajorMode_Stacked || MajorMode == MajorMode_StackedShare || MajorMode == MajorMode_CompareBaseline)
 	{
 		ScatterInputs.Enable();
 		YAxisMode.Enable();
@@ -449,7 +449,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 
 	if(TimeseriesCount == 0) return;
 	
-	if(PlotMajorMode == MajorMode_Regular)
+	if(PlotMajorMode == MajorMode_Regular || PlotMajorMode == MajorMode_Stacked || PlotMajorMode == MajorMode_StackedShare)
 	{
 		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
 		ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
@@ -482,7 +482,8 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			
 			if(Parent->CheckDllUserError()) return;
 		}
-
+		
+		StackedPlotFixup();
 	}
 	else if(PlotMajorMode == MajorMode_Histogram)
 	{
@@ -1300,6 +1301,64 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 }
 
 
+ScatterDraw &MyPlot::MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col)
+{
+	//TODO: We should make this work for input series too, but that would require serious
+	//refactoring.
+	if(IsInput || (this->PlotSetup.MajorMode != MajorMode_Stacked && this->PlotSetup.MajorMode != MajorMode_StackedShare))
+		return this->AddSeries(XValues, YValues, Len);
+	
+	if(!this->CachedStackY.empty() && this->CachedStackLen != Len)
+	{
+		PromptOK("Internal error when generating stacked plot: Length of result series not matching!");
+		return *this;
+	}
+	
+	this->CachedStackY.push_back(YValues);
+	this->CachedStackLen = Len;
+
+	return this->AddSeries(XValues, YValues, Len).Fill(Col);
+}
+
+void MyPlot::StackedPlotFixup()
+{
+	if(this->CachedStackY.empty()) return;
+	
+	size_t Len = this->CachedStackLen;
+	
+	std::vector<double> Sums(Len);
+	std::fill(Sums.begin(), Sums.end(), 0.0);
+	
+	double *Sum = Sums.data();
+	
+	//NOTE we have to do backwards iteration so that the ones that were added first are the
+	//ones on top. Otherwise the ones in front will be higher and over-paint them.
+	for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx) 
+	{
+		double *Ys = this->CachedStackY[Idx];
+		for(size_t Ts = 0; Ts < Len; ++Ts)
+		{
+			if(std::isfinite(Ys[Ts]))
+				Sums[Ts] += Ys[Ts];
+			Ys[Ts] = Sums[Ts];
+		}
+	}
+	if(PlotSetup.MajorMode == MajorMode_StackedShare)
+	{
+		for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx) 
+		{
+			double *Ys = this->CachedStackY[Idx];
+			for(size_t Ts = 0; Ts < Len; ++Ts)
+			{
+				Ys[Ts] = Ys[Ts] * 100.0 / Sums[Ts];
+				if(!std::isfinite(Ys[Ts])) Ys[Ts] = 0.0;
+			}
+		}
+	}
+	
+}
+
+
 Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY, Color OverrideColor)
 {
 	aggregation_period IntervalType  = PlotSetup.AggregationPeriod;
@@ -1333,7 +1392,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 				Data[Idx] = std::log10(Data[Idx]);
 			}
 		}
-		Graph = &this->AddSeries(XIn, Data, Len);
+		Graph = &this->MyAddSeries(XIn, Data, Len, IsInput, GraphColor);
 	}
 	else //Weekly, monthly values or yearly values
 	{
@@ -1343,7 +1402,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 		
 		AggregateData(ReferenceTime, StartTime, Len, Data, IntervalType, AggregationType, TimestepSize, XValues, YValues);
 		
-		Graph = &this->AddSeries(XValues.data(), YValues.data(), XValues.size());
+		Graph = &this->MyAddSeries(XValues.data(), YValues.data(), XValues.size(), IsInput, GraphColor);
 	}
 	
 	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
@@ -1858,6 +1917,8 @@ void MyPlot::ClearAll(bool FullClear)
 	this->SetTitle(String(""));
 	this->SetLabelX(" ");
 	this->SetLabelY(" ");
+	
+	this->CachedStackY.clear();
 	
 	if(FullClear) PlotWasAutoResized = false;
 }

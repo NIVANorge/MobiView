@@ -8,6 +8,8 @@
 enum plot_major_mode
 {
 	MajorMode_Regular = 0,
+	MajorMode_Stacked,
+	MajorMode_StackedShare,
 	MajorMode_Histogram,
 	MajorMode_Profile,
 	MajorMode_Profile2D,
@@ -26,7 +28,7 @@ enum aggregation_type
 	Aggregation_Max,
 };
 
-//NOTE: This has to match up to the aggregation period selector.
+//NOTE: The matching of this with the selector should be dynamic, so no worries.
 enum aggregation_period
 {	Aggregation_None = 0,
 	Aggregation_Weekly,
@@ -220,6 +222,17 @@ public:
 	
 	void SetBetterGridLinePositions(int Dim);
 	void UpdateDateGridLinesX(Vector<double> &LinesOut, Time InputStartTime, timestep_size TimestepSize);
+	
+	
+	
+	//NOTE: To facilitate stacked plots:
+	ScatterDraw &MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col);
+	void StackedPlotFixup();
+	
+	std::vector<double *> CachedStackY;
+	size_t CachedStackLen;
+	
+	
 	
 
 	//TODO: Move to private when that is possible!

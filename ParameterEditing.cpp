@@ -235,6 +235,9 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 		Params.ParameterView.Reset();
 		
 		Params.ParameterView.NoVertGrid();
+		
+		ParameterControls.Clear();
+		CurrentParameterTypes.clear();
 	}
 	
 	int ExpandedSet = -1;
@@ -374,9 +377,6 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 			Params.ParameterView.HeaderObject().HideTab(TabBase + 2);
 			Params.ParameterView.HeaderObject().HideTab(TabBase + 3);
 		}
-	
-		ParameterControls.Clear();
-		CurrentParameterTypes.clear();
 	}
 	
 	indexed_parameter Parameter = {};
@@ -441,7 +441,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					ValueColumn = SecondExpandedIndex;
 					Indexes[SecondExpandedSetLocal] = SecondExpandedIndex;
 					if(!RefreshValuesOnly)
-						Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;  //error happened here
+						Parameter.Indexes[SecondExpandedSetLocal].Name = SecondExpandedIndex;
 				}
 				
 				if(Type == ParameterType_Double)
@@ -582,12 +582,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 				//NOTE: It is annoying that we have to hard code the columns here....
 				Params.ParameterView.SetDisplay(Row, 0, Params.NoDisplay);
 				if(SecondExpandedSetLocal < 0)
-				{
-					Params.ParameterView.SetDisplay(Row, 3, Params.NoDisplay);
-					Params.ParameterView.SetDisplay(Row, 4, Params.NoDisplay);
-					Params.ParameterView.SetDisplay(Row, 5, Params.NoDisplay);
-					Params.ParameterView.SetDisplay(Row, 6, Params.NoDisplay);
-				}
+					for(int Col = 3; Col <= 6; ++Col) Params.ParameterView.SetDisplay(Row, Col, Params.NoDisplay);
 			}
 			
 			if(ExpandedSetLocal >= 0)
