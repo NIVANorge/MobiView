@@ -703,7 +703,7 @@ void OptimizationWindow::RunClicked()
 	
 	dlib::function_evaluation InitialEval;
 	InitialEval.x = InitialPars;
-	InitialEval.y = InitialScore;
+	InitialEval.y = PositiveGood ? InitialScore : -InitialScore;
 	
 	std::vector<dlib::function_evaluation> InitialEvals = {InitialEval};
 	
@@ -767,7 +767,9 @@ void OptimizationWindow::RunClicked()
 	auto EndTime = std::chrono::high_resolution_clock::now();
 	double Duration = 1e-3 * std::chrono::duration_cast<std::chrono::milliseconds>(EndTime - BeginTime).count();
 	
-	if((PositiveGood && Result.y < InitialScore) || (!PositiveGood && Result.y > InitialScore))
+	double NewScore = Result.y;
+	
+	if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)))
 	{
 		ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
 	}
@@ -775,7 +777,7 @@ void OptimizationWindow::RunClicked()
 	{
 		SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
 		ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.", 
-			Duration, Result.y, InitialScore));
+			Duration, NewScore, InitialScore));
 		ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 	}
 	

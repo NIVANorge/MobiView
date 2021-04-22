@@ -92,7 +92,7 @@ MyPlot::MyPlot()
 	//this->SetFastViewX(true);            //NOTE: Turned off because it is buggy!
 	this->SetSequentialXAll(true);
 	
-	Size PlotReticleSize = GetTextSize("000000", this->GetReticleFont());
+	Size PlotReticleSize = GetTextSize("00000000", this->GetReticleFont());
 	Size PlotUnitSize    = GetTextSize("[dummy]", this->GetLabelsFont());
 	this->SetPlotAreaLeftMargin(PlotReticleSize.cx + PlotUnitSize.cy + 20);
 	this->SetPlotAreaBottomMargin(PlotReticleSize.cy*2 + PlotUnitSize.cy + 20);
