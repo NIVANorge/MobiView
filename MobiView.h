@@ -10,7 +10,7 @@
 #include <vector>
 
 
-#define MAX_INDEX_SETS 6
+#define MAX_INDEX_SETS 6    //NOTE: This has to match the number of (currently) hard coded index set displays in the main window.
 
 
 #include "StarOption.h"
@@ -231,6 +231,8 @@ public:
 	void WriteToJson();
 	void LoadFromJson();
 	
+	void SetAll(std::vector<plot_setup> &Setups);
+	
 private:
 	Splitter VerticalSplitter;
 	
@@ -315,6 +317,8 @@ public:
 	void ClearAll();
 	
 	void RunClicked();
+	
+	void DisplayClicked();
 	
 	MobiView *ParentWindow;
 	
@@ -439,7 +443,7 @@ public:
 	void PlotRebuild();
 	void UpdateEquationSelecter();
 	
-	
+	bool GetIndexSetsForSeries(void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexSetsOut);
 	bool GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexesOut);
 	
 	void GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo);

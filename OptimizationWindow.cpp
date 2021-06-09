@@ -74,13 +74,15 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.PushAddTarget.WhenPush    = THISBACK(AddTargetClicked);
 	TargetSetup.PushRemoveTarget.WhenPush = THISBACK(RemoveTargetClicked);
 	TargetSetup.PushClearTargets.WhenPush = THISBACK(ClearTargetsClicked);
+	TargetSetup.PushDisplay.WhenPush      = THISBACK(DisplayClicked);
+	TargetSetup.PushRun.WhenPush          = THISBACK(RunClicked);
 	
 	TargetSetup.PushAddTarget.SetImage(IconImg4::Add());
 	TargetSetup.PushRemoveTarget.SetImage(IconImg4::Remove());
 	TargetSetup.PushClearTargets.SetImage(IconImg4::RemoveGroup());
-	
+	TargetSetup.PushDisplay.SetImage(IconImg4::ViewMorePlots());
 	TargetSetup.PushRun.SetImage(IconImg4::Run());	
-	TargetSetup.PushRun.WhenPush          = THISBACK(RunClicked);
+	
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
@@ -326,6 +328,71 @@ void OptimizationWindow::AddTargetClicked()
 	
 	AddOptimizationTarget(Target);
 }
+
+void OptimizationWindow::DisplayClicked()
+{
+	if(!ParentWindow->DataSet || !ParentWindow->ModelDll.IsLoaded()) return;
+	
+	if(Targets.empty()) return; //TODO: Error message
+	
+	
+	std::vector<plot_setup> PlotSetups;
+	PlotSetups.reserve(Targets.size());
+	
+	for(optimization_target &Target : Targets)
+	{
+		plot_setup PlotSetup = {};
+		PlotSetup.SelectedIndexes.resize(MAX_INDEX_SETS);
+		PlotSetup.IndexSetIsActive.resize(MAX_INDEX_SETS);
+		
+		//NOTE: It is probably the best to have Residuals mode as default. Can be easily
+		//overridden in the plot view.
+		PlotSetup.MajorMode = MajorMode_Residuals;
+		PlotSetup.AggregationPeriod = Aggregation_None;
+		PlotSetup.ScatterInputs = true;
+		
+		PlotSetup.SelectedResults.push_back(Target.ResultName);
+		PlotSetup.SelectedInputs.push_back(Target.InputName);
+		
+		std::vector<char *> IndexSets;
+		bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.InputName, 1, IndexSets);
+		
+		if(!Success) return;
+		
+		for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
+		{
+			size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
+			PlotSetup.IndexSetIsActive[Id] = true;
+			PlotSetup.SelectedIndexes[Id].push_back(Target.InputIndexes[IdxIdx]);
+		}
+		
+		//TODO: If the model has not been run once beforehand, the index sets will vector will
+		//be empty. This could cause confusion if this is clicked before the model is run, and
+		//the model is run later (because then the index sets will still not be activated, and
+		//the result series will then not be displayed).
+		IndexSets.clear();
+		Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.ResultName, 0, IndexSets);
+		if(!Success) return;
+		
+		for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
+		{
+			size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
+			PlotSetup.IndexSetIsActive[Id] = true;
+			PlotSetup.SelectedIndexes[Id].push_back(Target.ResultIndexes[IdxIdx]);
+		}
+		
+		PlotSetups.push_back(PlotSetup);
+	}
+	
+	AdditionalPlotView *Plots = &ParentWindow->OtherPlots;
+	
+	Plots->SetAll(PlotSetups);
+	
+	if(!Plots->IsOpen())
+		Plots->Open();
+}
+
+
 
 void OptimizationWindow::RemoveTargetClicked()
 {

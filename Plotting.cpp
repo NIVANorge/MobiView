@@ -365,7 +365,7 @@ void PlotCtrl::RePlot(bool CausedByReRun)
 }
 
 
-void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun)
+void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun, int OverrideMode)
 {
 	//TODO: Ideally we would want to not have to have the MobiView * pointer here, but only the
 	//specifics that we need. However, it is a little tricky to let go of that dependency.
@@ -415,9 +415,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	}
 	
 	
-	
-	
-	
 	bool MultiIndex = false;
 	for(size_t IndexSet = 0; IndexSet < MAX_INDEX_SETS; ++IndexSet)
 	{
@@ -433,6 +430,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	PlotInfo.Clear();
 	
 	plot_major_mode PlotMajorMode = PlotSetup.MajorMode;
+	if(OverrideMode >= 0) PlotMajorMode = (plot_major_mode)OverrideMode;
 	
 	char TimeStr[256];
 	Parent->ModelDll.GetStartDate(Parent->DataSet, TimeStr);
@@ -723,6 +721,10 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		if(PlotSetup.SelectedResults.size() > 1 || MultiIndex)
 		{
 			this->SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
+		}
+		else if(!Parent->BaselineDataSet)
+		{
+			this->SetTitle(String("The baseline comparison can only be displayed if the baseline has been saved (using a button in the toolbar)"));
 		}
 		else
 		{
@@ -2090,7 +2092,7 @@ void MobiView::GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::s
 	CheckDllUserError();
 }
 
-bool MobiView::GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexesOut)
+bool MobiView::GetIndexSetsForSeries(void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexSetsOut)
 {
 	uint64 IndexSetCount;
 	if(Type == 0)
@@ -2098,12 +2100,23 @@ bool MobiView::GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet,
 	else
 		IndexSetCount = ModelDll.GetInputIndexSetsCount(DataSet, Name.data());
 	
-	std::vector<char *> IndexSets(IndexSetCount);
+	IndexSetsOut.resize(IndexSetCount);
 	if(Type == 0)
-		ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSets.data());
+		ModelDll.GetResultIndexSets(DataSet, Name.data(), IndexSetsOut.data());
 	else
-		ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSets.data());
+		ModelDll.GetInputIndexSets(DataSet, Name.data(), IndexSetsOut.data());
 	if(CheckDllUserError()) return false;
+	
+	return true;
+}
+
+bool MobiView::GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, int Type, std::vector<char *> &IndexesOut)
+{
+	std::vector<char *> IndexSets;
+	
+	bool Success = GetIndexSetsForSeries(DataSet, Name, Type, IndexSets);
+	
+	if(!Success) return false;
 	
 	IndexesOut.resize(IndexSets.size());
 	for(size_t Idx = 0; Idx < IndexSets.size(); ++Idx)
@@ -2116,8 +2129,6 @@ bool MobiView::GetSelectedIndexesForSeries(plot_setup &PlotSetup, void *DataSet,
 	
 	return true;
 }
-
-
 
 void MobiView::GetSingleSelectedResultSeries(plot_setup &PlotSetup, void *DataSet, std::string &Name, String &Legend, String &Unit, double *WriteTo)
 {

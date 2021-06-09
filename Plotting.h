@@ -4,7 +4,8 @@
 
 #include "MyRichView.h"
 
-//NOTE: This has to match up to the aggregation selector.
+//NOTE: This has to match up to the aggregation selector. It should also match the override
+//modes in the AdditionalPlotView
 enum plot_major_mode
 {
 	MajorMode_Regular = 0,
@@ -200,7 +201,7 @@ public:
 	
 	MyPlot();
 	
-	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun = false);
+	void BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyRichView &PlotInfo, bool CausedByReRun = false, int OverrideMode = -100);
 	
 	void FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize);
 	

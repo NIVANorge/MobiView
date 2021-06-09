@@ -111,10 +111,12 @@ LAYOUT(EditStatSettingsLayout, 268, 304)
 	ITEM(Upp::Label, Lab4, SetLabel(t_("Decimal precision:")).HSizePosZ(4, 172).TopPosZ(188, 19))
 END_LAYOUT
 
-LAYOUT(AdditionalPlotViewLayout, 408, 320)
-	ITEM(Upp::Option, LinkAll, SetLabel(t_("Link axes")).RightPosZ(4, 68).TopPosZ(4, 16))
-	ITEM(Upp::EditIntSpin, EditNumRows, Min(1).Max(10).RightPosZ(76, 64).TopPosZ(4, 19))
-	ITEM(Upp::Label, RowLabel, SetLabel(t_("Rows:")).RightPosZ(144, 32).TopPosZ(4, 19))
+LAYOUT(AdditionalPlotViewLayout, 532, 320)
+	ITEM(Upp::Option, LinkAll, SetLabel(t_("Link axes")).RightPosZ(192, 68).TopPosZ(4, 16))
+	ITEM(Upp::EditIntSpin, EditNumRows, Min(1).Max(10).RightPosZ(264, 64).TopPosZ(4, 19))
+	ITEM(Upp::Label, RowLabel, SetLabel(t_("Rows:")).RightPosZ(332, 32).TopPosZ(4, 19))
+	ITEM(Upp::Label, OverrideLabel, SetLabel(t_("Override mode:")).RightPosZ(108, 80).TopPosZ(4, 16))
+	ITEM(Upp::DropList, OverrideList, RightPosZ(4, 100).TopPosZ(4, 19))
 END_LAYOUT
 
 LAYOUT(MiniPlotLayout, 568, 100)
@@ -161,6 +163,7 @@ LAYOUT(OptimizationTargetLayout, 672, 284)
 	ITEM(Upp::ArrayCtrl, TargetView, HSizePosZ(4, 4).VSizePosZ(4, 52))
 	ITEM(Upp::Button, PushRemoveTarget, SetLabel(t_("Remove sel.")).LeftPosZ(116, 108).BottomPosZ(28, 20))
 	ITEM(Upp::Button, PushClearTargets, SetLabel(t_("Clear all")).LeftPosZ(228, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Button, PushDisplay, SetLabel(t_("Display plots")).RightPosZ(4, 108).BottomPosZ(28, 20))
 	ITEM(Upp::Button, PushAddTarget, SetLabel(t_("Add target")).LeftPosZ(4, 108).BottomPosZ(28, 20))
 END_LAYOUT
 

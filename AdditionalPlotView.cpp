@@ -46,6 +46,22 @@ AdditionalPlotView::AdditionalPlotView()
 		//Plots[Row].PlotInfo.SetColor(TextCtrl::PAPER_READONLY, Plots[Row].PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	}
 	
+	//TODO: The ones that are commented out are buggy since they ignore the override mode for some sub-tasks. We should fix them!
+	OverrideList.Add(-100, "(none)");
+	OverrideList.Add((int)MajorMode_Regular, "Regular");
+	//OverrideList.Add((int)MajorMode_Stacked, "Stacked");
+	//OverrideList.Add((int)MajorMode_StackedShare, "Stacked share");
+	OverrideList.Add((int)MajorMode_Histogram, "Histogram");
+	OverrideList.Add((int)MajorMode_Profile, "Profile");
+	OverrideList.Add((int)MajorMode_Profile2D, "Profile 2D");
+	OverrideList.Add((int)MajorMode_CompareBaseline, "Compare baseline");
+	OverrideList.Add((int)MajorMode_Residuals, "Residuals");
+	OverrideList.Add((int)MajorMode_ResidualHistogram, "Residual histogram");
+	OverrideList.Add((int)MajorMode_QQ, "QQ");
+	
+	OverrideList.SetData(-100);
+	OverrideList.WhenAction << [this]{ BuildAll(); };
+	
 	NumRowsChanged();
 }
 
@@ -107,10 +123,12 @@ void AdditionalPlotView::CopyMainPlot(int Which)
 
 void AdditionalPlotView::BuildAll(bool CausedByReRun)
 {
+	int OverrideMode = (int)OverrideList.GetData();
+	
 	int NRows = EditNumRows.GetData();
 	for(int Row = 0; Row < NRows; ++Row)
 	{
-		Plots[Row].Plot.BuildPlot(ParentWindow, nullptr, false, Plots[Row].PlotInfo, CausedByReRun);
+		Plots[Row].Plot.BuildPlot(ParentWindow, nullptr, false, Plots[Row].PlotInfo, CausedByReRun, OverrideMode);
 	}
 	UpdateLinkStatus();
 }
@@ -121,6 +139,17 @@ void AdditionalPlotView::ClearAll()
 	{
 		Plots[Row].Plot.ClearAll();
 	}
+}
+
+void AdditionalPlotView::SetAll(std::vector<plot_setup> &Setups)
+{
+	int Count = std::min((int)MAX_ADDITIONAL_PLOTS, (int)Setups.size());
+	for(int Row = 0; Row < Count; ++Row)
+	{
+		Plots[Row].Plot.PlotSetup = Setups[Row];
+	}
+	EditNumRows.SetData(Count);
+	NumRowsChanged(true);	
 }
 
 void SerializePlotSetup(Json &SetupJson, plot_setup &Setup, MobiView *ParentWindow)
