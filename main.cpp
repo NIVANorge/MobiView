@@ -53,24 +53,34 @@ void MobiView::HandleDllError()
 
 bool MobiView::CheckDllUserError()
 {
-	int ErrCode = 0;
+	bool Error = false;
 	if(ModelDll.IsLoaded())
 	{
-		char MsgBuf[1024];
-		ErrCode = ModelDll.EncounteredError(MsgBuf);
+		const uint64 MsgBufLen = 2048;
 		
-		if(ErrCode != 0)
+		String Errstr;
+		char MsgBuf[MsgBufLen];
+		int Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
+		while(Errlen > 0)
 		{
-			Log(String(MsgBuf), true);
+			Errstr += MsgBuf;
+			Error = true;
+			Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
 		}
+		if(Error) Log(Errstr, true);
 		
-		int WarnCode = ModelDll.EncounteredWarning(MsgBuf);
-		if(WarnCode != 0)
+		bool Warning = false;
+		String Warnstr;
+		int Warnlen = ModelDll.EncounteredWarning(MsgBuf, MsgBufLen);
+		while(Warnlen > 0)
 		{
-			Log(String(MsgBuf));
+			Warnstr += MsgBuf;
+			Warning = true;
+			Warnlen = ModelDll.EncounteredWarning(MsgBuf, MsgBufLen);
 		}
+		if(Warning) Log(Warnstr);
 	}
-	return (bool)ErrCode;
+	return Error;
 }
 
 void MobiView::SubBar(Bar &bar)
