@@ -488,6 +488,8 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 struct optimization_model
 {
 	MobiView                         *ParentWindow;
+	Label                            *ProgressLabel;
+	
 	std::vector<indexed_parameter>   *Parameters;
 	std::vector<optimization_target> *Targets;
 	
@@ -501,8 +503,13 @@ struct optimization_model
 	const Array<String> *Syms;
 	const Array<String> *Exprs;
 	
+	int64 NumEvals = 0;
+	double InitialScore, BestScore;
+	bool  IsMaximizing;
+	int   UpdateStep = 100;
+	
 	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets,
-		int ExprCount, const Array<String> &Syms, const Array<String> &Exprs)
+		int ExprCount, const Array<String> &Syms, const Array<String> &Exprs, Label *ProgressLabel = nullptr)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
@@ -510,6 +517,7 @@ struct optimization_model
 		this->ExprCount    = ExprCount;
 		this->Syms         = &Syms;
 		this->Exprs        = &Exprs;
+		this->ProgressLabel = ProgressLabel;
 	}
 	
 	double EvaluateObjectives(void *DataSet)
@@ -586,8 +594,18 @@ struct optimization_model
 			Aggregate += Value*Target.Weight;
 		}
 		
-		//ParentWindow->Log(Format("Ran once, value is %g", Aggregate));
-		//ParentWindow->ProcessEvents();
+		++NumEvals;
+		
+		if(IsMaximizing)
+			BestScore = std::max(BestScore, Aggregate);
+		else
+			BestScore = std::min(BestScore, Aggregate);
+		
+		if(ProgressLabel && (NumEvals%UpdateStep==0))
+		{
+			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
+			ParentWindow->ProcessEvents();
+		}	
 		
 		return Aggregate;
 	}
@@ -725,7 +743,11 @@ void OptimizationWindow::RunClicked()
 	if(!Cl)
 		return;
 	
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ExprCount, Syms, Exprs);
+	Label *ProgressLabel = nullptr;
+	if(TargetSetup.OptionShowProgress.Get())
+		ProgressLabel = &TargetSetup.ProgressLabel;
+	
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ExprCount, Syms, Exprs, ProgressLabel);
 	
 	// Initial evaluation on the parameters given in the main dataset.
 	column_vector InitialPars(ParCount - ExprCount);
@@ -766,7 +788,21 @@ void OptimizationWindow::RunClicked()
 		return;
 	}
 	
+	auto Begin = std::chrono::high_resolution_clock::now();
+	
 	double InitialScore = OptimizationModel(InitialPars);
+	
+	auto End = std::chrono::high_resolution_clock::now();
+	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
+	
+	OptimizationModel.InitialScore = InitialScore;
+	OptimizationModel.BestScore    = InitialScore;
+	OptimizationModel.NumEvals     = 0;
+	OptimizationModel.IsMaximizing = PositiveGood;
+	//NOTE: Try to update about every 4 seconds (in practice it is faster since the first run is slower):
+	int UpdateStep = std::ceil(4000.0/Ms);
+	if(UpdateStep <= 0) UpdateStep = 1;
+	OptimizationModel.UpdateStep = UpdateStep;
 	
 	dlib::function_evaluation InitialEval;
 	InitialEval.x = InitialPars;
@@ -848,6 +884,7 @@ void OptimizationWindow::RunClicked()
 		ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 	}
 	
+	TargetSetup.ProgressLabel.SetText("");
 	TargetSetup.ErrorLabel.SetText("");
 	
 	Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
