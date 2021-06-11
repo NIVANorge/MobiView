@@ -331,10 +331,29 @@ void OptimizationWindow::AddTargetClicked()
 
 void OptimizationWindow::DisplayClicked()
 {
-	if(!ParentWindow->DataSet || !ParentWindow->ModelDll.IsLoaded()) return;
+	if(!ParentWindow->DataSet || !ParentWindow->ModelDll.IsLoaded())
+	{
+		TargetSetup.ErrorLabel.SetText("Can't display plots before a model is loaded");
+		return;
+	}
 	
-	if(Targets.empty()) return; //TODO: Error message
+	if(Targets.empty())
+	{
+		TargetSetup.ErrorLabel.SetText("There are no targets to display the plots of");
+	 	return;
+	}
 	
+	if(ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet)==0)
+	{
+		//TODO: The only reason we have to do this is that we can't correctly get the index
+		//sets of a result series before the model has been run. This should maybe be changed
+		//in the main Mobius framework.
+		
+		TargetSetup.ErrorLabel.SetText("The model has to be run once to be able to display these plots");
+	 	return;
+	}
+	
+	TargetSetup.ErrorLabel.SetText("");
 	
 	std::vector<plot_setup> PlotSetups;
 	PlotSetups.reserve(Targets.size());
@@ -365,11 +384,7 @@ void OptimizationWindow::DisplayClicked()
 			PlotSetup.IndexSetIsActive[Id] = true;
 			PlotSetup.SelectedIndexes[Id].push_back(Target.InputIndexes[IdxIdx]);
 		}
-		
-		//TODO: If the model has not been run once beforehand, the index sets will vector will
-		//be empty. This could cause confusion if this is clicked before the model is run, and
-		//the model is run later (because then the index sets will still not be activated, and
-		//the result series will then not be displayed).
+
 		IndexSets.clear();
 		Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.ResultName, 0, IndexSets);
 		if(!Success) return;
@@ -592,19 +607,6 @@ struct optimization_model
 			#undef SET_RES_SETTING
 			
 			Aggregate += Value*Target.Weight;
-		}
-		
-		++NumEvals;
-		
-		if(IsMaximizing)
-			BestScore = std::max(BestScore, Aggregate);
-		else
-			BestScore = std::min(BestScore, Aggregate);
-		
-		if(ProgressLabel && (NumEvals%UpdateStep==0))
-		{
-			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
-			ParentWindow->ProcessEvents();
 		}	
 		
 		return Aggregate;
@@ -612,11 +614,39 @@ struct optimization_model
 	
 	double operator()(const column_vector& Par)
 	{
-		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);   //NOTE: This is for thread safety.
+		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
 		
 		SetParameters(ParentWindow, DataSetCopy, Parameters, Par, ExprCount, *Syms, *Exprs);
 		
 		double Value = EvaluateObjectives(DataSetCopy);
+		
+		++NumEvals;
+		
+		if(IsMaximizing)
+			BestScore = std::max(BestScore, Value);
+		else
+			BestScore = std::min(BestScore, Value);
+		
+		AdditionalPlotView *View = &ParentWindow->OtherPlots;
+		if(ProgressLabel && View->IsOpen() && BestScore==Value)
+		{
+			SetParameters(ParentWindow, ParentWindow->DataSet, Parameters, Par, ExprCount, *Syms, *Exprs);
+		}
+		
+		if(ProgressLabel && (NumEvals%UpdateStep==0))
+		{
+			//TODO: The following is not thread safe probably, so should be scrapped if we
+			//eventually are able to run it multi-threaded:
+			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
+			
+			if(View->IsOpen())
+			{
+				ParentWindow->ModelDll.RunModel(ParentWindow->DataSet); //TODO: It is annoying to have to rerun it here. We should be able to just copy the results from the other dataset
+				View->BuildAll(true);
+			}
+			
+			ParentWindow->ProcessEvents();
+		}
 		
 		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
 		
@@ -887,7 +917,9 @@ void OptimizationWindow::RunClicked()
 	TargetSetup.ProgressLabel.SetText("");
 	TargetSetup.ErrorLabel.SetText("");
 	
-	Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
+	//Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
+	//TODO: This is not ideal either since it makes it stay on top of other unrelated windows...
+	TopMost(true, false);
 }
 
 void OptimizationWindow::LoadFromJson()

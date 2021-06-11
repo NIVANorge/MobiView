@@ -733,6 +733,28 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			Time BaselineStartTime;
 			StrToTime(BaselineStartTime, TimeStr);
 			
+			//TODO: Should we compute any residual statistics here?
+			if(PlotSetup.SelectedInputs.size() == 1)
+			{
+				//TODO: Should we allow displaying multiple input series here? Probably no
+				//reason to
+				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
+				String InputLegend;
+				String Unit;
+				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
+				//NullifyNans(Obs.data(), Obs.size());
+				
+				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
+				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
+				
+				timeseries_stats Stats3 = {};
+				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings);
+				
+				Color Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
+				
+				DisplayTimeseriesStats(Stats3, InputLegend, Unit, Parent->StatSettings, PlotInfo, Col);
+			}
+			
 			std::vector<double> &Baseline = PlotData.Allocate(BaselineTimesteps);
 			String BS;
 			String Unit;
@@ -765,29 +787,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 
 			DisplayTimeseriesStats(Stats2, CurrentLegend, Unit, Parent->StatSettings, PlotInfo, Col);
 			
-			
-			//TODO: Should we compute any residual statistics here?
-			
-			if(PlotSetup.SelectedInputs.size() == 1)
-			{
-				//TODO: Should we allow displaying multiple input series here? Probably no
-				//reason to
-				std::vector<double> &Obs = PlotData.Allocate(InputTimesteps);
-				String InputLegend;
-				String Unit;
-				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
-				//NullifyNans(Obs.data(), Obs.size());
-				
-				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
-				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
-				
-				timeseries_stats Stats3 = {};
-				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings);
-				
-				Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
-				
-				DisplayTimeseriesStats(Stats3, InputLegend, Unit, Parent->StatSettings, PlotInfo, Col);
-			}
 		}
 		
 		

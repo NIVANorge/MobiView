@@ -657,8 +657,6 @@ void MobiView::CleanInterface()
 	Plotter.MainPlot.ClearAll();
 	OtherPlots.ClearAll();
 	
-	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
-	
 	OptimizationWin.ClearAll();
 }
 
@@ -772,9 +770,6 @@ void MobiView::BuildInterface()
 	}
 
 	Plotter.PlotMajorMode.Enable();
-	Plotter.PlotMajorMode.DisableCase(MajorMode_CompareBaseline);
-	
-	
 	
 	ParameterGroupSelecter.Set(0, ModelDll.GetModelName(DataSet));
 
@@ -1035,7 +1030,7 @@ void MobiView::SaveBaseline()
 		
 		Log("Baseline saved");
 		
-		Plotter.RePlot(); //In case we had selected baseline already, and now the baseline changed.
+		PlotRebuild(); //In case we had selected baseline already, and now the baseline changed.
 	}
 	else
 	{
