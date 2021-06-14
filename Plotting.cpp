@@ -195,7 +195,7 @@ void PlotCtrl::GatherCurrentPlotSetup(plot_setup &C)
 	
 	for(std::string &Name : C.SelectedResults)
 	{
-		uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data()); //IMPORTANT! Returns 0 if the model has not been run at least once!!
+		uint64 IndexSetCount = Parent->ModelDll.GetResultIndexSetsCount(Parent->DataSet, Name.data());
 		std::vector<char *> IndexSets(IndexSetCount);
 		Parent->ModelDll.GetResultIndexSets(Parent->DataSet, Name.data(), IndexSets.data());
 		

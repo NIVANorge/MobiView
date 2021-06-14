@@ -343,15 +343,13 @@ void OptimizationWindow::DisplayClicked()
 	 	return;
 	}
 	
+	/* //we should not need this anymore since it is now possible to extract result storage structure before the model has been run.
 	if(ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet)==0)
 	{
-		//TODO: The only reason we have to do this is that we can't correctly get the index
-		//sets of a result series before the model has been run. This should maybe be changed
-		//in the main Mobius framework.
-		
 		TargetSetup.ErrorLabel.SetText("The model has to be run once to be able to display these plots");
 	 	return;
 	}
+	*/
 	
 	TargetSetup.ErrorLabel.SetText("");
 	
