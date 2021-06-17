@@ -292,7 +292,7 @@ SensitivityViewWindow::Run()
 		//it should be fine
 		
 		
-		if(HasInput && StatName != "(none)")
+		if(StatName != "(none)")
 		{
 			
 			int64 GofOffset;

@@ -100,6 +100,7 @@ struct StatisticsSettings
 	std::vector<double> Percentiles = {0.0, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 100.0};
 	
 	int Precision = 5;
+	double EckhardtFilterParam = 0.925;
 };
 
 #undef SET_SETTING
@@ -205,7 +206,7 @@ public:
 	
 	void FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize);
 	
-	Color AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0, Color OverrideColor=Null);
+	Color AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0, Color OverrideColor=Null, plot_major_mode MajorMode=MajorMode_Regular);
 	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
@@ -215,7 +216,7 @@ public:
 	
 	void ClearAll(bool FullClear = true);
 	
-	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn);
+	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn, plot_major_mode MajorMode);
 	
 	
 	void ReplotProfile();
@@ -227,8 +228,8 @@ public:
 	
 	
 	//NOTE: To facilitate stacked plots:
-	ScatterDraw &MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col);
-	void StackedPlotFixup();
+	ScatterDraw &MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col, plot_major_mode MajorMode);
+	void StackedPlotFixup(plot_major_mode MajorMode);
 	
 	std::vector<double *> CachedStackY;
 	size_t CachedStackLen;

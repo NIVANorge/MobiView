@@ -110,11 +110,14 @@ MobiView::MobiView() : Plotter(this)
 	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
 	//PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
-	PlotInfoRect.Add(PlotInfo.SizePos());
+	PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
 	CalibrationIntervalLabel.SetText("GOF interval:");
+	GOFOnOption.SetLabel("Show GOF");
+	GOFOnOption.SetData(1); //TODO: Should this be in config?
 	PlotInfoRect.Add(CalibrationIntervalLabel.LeftPos(0).BottomPos(5));
-	PlotInfoRect.Add(CalibrationIntervalStart.LeftPos(65, 70).BottomPos(0));
-	PlotInfoRect.Add(CalibrationIntervalEnd.LeftPos(140, 70).BottomPos(0));
+	PlotInfoRect.Add(CalibrationIntervalStart.LeftPos(70, 70).BottomPos(0));
+	PlotInfoRect.Add(CalibrationIntervalEnd.LeftPos(145, 70).BottomPos(0));
+	PlotInfoRect.Add(GOFOnOption.LeftPos(220).BottomPos(5));
 	
 	UpperHorizontal.Horz();
 	UpperHorizontal.Add(ParameterGroupSelecter);
@@ -274,13 +277,13 @@ MobiView::MobiView() : Plotter(this)
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
-	CalibrationIntervalStart.Hide();
-	CalibrationIntervalEnd.Hide();
-	CalibrationIntervalLabel.Hide();
+	//CalibrationIntervalStart.Hide();
+	//CalibrationIntervalEnd.Hide();
+	//CalibrationIntervalLabel.Hide();
 	
 	CalibrationIntervalStart.WhenAction = THISBACK(PlotRebuild);
 	CalibrationIntervalEnd.WhenAction   = THISBACK(PlotRebuild);
-	
+	GOFOnOption.WhenAction              = THISBACK(PlotRebuild);
 	
 	
 	//Load in some settings

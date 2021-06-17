@@ -343,14 +343,6 @@ void OptimizationWindow::DisplayClicked()
 	 	return;
 	}
 	
-	/* //we should not need this anymore since it is now possible to extract result storage structure before the model has been run.
-	if(ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet)==0)
-	{
-		TargetSetup.ErrorLabel.SetText("The model has to be run once to be able to display these plots");
-	 	return;
-	}
-	*/
-	
 	TargetSetup.ErrorLabel.SetText("");
 	
 	std::vector<plot_setup> PlotSetups;
@@ -362,9 +354,7 @@ void OptimizationWindow::DisplayClicked()
 		PlotSetup.SelectedIndexes.resize(MAX_INDEX_SETS);
 		PlotSetup.IndexSetIsActive.resize(MAX_INDEX_SETS);
 		
-		//NOTE: It is probably the best to have Residuals mode as default. Can be easily
-		//overridden in the plot view.
-		PlotSetup.MajorMode = MajorMode_Residuals;
+		PlotSetup.MajorMode = MajorMode_Regular;//MajorMode_Residuals;
 		PlotSetup.AggregationPeriod = Aggregation_None;
 		PlotSetup.ScatterInputs = true;
 		

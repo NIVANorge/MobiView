@@ -42,6 +42,7 @@ void EditStatSettingsWindow::LoadData()
 	PercentilesEdit.SetText(QuantileString);
 	
 	PrecisionEdit.SetData(Stat.Precision);
+	EckhardtEdit.SetData(Stat.EckhardtFilterParam);
 }
 
 void EditStatSettingsWindow::SaveDataAndClose()
@@ -62,6 +63,7 @@ void EditStatSettingsWindow::SaveDataAndClose()
 	bool Success = ParseDoubleList(PercStr, Percentiles);
 	
 	Stat.Precision = PrecisionEdit.GetData();
+	Stat.EckhardtFilterParam = EckhardtEdit.GetData();
 	
 	if(Success && Percentiles.size() >= 1)
 	{

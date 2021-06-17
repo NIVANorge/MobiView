@@ -9,6 +9,8 @@ SET_SETTING(Median, "median", 0)
 SET_SETTING(Mean, "mean", 0)
 SET_SETTING(Variance, "variance", 0)
 SET_SETTING(StandardDev, "std.dev", 0)
+SET_SETTING(Flashiness, "flashiness", 0)
+SET_SETTING(EstBFI, "est.bfi", 0)
 
 SET_RES_SETTING(MeanError, "Mean error (bias)", -1)
 SET_RES_SETTING(MAE, "MAE", 0)

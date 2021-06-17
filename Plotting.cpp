@@ -309,14 +309,17 @@ void PlotCtrl::PlotModeChange()
 	}
 	
 	
-	if(MajorMode == MajorMode_Residuals || MajorMode == MajorMode_ResidualHistogram || MajorMode == MajorMode_QQ)
-	{
+	//if(MajorMode == MajorMode_Residuals || MajorMode == MajorMode_ResidualHistogram || MajorMode == MajorMode_QQ)
+	//{
 
-		Parent->PlotInfo.HSizePos().VSizePos(0, 25);
-		Parent->CalibrationIntervalStart.Show();
-		Parent->CalibrationIntervalEnd.Show();
-		Parent->CalibrationIntervalLabel.Show();
+		//Parent->PlotInfo.HSizePos().VSizePos(0, 25);
+		//Parent->CalibrationIntervalStart.Show();
+		//Parent->CalibrationIntervalEnd.Show();
+		//Parent->CalibrationIntervalLabel.Show();
 	
+	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
+	if(Timesteps != 0)
+	{
 		Time StartTime = Parent->CalibrationIntervalStart.GetData();
 		Time EndTime   = Parent->CalibrationIntervalStart.GetData();
 		
@@ -330,18 +333,11 @@ void PlotCtrl::PlotModeChange()
 		if(IsNull(EndTime))
 		{
 			EndTime = StartTime;
-			uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);//Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
+			//Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
 			if(Timesteps != 0)
 				AdvanceTimesteps(EndTime, Timesteps - 1, Parent->TimestepSize);
 			Parent->CalibrationIntervalEnd.SetData(EndTime);
 		}
-	}
-	else
-	{
-		Parent->PlotInfo.SizePos();
-		Parent->CalibrationIntervalStart.Hide();
-		Parent->CalibrationIntervalEnd.Hide();
-		Parent->CalibrationIntervalLabel.Hide();
 	}
 	
 
@@ -447,6 +443,45 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 
 	if(TimeseriesCount == 0) return;
 	
+	
+	
+	
+	
+	bool ResidualsAvailable = false;
+	bool GOFStatsDesired = (bool)Parent->GOFOnOption.GetData();
+	
+	Time GofStartTime;
+	Time GofEndTime;
+	int64 GofOffset;
+	int64 GofTimesteps;
+	String ModeledLegend;
+	String ObservedLegend;
+	String ModUnit, ObsUnit;
+	Parent->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+	double *ModeledSeries = nullptr;
+	double *ObservedSeries = nullptr;
+	residual_stats ResidualStats = {};
+	
+	if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ || GOFStatsDesired)
+	{
+		if(PlotSetup.SelectedResults.size() == 1 && PlotSetup.SelectedInputs.size() == 1 && !MultiIndex)
+		{
+			ResidualsAvailable = true;
+			
+			ModeledSeries = PlotData.Allocate(ResultTimesteps).data();
+			ObservedSeries = PlotData.Allocate(ResultTimesteps).data();
+			
+			// These will be called again later if we are not in residual mode, but that is not
+			// too bad.
+			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries);
+			Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries, true);
+			
+			ComputeResidualStats(ResidualStats, ObservedSeries+GofOffset, ModeledSeries+GofOffset, GofTimesteps);
+		}
+	}
+	
+	
+	
 	if(PlotMajorMode == MajorMode_Regular || PlotMajorMode == MajorMode_Stacked || PlotMajorMode == MajorMode_StackedShare)
 	{
 		double *InputXValues = PlotData.Allocate(InputTimesteps).data();
@@ -460,7 +495,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues, PlotMajorMode);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -476,12 +511,12 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, false, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, false, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues, PlotMajorMode);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
 		
-		StackedPlotFixup();
+		StackedPlotFixup(PlotMajorMode);
 	}
 	else if(PlotMajorMode == MajorMode_Histogram)
 	{
@@ -603,8 +638,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				
 				size_t DataLength = PlotData.Data[0].size();
 			
-			
-
 				//TODO: This should be based on the current position of the slider instead unless
 				//we reset the slider!
 				if(IsMainPlot)
@@ -681,8 +714,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					else
 						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data, ProfileIndexSet, Row);
 					
-					//NullifyNans(Data, Timesteps);
-					
 					for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
 					
 					++IdxIdx;
@@ -742,7 +773,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				String InputLegend;
 				String Unit;
 				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], InputLegend, Unit, Obs.data(), false);
-				//NullifyNans(Obs.data(), Obs.size());
 				
 				double *InputXValues = PlotData.Allocate(InputTimesteps).data();
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
@@ -793,58 +823,30 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	}
 	else if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
 	{
-		
-		if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1 || MultiIndex)
+		if(!ResidualsAvailable)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
 			this->SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
 		}
 		else
 		{
-			Time GofStartTime;
-			Time GofEndTime;
-			int64 GofOffset;
-			int64 GofTimesteps;
-			Parent->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
-			
 			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
-			std::vector<double> ModeledSeries(ResultTimesteps);
-			std::vector<double> ObservedSeries(ResultTimesteps);
-			String ModeledLegend;
-			String ObservedLegend;
-			
-			//These should be the same, but just in case..
-			String ModUnit;
-			String ObsUnit;
-			
-			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries.data());
-			Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries.data(), true);
 			
 			for(size_t Idx = 0; Idx < ResultTimesteps; ++Idx)
 			{
 				Residuals[Idx] = ObservedSeries[Idx] - ModeledSeries[Idx];
 			}
 			
+			
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
-			timeseries_stats ModeledStats = {};
-			ComputeTimeseriesStats(ModeledStats, ModeledSeries.data()+GofOffset, GofTimesteps, Parent->StatSettings);
-			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit, Parent->StatSettings, PlotInfo);
-			
 			timeseries_stats ObservedStats = {};
-			ComputeTimeseriesStats(ObservedStats, ObservedSeries.data()+GofOffset, GofTimesteps, Parent->StatSettings);
+			ComputeTimeseriesStats(ObservedStats, ObservedSeries+GofOffset, GofTimesteps, Parent->StatSettings);
 			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit, Parent->StatSettings, PlotInfo);
 			
-			residual_stats ResidualStats = {};
-			ComputeResidualStats(ResidualStats, ObservedSeries.data()+GofOffset, ModeledSeries.data()+GofOffset, GofTimesteps);
-			String GOF = "Goodness of fit: ";
-			
-			if(!CausedByReRun) CachedStats.WasInitialized = false;
-			
-			DisplayResidualStats(ResidualStats, CachedStats, GOF, Parent->StatSettings, PlotInfo);
-			
-			CachedStats = ResidualStats;
-			CachedStats.WasInitialized = true;
+			timeseries_stats ModeledStats = {};
+			ComputeTimeseriesStats(ModeledStats, ModeledSeries+GofOffset, GofTimesteps, Parent->StatSettings);
+			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit, Parent->StatSettings, PlotInfo);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
 			{
@@ -861,8 +863,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
 					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, InputStartTime, ResultStartTime, Parent->TimestepSize);
-					
-					//NullifyNans(Residuals.data(), Residuals.size());
 					
 					String TL = "Trend line";
 					AddTrendLine(TL, XYCovar, XVar, ResidualStats.MeanError, XMean, StartX, EndX);
@@ -896,6 +896,25 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		}
 	}
 	
+	if(GOFStatsDesired)
+	{
+		if(ResidualsAvailable)
+		{
+			String GOF = "Goodness of fit:";
+				
+			if(!CausedByReRun) CachedStats.WasInitialized = false;
+				
+			DisplayResidualStats(ResidualStats, CachedStats, GOF, Parent->StatSettings, PlotInfo);
+				
+			CachedStats = ResidualStats;
+			CachedStats.WasInitialized = true;
+		}
+		else
+		{
+			PlotInfo.Append("\nTo show goodness of fit, select a single result and input series.\n");
+		}
+	}
+	
 	FormatAxes(PlotMajorMode, NBinsHistogram, InputStartTime, Parent->TimestepSize);
 	
 	this->Refresh();
@@ -904,8 +923,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 
 void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize)
 {
-	//this->ZoomToFit();
-	//return;
 	
 	this->SetGridLinesX.Clear();
 	
@@ -1302,11 +1319,11 @@ void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, doubl
 }
 
 
-ScatterDraw &MyPlot::MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col)
+ScatterDraw &MyPlot::MyAddSeries(double *XValues, double *YValues, size_t Len, bool IsInput, const Color Col, plot_major_mode MajorMode)
 {
 	//TODO: We should make this work for input series too, but that would require serious
 	//refactoring.
-	if(IsInput || (this->PlotSetup.MajorMode != MajorMode_Stacked && this->PlotSetup.MajorMode != MajorMode_StackedShare))
+	if(IsInput || (MajorMode != MajorMode_Stacked && MajorMode != MajorMode_StackedShare))
 		return this->AddSeries(XValues, YValues, Len);
 	
 	if(!this->CachedStackY.empty() && this->CachedStackLen != Len)
@@ -1321,7 +1338,7 @@ ScatterDraw &MyPlot::MyAddSeries(double *XValues, double *YValues, size_t Len, b
 	return this->AddSeries(XValues, YValues, Len).Fill(Col);
 }
 
-void MyPlot::StackedPlotFixup()
+void MyPlot::StackedPlotFixup(plot_major_mode MajorMode)
 {
 	if(this->CachedStackY.empty()) return;
 	
@@ -1344,7 +1361,7 @@ void MyPlot::StackedPlotFixup()
 			Ys[Ts] = Sums[Ts];
 		}
 	}
-	if(PlotSetup.MajorMode == MajorMode_StackedShare)
+	if(MajorMode == MajorMode_StackedShare)
 	{
 		for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx) 
 		{
@@ -1360,7 +1377,7 @@ void MyPlot::StackedPlotFixup()
 }
 
 
-Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY, Color OverrideColor)
+Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY, double MaxY, Color OverrideColor, plot_major_mode MajorMode)
 {
 	aggregation_period IntervalType  = PlotSetup.AggregationPeriod;
 	aggregation_type AggregationType = PlotSetup.AggregationType;
@@ -1393,7 +1410,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 				Data[Idx] = std::log10(Data[Idx]);
 			}
 		}
-		Graph = &this->MyAddSeries(XIn, Data, Len, IsInput, GraphColor);
+		Graph = &this->MyAddSeries(XIn, Data, Len, IsInput, GraphColor, MajorMode);
 	}
 	else //Weekly, monthly values or yearly values
 	{
@@ -1403,7 +1420,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 		
 		AggregateData(ReferenceTime, StartTime, Len, Data, IntervalType, AggregationType, TimestepSize, XValues, YValues);
 		
-		Graph = &this->MyAddSeries(XValues.data(), YValues.data(), XValues.size(), IsInput, GraphColor);
+		Graph = &this->MyAddSeries(XValues.data(), YValues.data(), XValues.size(), IsInput, GraphColor, MajorMode);
 	}
 	
 	if(Graph) //NOTE: Graph should never be nullptr, but in case we have a bug, let's not crash.
@@ -1429,7 +1446,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 
 void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
 	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps,
-	Time &ReferenceDate, Time &StartDate, double *XIn)
+	Time &ReferenceDate, Time &StartDate, double *XIn, plot_major_mode MajorMode)
 {
 	//TODO: We would ideally decouple this from having a MobiView * pointer, but there is so
 	//much that depends on that right now.
@@ -1484,11 +1501,9 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		timeseries_stats Stats = {};
 		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings);
 		
-		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max);
+		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max, Null, MajorMode);
 		
 		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo, Col);
-		
-		//NullifyNans(Dat, Len);
 	}
 	else
 	{
@@ -1498,7 +1513,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		for(const std::string &IndexName : PlotSetup.SelectedIndexes[Id])
 		{
 			CurrentIndexes[Level] = IndexName;
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, Level + 1, IsInput, Timesteps, ReferenceDate, StartDate, XIn);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, Level + 1, IsInput, Timesteps, ReferenceDate, StartDate, XIn, MajorMode);
 		}
 	}
 }

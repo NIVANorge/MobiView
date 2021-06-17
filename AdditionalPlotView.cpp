@@ -46,11 +46,10 @@ AdditionalPlotView::AdditionalPlotView()
 		//Plots[Row].PlotInfo.SetColor(TextCtrl::PAPER_READONLY, Plots[Row].PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
 	}
 	
-	//TODO: The ones that are commented out are buggy since they ignore the override mode for some sub-tasks. We should fix them!
 	OverrideList.Add(-100, "(none)");
 	OverrideList.Add((int)MajorMode_Regular, "Regular");
-	//OverrideList.Add((int)MajorMode_Stacked, "Stacked");
-	//OverrideList.Add((int)MajorMode_StackedShare, "Stacked share");
+	OverrideList.Add((int)MajorMode_Stacked, "Stacked");
+	OverrideList.Add((int)MajorMode_StackedShare, "Stacked share");
 	OverrideList.Add((int)MajorMode_Histogram, "Histogram");
 	OverrideList.Add((int)MajorMode_Profile, "Profile");
 	OverrideList.Add((int)MajorMode_Profile2D, "Profile 2D");
@@ -87,6 +86,15 @@ void AdditionalPlotView::NumRowsChanged(bool Rebuild)
 	if(Rebuild) BuildAll();  //TODO: Technically only have to rebuild any newly added ones
 }
 
+bool IsLinkable(plot_major_mode MajorMode)
+{
+	//TODO: It is not that clean to have this info here since it needs to update when we add
+	//modes.
+	return (MajorMode==MajorMode_Regular || MajorMode==MajorMode_Stacked 
+		|| MajorMode==MajorMode_StackedShare || MajorMode==MajorMode_Profile2D 
+		|| MajorMode==MajorMode_CompareBaseline || MajorMode==MajorMode_Residuals);
+}
+
 void AdditionalPlotView::UpdateLinkStatus()
 {
 	for(int Row = 0; Row < MAX_ADDITIONAL_PLOTS; ++Row)
@@ -97,7 +105,11 @@ void AdditionalPlotView::UpdateLinkStatus()
 		int FirstLinkable = -1;
 		for(int Row = 0; Row < MAX_ADDITIONAL_PLOTS; ++Row)
 		{
-			if(Plots[Row].Plot.GetMouseHandlingX())
+			plot_major_mode MajorMode = Plots[Row].Plot.PlotSetup.MajorMode;
+			if((int)OverrideList.GetData() >= 0)
+				MajorMode = (plot_major_mode)(int)OverrideList.GetData();
+			
+			if(IsLinkable(MajorMode))
 			{
 				if(FirstLinkable >= 0)
 				{

@@ -98,20 +98,44 @@ void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, St
 void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, StatisticsSettings &StatSettings)
 {
 	double Sum = 0.0;
+	double SumAbsDiff = 0.0;
 	size_t FiniteCount = 0;
+	
+	double a = StatSettings.EckhardtFilterParam;
 	
 	std::vector<double> SortedData(Len);
 	
+	double PrevVal = Null;
+	double PrevBF = 0.0;
+	double SumBF  = 0.0;
+	
+	//double bfimax = 0.8;
+	
 	for(size_t Idx = 0; Idx < Len; ++Idx)
 	{
+		double BF = 0.0;
 		double Val = Data[Idx];
 		if(std::isfinite(Val) && !IsNull(Val))
 		{
 			SortedData[FiniteCount] = Val;
 			Sum += Val;
 			
+			if(std::isfinite(PrevVal)&&!IsNull(PrevVal))
+			{
+				SumAbsDiff += std::abs(Val - PrevVal);
+			
+				BF = std::min(Val, a*PrevBF + 0.5*(1.0-a)*(PrevVal + Val));
+				//NOTE: These don't seem to work...
+				//BF = (1.0/(2.0-a))*(PrevBF + (1.0-a)*Val);
+				//BF = ((1.0-bfimax)*a*PrevBF + (1.0-a)*bfimax*Val)/(1.0-a*bfimax);
+				
+				SumBF += BF;
+			}
+			
 			++FiniteCount;
 		}
+		PrevVal = Val;
+		PrevBF  = BF;
 	}
 	
 	//TODO: Guard against FiniteCount==0
@@ -176,6 +200,10 @@ void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len
 	
 	StatsOut.Variance = Variance;
 	StatsOut.StandardDev = std::sqrt(Variance);
+	
+	StatsOut.Flashiness = SumAbsDiff / Sum;
+	StatsOut.EstBFI = SumBF / Sum;
+	
 	StatsOut.DataPoints = FiniteCount;
 }
 

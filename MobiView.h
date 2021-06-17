@@ -373,6 +373,7 @@ public:
 	EditTime   CalibrationIntervalStart;
 	EditTime   CalibrationIntervalEnd;
 	Label      CalibrationIntervalLabel;
+	Option     GOFOnOption;
 	
 	MyRichView PlotInfo;
 	MyRichView LogBox;
