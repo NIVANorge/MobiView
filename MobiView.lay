@@ -111,7 +111,7 @@ LAYOUT(EditStatSettingsLayout, 268, 316)
 	ITEM(Upp::Button, ResetDefaultButton, SetLabel(t_("Reset default percentiles")).LeftPosZ(4, 136).TopPosZ(284, 28))
 	ITEM(Upp::EditIntSpin, PrecisionEdit, Min(0).Max(12).NotNull(true).SetFrame(ThinInsetFrame()).LeftPosZ(136, 64).TopPosZ(188, 19))
 	ITEM(Upp::Label, Lab4, SetLabel(t_("Decimal precision:")).LeftPosZ(4, 92).TopPosZ(188, 19))
-	ITEM(Upp::Label, BFIParamLabel, SetLabel(t_("Eckhardt filter param (bfi):")).LeftPosZ(4, 132).TopPosZ(208, 19))
+	ITEM(Upp::Label, BFIParamLabel, SetLabel(t_("BFI filter param:")).LeftPosZ(4, 132).TopPosZ(208, 19))
 	ITEM(Upp::EditDouble, EckhardtEdit, NotNull(true).LeftPosZ(136, 64).TopPosZ(208, 19))
 END_LAYOUT
 
