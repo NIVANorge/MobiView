@@ -63,7 +63,7 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	PlotInfo.ScrollEnd();
 }
 
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo)
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange)
 {
 	int Precision = StatSettings.Precision;
 	
@@ -76,7 +76,7 @@ void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, St
 	Display = Format("[* %s]", Display);
 	
 	#define SET_RES_SETTING(Handle, Name, Type) \
-		if(StatSettings.Display##Handle) DisplayStat(Name, Type, CachedStats.Handle, Stats.Handle, CachedStats.WasInitialized, Display, TrackedFirst, Precision);
+		if(StatSettings.Display##Handle) DisplayStat(Name, Type, CachedStats.Handle, Stats.Handle, DisplayChange, Display, TrackedFirst, Precision);
 	#define SET_SETTING(Handle, Name, Type)
 	
 	bool TrackedFirst = true;

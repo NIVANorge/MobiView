@@ -97,6 +97,7 @@ void MobiView::SubBar(Bar &bar)
 	bar.Separator();
 	//bar.Gap(60);
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
+	bar.Add(IconImg::RevertBaseline(), THISBACK(RevertBaseline)).Tip("Revert to baseline");
 	bar.Add(IconImg::Perturb(), THISBACK(OpenSensitivityView)).Tip("Sensitivity perturbation");
 	bar.Add(IconImg::Optimize(), THISBACK(OpenOptimizationView)).Tip("Optimization setup");
 	bar.Separator();
@@ -406,6 +407,7 @@ void MobiView::PlotRebuild()
 	{
 		OtherPlots.BuildAll(true);
 	}
+	BaselineWasJustSaved = false;
 }
 
 
@@ -1020,7 +1022,7 @@ void MobiView::RunModel()
 
 void MobiView::SaveBaseline()
 {
-	if(ModelDll.IsLoaded() && DataSet && ModelDll.GetTimesteps && ModelDll.GetTimesteps(DataSet) != 0)
+	if(ModelDll.IsLoaded() && DataSet && ModelDll.GetTimesteps(DataSet) != 0)
 	{
 		//TODO: Ask if we really want to overwrite existing baseline?
 		if(BaselineDataSet)
@@ -1029,15 +1031,34 @@ void MobiView::SaveBaseline()
 		}
 		
 		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
-		Plotter.PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
+		//Plotter.PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
 		
 		Log("Baseline saved");
+		
+		BaselineWasJustSaved = true;
 		
 		PlotRebuild(); //In case we had selected baseline already, and now the baseline changed.
 	}
 	else
 	{
 		Log("You can only save a baseline after the model has been run once", true);
+	}
+}
+
+void MobiView::RevertBaseline()
+{
+	if(ModelDll.IsLoaded() && DataSet && BaselineDataSet)
+	{
+		ModelDll.CopyData(BaselineDataSet, DataSet, true, false, true); //NOTE: Copy parameter and result data. Input data is assumed to be unchanged.
+		
+		Log("Reverted to previously saved baseline");
+		
+		PlotRebuild();
+		RefreshParameterView(true);
+	}
+	else
+	{
+		Log("You can only revert to a baseline if you have one saved", true);
 	}
 }
 

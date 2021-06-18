@@ -192,7 +192,7 @@ void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, d
 
 
 void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo);
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange);
 
 class PlotCtrl;
 

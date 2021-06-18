@@ -401,6 +401,9 @@ public:
 	void SaveParametersAs();
 	void RunModel();
 	void SaveBaseline();
+	void RevertBaseline();
+	bool BaselineWasJustSaved = false;
+	
 	void StoreSettings(bool OverwriteFavorites = true);
 	
 	void CleanInterface();

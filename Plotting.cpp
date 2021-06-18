@@ -901,18 +901,22 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		if(ResidualsAvailable)
 		{
 			String GOF = "Goodness of fit:";
+			if(PlotMajorMode == MajorMode_CompareBaseline)
+				GOF = "Goodness of fit (changes rel. to baseline):";
+		
+			bool DisplayChange = CausedByReRun && CachedStats.WasInitialized;  //Whether or not to show difference between current and cached GOF stats.
 				
-			if(!CausedByReRun) CachedStats.WasInitialized = false;
-				
-			DisplayResidualStats(ResidualStats, CachedStats, GOF, Parent->StatSettings, PlotInfo);
-				
-			CachedStats = ResidualStats;
-			CachedStats.WasInitialized = true;
+			DisplayResidualStats(ResidualStats, CachedStats, GOF, Parent->StatSettings, PlotInfo, DisplayChange);
+			
+			//NOTE: If in baseline mode, only cache the stats of the baseline.
+			if(PlotMajorMode != MajorMode_CompareBaseline || Parent->BaselineWasJustSaved)
+			{
+				CachedStats = ResidualStats;
+				CachedStats.WasInitialized = true;
+			}
 		}
 		else
-		{
 			PlotInfo.Append("\nTo show goodness of fit, select a single result and input series.\n");
-		}
 	}
 	
 	FormatAxes(PlotMajorMode, NBinsHistogram, InputStartTime, Parent->TimestepSize);

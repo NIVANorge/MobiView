@@ -87,6 +87,7 @@ typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *I
 typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
 typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64 BufLen);
 typedef timestep_size (__cdecl *GetTimestepSize_t)(void *DataSetPtr);
+typedef void   (__cdecl *CopyData_t)(void *SourceDataSetPtr, void *TargetDataSetPtr, bool CopyParams, bool CopyInputs, bool CopyResults);
 
 
 struct model_dll_interface
@@ -156,6 +157,7 @@ struct model_dll_interface
 	GetBranchInputs_t    GetBranchInputs;
 	PrintResultStructure_t PrintResultStructure;
 	GetTimestepSize_t    GetTimestepSize;
+	CopyData_t           CopyData;
 	
 #ifdef PLATFORM_WIN32
 	HINSTANCE hinstModelDll;

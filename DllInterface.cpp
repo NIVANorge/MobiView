@@ -107,6 +107,7 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(GetBranchInputs);
 	LoadProcedure(PrintResultStructure);
 	LoadProcedure(GetTimestepSize);
+	LoadProcedure(CopyData);
 	
 	return true;
 }

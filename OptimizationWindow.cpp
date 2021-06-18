@@ -608,6 +608,11 @@ struct optimization_model
 		
 		double Value = EvaluateObjectives(DataSetCopy);
 		
+		
+		// TODO: The following is about updating the UI during optimization
+		// It is not thread safe, so should be turned off if we
+		// eventually are able to run it multi-threaded:
+		
 		++NumEvals;
 		
 		if(IsMaximizing)
@@ -617,21 +622,14 @@ struct optimization_model
 		
 		AdditionalPlotView *View = &ParentWindow->OtherPlots;
 		if(ProgressLabel && View->IsOpen() && BestScore==Value)
-		{
-			SetParameters(ParentWindow, ParentWindow->DataSet, Parameters, Par, ExprCount, *Syms, *Exprs);
-		}
+			ParentWindow->ModelDll.CopyData(DataSetCopy, ParentWindow->DataSet, true, false, true); //Copy over parameter and result data.
 		
 		if(ProgressLabel && (NumEvals%UpdateStep==0))
 		{
-			//TODO: The following is not thread safe probably, so should be scrapped if we
-			//eventually are able to run it multi-threaded:
 			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
 			
 			if(View->IsOpen())
-			{
-				ParentWindow->ModelDll.RunModel(ParentWindow->DataSet); //TODO: It is annoying to have to rerun it here. We should be able to just copy the results from the other dataset
 				View->BuildAll(true);
-			}
 			
 			ParentWindow->ProcessEvents();
 		}
