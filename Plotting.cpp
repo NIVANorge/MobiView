@@ -523,7 +523,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		if(TimeseriesCount > 1 || MultiIndex)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			this->SetTitle(String("In histogram mode you can only have one timeseries selected, for one index combination"));
+			this->SetTitle("In histogram mode you can only have one timeseries selected, for one index combination");
 		}
 		else
 		{
@@ -531,7 +531,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String Legend;
 			String Unit;
 		
-			//Time StartTime = ResultStartTime;
 			if(PlotSetup.SelectedResults.size() == 1)
 			{
 				Data.resize(ResultTimesteps);
@@ -542,7 +541,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			{
 				Data.resize(InputTimesteps);
 				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Legend, Unit, Data.data(), false);
-				//StartTime = InputStartTime;
 			}
 			
 			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
@@ -571,7 +569,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		if(TimeseriesCount != 1 || NumberOfIndexSetsWithMultipleIndexesSelected != 1)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			this->SetTitle(String("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected"));
+			this->SetTitle("In profile mode you can only have one timeseries selected, and exactly one index set must have multiple indexes selected");
 		}
 		else
 		{
@@ -594,7 +592,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			aggregation_type AggregationType = PlotSetup.AggregationType;
 			
 			ProfileIndexesCount = IndexCount;
-			//std::assert(IndexCount == PlotData.Data.size());
 			
 			if(Mode == 0)
 			{
@@ -750,13 +747,9 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		//TODO: Limit to one selected result series. Maybe also allow plotting a observation
 		//comparison.
 		if(PlotSetup.SelectedResults.size() > 1 || MultiIndex)
-		{
-			this->SetTitle(String("In baseline comparison mode you can only have one result series selected, for one index combination"));
-		}
+			this->SetTitle("In baseline comparison mode you can only have one result series selected, for one index combination");
 		else if(!Parent->BaselineDataSet)
-		{
-			this->SetTitle(String("The baseline comparison can only be displayed if the baseline has been saved (using a button in the toolbar)"));
-		}
+			this->SetTitle("The baseline comparison can only be displayed if the baseline has been saved (using a button in the toolbar)");
 		else
 		{
 			uint64 BaselineTimesteps = Parent->ModelDll.GetTimesteps(Parent->BaselineDataSet);
@@ -826,17 +819,14 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 		if(!ResidualsAvailable)
 		{
 			//TODO: Setting the title is a lousy way to provide an error message....
-			this->SetTitle(String("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only"));
+			this->SetTitle("In residual mode you must select exactly 1 result series and 1 input series, for one index combination only");
 		}
 		else
 		{
 			std::vector<double> &Residuals = PlotData.Allocate(ResultTimesteps);
 			
 			for(size_t Idx = 0; Idx < ResultTimesteps; ++Idx)
-			{
 				Residuals[Idx] = ObservedSeries[Idx] - ModeledSeries[Idx];
-			}
-			
 			
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
@@ -2307,7 +2297,7 @@ void MobiView::SaveToCsv()
 	
 	if(!File.is_open())
 	{
-		Log(String("Unable to open file") + FileName);
+		Log(Format("Unable to open file %s", FileName.data()));
 		return;
 	}
 	
@@ -2345,7 +2335,7 @@ void MobiView::SaveToCsv()
 	
 	File.close();
 	
-	Log(String("Results exported to " + FileName));
+	Log(Format("Results exported to %s", FileName.data()));
 }
 
 

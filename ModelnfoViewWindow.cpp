@@ -15,6 +15,16 @@ ModelInfoViewWindow::ModelInfoViewWindow()
 	Sizeable().Zoomable();
 }
 
+bool StartsWith(const char *String, const char *Substring)
+{
+	if(!String || !Substring) return false;
+	int Sublen = strlen(Substring);
+	if(strlen(String) < Sublen) return false;
+	for(int Idx = 0; Idx < Sublen; ++Idx)
+		if(String[Idx] != Substring[Idx]) return false;
+	return true;
+}
+
 void ModelInfoViewWindow::RefreshText()
 {
 	InfoBox.Clear();
@@ -34,11 +44,11 @@ void ModelInfoViewWindow::RefreshText()
 	String Buf;
 	
 	const char *ModelName = ParentWindow->ModelDll.GetModelName(ParentWindow->DataSet);
-	if(ModelName && strlen(ModelName) >= 4 && ModelName[0]=='I' && ModelName[1]=='N' && ModelName[2]=='C' && ModelName[3]=='A')
+	if(StartsWith(ModelName, "INCA"))
 		Buf << "@@iml:1512*768`LogoImg:INCALogo`&&";
-	else if(ModelName && strlen(ModelName) >= 6 && ModelName[0]=='S' && ModelName[1]=='i' && ModelName[2]=='m' && ModelName[3]=='p' && ModelName[4]=='l' && ModelName[5]=='y')
+	else if(StartsWith(ModelName, "Simply"))
 		Buf << "@@iml:2236*982`LogoImg:SimplyLogo`&&";
-	else if(ModelName && strlen(ModelName) >= 5 && ModelName[0]=='M' && ModelName[1]=='A' && ModelName[2]=='G' && ModelName[3]=='I' && ModelName[4]=='C')
+	else if(StartsWith(ModelName, "MAGIC"))
 		Buf << "@@iml:2476*1328`LogoImg:MAGICLogo`&&";
 	
 	Buf << "[3 The model [* " << ModelName << "] contains the following modules:\n";

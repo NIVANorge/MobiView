@@ -611,7 +611,7 @@ struct optimization_model
 		
 		// TODO: The following is about updating the UI during optimization
 		// It is not thread safe, so should be turned off if we
-		// eventually are able to run it multi-threaded:
+		// eventually are able to run the optimizer multi-threaded:
 		
 		++NumEvals;
 		
@@ -680,7 +680,7 @@ void OptimizationWindow::RunClicked()
 		#undef SET_RES_SETTING
 		
 		//NOTE: We could allow people to set negative weights in order to mix different types
-		//of target, but I don't see a good use case for it.
+		//of target, but I don't see a good use case for it currently.
 		
 		if(Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
 		{

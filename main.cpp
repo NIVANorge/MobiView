@@ -110,7 +110,6 @@ MobiView::MobiView() : Plotter(this)
 {
 	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
-	//PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
 	PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
 	CalibrationIntervalLabel.SetText("GOF interval:");
 	GOFOnOption.SetLabel("Show GOF");
@@ -155,10 +154,6 @@ MobiView::MobiView() : Plotter(this)
 	
 	LogBox.SetEditable(false);
 	PlotInfo.SetEditable(false);
-	
-	//LogBox.SetColor(TextCtrl::PAPER_READONLY, LogBox.GetColor(TextCtrl::PAPER_NORMAL));
-	//PlotInfo.SetColor(TextCtrl::PAPER_READONLY, PlotInfo.GetColor(TextCtrl::PAPER_NORMAL));
-	
 	
 	
 	ParameterGroupSelecter.SetRoot(Null, String("Parameter groups"));
@@ -278,10 +273,6 @@ MobiView::MobiView() : Plotter(this)
 	
 	ShowFavorites.WhenAction = THISBACK(UpdateEquationSelecter);
 	
-	//CalibrationIntervalStart.Hide();
-	//CalibrationIntervalEnd.Hide();
-	//CalibrationIntervalLabel.Hide();
-	
 	CalibrationIntervalStart.WhenAction = THISBACK(PlotRebuild);
 	CalibrationIntervalEnd.WhenAction   = THISBACK(PlotRebuild);
 	GOFOnOption.WhenAction              = THISBACK(PlotRebuild);
@@ -302,32 +293,24 @@ MobiView::MobiView() : Plotter(this)
 	
 	Value WindowDim = SettingsJson["Window dimensions"];
 	if(WindowDim.GetCount() == 2 && (int)WindowDim[0] > 0 && (int)WindowDim[1] > 0)
-	{
 		SetRect(0, 0, (int)WindowDim[0], (int)WindowDim[1]);
-	}
 	
 	Value MainVertPos = SettingsJson["Main vertical splitter"];
 	if((int)MainVertPos > 0)
-	{
 		MainVertical.SetPos((int)MainVertPos, 0);
-	}
 	
 	Value UpperHorzPos = SettingsJson["Upper horizontal splitter"];
 	if(UpperHorzPos.GetCount() == UpperHorizontal.GetCount())
 	{
 		for(int Idx = 0; Idx < UpperHorzPos.GetCount(); ++Idx)
-		{
 			UpperHorizontal.SetPos((int)UpperHorzPos[Idx], Idx);
-		}
 	}
 	
 	Value LowerHorzPos = SettingsJson["Lower horizontal splitter"];
 	if(LowerHorzPos.GetCount() == LowerHorizontal.GetCount())
 	{
 		for(int Idx = 0; Idx < LowerHorzPos.GetCount(); ++Idx)
-		{
 			LowerHorizontal.SetPos((int)LowerHorzPos[Idx], Idx);
-		}
 	}
 	
 	if((bool)SettingsJson["Maximize"]) Maximize();
@@ -360,22 +343,18 @@ MobiView::MobiView() : Plotter(this)
 	
 	Value PrecisionJson = StatsJson["Precision"];
 	if(!IsNull(PrecisionJson))
-	{
 		StatSettings.Precision = (int)PrecisionJson;
-	}
-	
+	Value BFIJson = StatsJson["BFIParam"];
+	if(!IsNull(BFIJson))
+		StatSettings.EckhardtFilterParam = (double)BFIJson;
 
 	Value IdxEditWindowDim = SettingsJson["Index set editor window dimensions"];
 	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
-	{
 		ChangeIndexes.SetRect(0, 0, (int)IdxEditWindowDim[0], (int)IdxEditWindowDim[1]);
-	}
 	
 	Value AdditionalPlotViewDim = SettingsJson["Additional plot view dimensions"];
 	if(AdditionalPlotViewDim.GetCount() == 2 && (int)AdditionalPlotViewDim[0] > 0 && (int)AdditionalPlotViewDim[1] > 0)
-	{
 		OtherPlots.SetRect(0, 0, (int)AdditionalPlotViewDim[0], (int)AdditionalPlotViewDim[1]);
-	}
 	
 	
 	// NOTE: Just to make it initially set the message that no model is loaded
@@ -404,9 +383,7 @@ void MobiView::PlotRebuild()
 {
 	Plotter.RePlot(true);
 	if(OtherPlots.IsOpen())
-	{
 		OtherPlots.BuildAll(true);
-	}
 	BaselineWasJustSaved = false;
 }
 
@@ -420,9 +397,7 @@ void MobiView::OpenSearch()
 	}
 	
 	if(!Search.IsOpen())
-	{
 		Search.Open();
-	}
 }
 
 void MobiView::OpenStatSettings()
@@ -492,9 +467,7 @@ void MobiView::OpenSensitivityView()
 	}
 	
 	if(!SensitivityWindow.IsOpen())
-	{
 		SensitivityWindow.Open();
-	}
 }
 
 void MobiView::OpenOptimizationView()
@@ -506,9 +479,7 @@ void MobiView::OpenOptimizationView()
 	}
 	
 	if(!OptimizationWin.IsOpen())
-	{
 		OptimizationWin.Open();
-	}
 }
 
 
@@ -523,9 +494,7 @@ void MobiView::UpdateEquationSelecter()
 	{
 		Ctrl *Star =  EquationSelecter.GetCtrl(Row, 1);
 		if(!ShowFavOnly || (Star && Star->GetData()))
-		{
 			EquationSelecter.ShowLine(Row, true);
-		}
 		else
 		{
 			EquationSelecter.HideLine(Row);
@@ -559,9 +528,7 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 	for(const auto &K : Eq.GetKeys())
 	{
 		if(K != DllFileName || !OverwriteFavorites || !ModelDll.IsLoaded())
-		{
 			Favorites(K.ToString(), Eq[K]);
-		}
 	}
 	
 	if(OverwriteFavorites && ModelDll.IsLoaded()) // If the dll file is not actually loaded, the favorites are not stored in the EquationSelecter, just keep what was there originally instead
@@ -570,9 +537,7 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 		for(int Row = 0; Row < EquationSelecter.GetCount(); ++Row)
 		{
 			if(EquationSelecter.Get(Row, 1)) //I.e. if it was favorited
-			{
 				FavForCurrent << EquationSelecter.Get(Row, 0);
-			}
 		}
 		Favorites(DllFileName, FavForCurrent);
 	}
@@ -587,16 +552,12 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 	
 	JsonArray UpperHorzPos;
 	for(int Idx = 0; Idx < UpperHorizontal.GetCount(); ++Idx)
-	{
 		UpperHorzPos << UpperHorizontal.GetPos(Idx);
-	}
 	SettingsJson("Upper horizontal splitter", UpperHorzPos);
 	
 	JsonArray LowerHorzPos;
 	for(int Idx = 0; Idx < LowerHorizontal.GetCount(); ++Idx)
-	{
 		LowerHorzPos << LowerHorizontal.GetPos(Idx);
-	}
 	SettingsJson("Lower horizontal splitter", LowerHorzPos);
 	
 	SettingsJson("Maximize", IsMaximized());
@@ -626,6 +587,7 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 	Statistics("Percentiles", Percentiles);
 	
 	Statistics("Precision", StatSettings.Precision);
+	Statistics("BFIParam", StatSettings.EckhardtFilterParam);
 	
 	SettingsJson("Statistics", Statistics);
 	
@@ -778,13 +740,10 @@ void MobiView::BuildInterface()
 	
 	ParameterGroupSelecter.Set(0, ModelDll.GetModelName(DataSet));
 
-	
 	uint64 TopGroupCount = ModelDll.GetAllParameterGroupsCount(DataSet, nullptr);
 	std::vector<char *> TopGroupNames(TopGroupCount);
 	ModelDll.GetAllParameterGroups(DataSet, TopGroupNames.data(), nullptr);
 	if (CheckDllUserError()) return;
-	
-	
 	
 	for(int Idx = 0; Idx < TopGroupCount; ++Idx)
 		ParameterGroupSelecter.Add(0, Null, TopGroupNames[Idx], false);
@@ -802,9 +761,7 @@ void MobiView::BuildInterface()
 			int ModuleTreeId = ParameterGroupSelecter.Add(0, Null, Format("%s (V%s)", ModuleNames[Idx], ModuleVersions[Idx]), true);
 			
 			for(int GroupIdx = 0; GroupIdx < GroupCount; ++GroupIdx)
-			{
 				ParameterGroupSelecter.Add(ModuleTreeId, Null, GroupNames[GroupIdx], false);
-			}
 		}
 	}
 
@@ -814,7 +771,7 @@ void MobiView::BuildInterface()
 	
 	if(IndexSetCount > MAX_INDEX_SETS)
 	{
-		PromptOK(String("MobiView does not currently support models with more than ") + MAX_INDEX_SETS + " index sets. The model you tried to load has " + IndexSetCount + ".");
+		PromptOK(Format("MobiView does not currently support models with more than %d index sets. The model you tried to load has %d index sets.", MAX_INDEX_SETS, (int)IndexSetCount));
 		return;
 	}
 	
@@ -907,9 +864,8 @@ void MobiView::Load()
 	DllSel.Type("Model shared object files", "*.so");
 #endif
 	if(!PreviouslyLoadedModel.IsEmpty() && FileExists(PreviouslyLoadedModel))
-	{
 		DllSel.PreSelect(PreviouslyLoadedModel);
-	}
+	
 	DllSel.ExecuteOpen();
 	DllFile = DllSel.Get().ToStd();
 	
@@ -919,7 +875,7 @@ void MobiView::Load()
 	
 	if(!Success) return;
 	
-	Log(String("Loading model dll: ") + DllFile.data());
+	Log(Format("Loading model dll: %s", DllFile.data()));
 	
 	Success = ModelDll.Load(DllFile.data());
 	
@@ -933,13 +889,9 @@ void MobiView::Load()
 	FileSel InputSel;
 	InputSel.Type("Input dat files", "*.dat");
 	if(!ChangedDll && !PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
-	{
 		InputSel.PreSelect(PreviouslyLoadedInputFile);
-	}
 	else
-	{
 		InputSel.ActiveDir(GetFileFolder(DllFile.data()));
-	}
 	InputSel.ExecuteOpen();
 	InputFile = InputSel.Get().ToStd();
 	
@@ -955,7 +907,7 @@ void MobiView::Load()
 		return;
 	}
 	
-	Log(String("Selecting input file: ") + InputFile.data());
+	Log(Format("Selecting input file: %s", InputFile.data()));
 	
 	FileSel ParameterSel;
 	ParameterSel.Type("Parameter dat files", "*.dat");
@@ -976,7 +928,7 @@ void MobiView::Load()
 		return;
 	}
 	
-	Log(String("Selecting parameter file: ") + ParameterFile.data());
+	Log(Format("Selecting parameter file: %s", ParameterFile.data()));
 
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	
@@ -1017,7 +969,7 @@ void MobiView::RunModel()
 	RefreshParameterView(true); //NOTE: In case there are computed parameters that are displayed, we need to refresh their values in the view
 	
 	if(!Error)
-		Log(String("Model was run.\nDuration: ") << Ms << " ms.");
+		Log(Format("Model was run.\nDuration: %g ms.", Ms ));
 }
 
 void MobiView::SaveBaseline()
@@ -1026,12 +978,9 @@ void MobiView::SaveBaseline()
 	{
 		//TODO: Ask if we really want to overwrite existing baseline?
 		if(BaselineDataSet)
-		{
 			ModelDll.DeleteDataSet(BaselineDataSet);
-		}
 		
 		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
-		//Plotter.PlotMajorMode.EnableCase(MajorMode_CompareBaseline);
 		
 		Log("Baseline saved");
 		
@@ -1040,9 +989,7 @@ void MobiView::SaveBaseline()
 		PlotRebuild(); //In case we had selected baseline already, and now the baseline changed.
 	}
 	else
-	{
 		Log("You can only save a baseline after the model has been run once", true);
-	}
 }
 
 void MobiView::RevertBaseline()
@@ -1057,9 +1004,7 @@ void MobiView::RevertBaseline()
 		RefreshParameterView(true);
 	}
 	else
-	{
 		Log("You can only revert to a baseline if you have one saved", true);
-	}
 }
 
 

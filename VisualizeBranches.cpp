@@ -3,12 +3,8 @@
 
 VisualizeBranches::VisualizeBranches()
 {
-	//Sizeable().Zoomable().Title("Branch connectivity visualization");
-	
-	//SetRect(0, 0, 600, 600);
+
 }
-
-
 
 struct reach_node
 {
@@ -62,8 +58,6 @@ void RecursiveDrawReach(std::vector<reach_node> &Reaches, std::vector<int> &Spen
 
 	double FromX = Width  - RadiusX * (double)(Level + 2) * RX;
 	double FromY = Height - RadiusY * (double)(Level + 2) * RY;
-
-	//TODO: Draw name
 
 	// (special case if Reach.Level == 0. In that case compute ToX, ToY);
 	if(Level == 0)
@@ -220,9 +214,7 @@ void VisualizeBranches::Paint(Draw &W)
 			for(int Idx = 0; Idx < IndexCount; ++Idx)
 			{
 				if(Reaches[Idx].Level == 0)
-				{
 					RecursiveDrawReach(Reaches, SpentAtLevel, CountAtLevel, Idx, P, Width, Height, 0.0, 0.0);
-				}
 			}
 		}
 	}

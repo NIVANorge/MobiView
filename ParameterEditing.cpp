@@ -246,10 +246,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 	SecondExpandedSetLocal = -1;
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
-	{
 		if(IndexExpand[Idx]->Get()) ExpandedSet = Idx;
-	}
-	
 	
 	for(size_t Idx = 0; Idx < MAX_INDEX_SETS; ++Idx)
 	{
@@ -724,9 +721,7 @@ void MobiView::SaveParameters()
 	//TODO: Mechanism for determining if there has actually been edits that need to be saved?
 	ModelDll.WriteParametersToFile(DataSet, ParameterFile.data());
 	if(CheckDllUserError())
-	{
 		Log("Parameter saving may have been unsuccessful.");
-	}
 	else
 	{
 		Log(String("Parameters saved to ") + ParameterFile.data());
@@ -753,9 +748,7 @@ void MobiView::SaveParametersAs()
 	{
 		ModelDll.WriteParametersToFile(DataSet, NewFile.data());
 		if(CheckDllUserError())
-		{
 			Log("Parameter saving may have been unsuccessful.");
-		}
 		else
 		{
 			ParameterFile = NewFile;
