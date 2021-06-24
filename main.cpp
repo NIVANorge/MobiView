@@ -996,6 +996,14 @@ void MobiView::RevertBaseline()
 {
 	if(ModelDll.IsLoaded() && DataSet && BaselineDataSet)
 	{
+		int Cl = 1;
+		if(ParametersWereChangedSinceLastSave)
+			Cl = PromptYesNo("Parameters have been edited since the last save. If you revert to the baseline parameters now you will lose these changes. Do you still want to revert to the baseline?");
+		
+		if(!Cl) return;
+		
+		ParametersWereChangedSinceLastSave = true;   //NOTE: Correctness of this may be dubious in some cases.
+		
 		ModelDll.CopyData(BaselineDataSet, DataSet, true, false, true); //NOTE: Copy parameter and result data. Input data is assumed to be unchanged.
 		
 		Log("Reverted to previously saved baseline");
@@ -1014,11 +1022,10 @@ void MobiView::ClosingChecks()
 	if(ParametersWereChangedSinceLastSave)
 		Cl = PromptYesNo("Parameters have been edited since the last save. If you exit now you will loose any changes. Do you still want to exit MobiView?");
 	
-	if(Cl)
-	{
-		StoreSettings();
-		Close();
-	}
+	if(!Cl) return;
+	
+	StoreSettings();
+	Close();
 }
 
 

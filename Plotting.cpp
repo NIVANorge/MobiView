@@ -906,7 +906,10 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			}
 		}
 		else
+		{
 			PlotInfo.Append("\nTo show goodness of fit, select a single result and input series.\n");
+			PlotInfo.ScrollEnd();
+		}
 	}
 	
 	FormatAxes(PlotMajorMode, NBinsHistogram, InputStartTime, Parent->TimestepSize);
