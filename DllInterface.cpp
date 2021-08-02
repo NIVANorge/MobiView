@@ -36,12 +36,16 @@ bool model_dll_interface::Load(const char *DllName)
 
 	if(!hinstModelDll) return false;
 
-#define LoadProcedure(Name) \
+//#define LoadProcedure(Name) \
+//	Name = ( Name##_t )  LoadProc(hinstModelDll, "Dll"#Name ); \
+//	if(!Name) return false;
+	
+#define DLL_FUNCTION(RetType, Name, ...) \
 	Name = ( Name##_t )  LoadProc(hinstModelDll, "Dll"#Name ); \
 	if(!Name) return false;
-	
-	
-	
+#include "DllFunctions.h"
+#undef DLL_FUNCTION
+	/*
 	LoadProcedure(SetupModel);
 	LoadProcedure(SetupModelBlankIndexSets);
 	LoadProcedure(ReadInputs);
@@ -108,7 +112,7 @@ bool model_dll_interface::Load(const char *DllName)
 	LoadProcedure(PrintResultStructure);
 	LoadProcedure(GetTimestepSize);
 	LoadProcedure(CopyData);
-	
+	*/
 	return true;
 }
 

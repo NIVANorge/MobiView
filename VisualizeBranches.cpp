@@ -204,9 +204,7 @@ void VisualizeBranches::Paint(Draw &W)
 			std::vector<int> SpentAtLevel(MaxLevel+1);
 			
 			for(reach_node &Reach : Reaches)
-			{
 				CountAtLevel[Reach.Level]++;
-			}
 			
 			double Width = GetSize().cx;
 			double Height = GetSize().cy;

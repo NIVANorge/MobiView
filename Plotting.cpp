@@ -304,18 +304,7 @@ void PlotCtrl::PlotModeChange()
 		}
 	}
 	else
-	{
 		Aggregation.Disable();
-	}
-	
-	
-	//if(MajorMode == MajorMode_Residuals || MajorMode == MajorMode_ResidualHistogram || MajorMode == MajorMode_QQ)
-	//{
-
-		//Parent->PlotInfo.HSizePos().VSizePos(0, 25);
-		//Parent->CalibrationIntervalStart.Show();
-		//Parent->CalibrationIntervalEnd.Show();
-		//Parent->CalibrationIntervalLabel.Show();
 	
 	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	if(Timesteps != 0)
@@ -1112,9 +1101,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 		}
 		
 		if(this->GetShowLegend() && PlotMajorMode != MajorMode_Profile2D)
-		{
 			this->SetRange(this->GetXRange(), this->GetYRange() * 1.15);  //So that the legend does not obscure the plot (in most cases).
-		}
 		
 		if(PlotMajorMode != MajorMode_Profile2D)
 		{
@@ -1127,7 +1114,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 				};
 			}
 
-			SetBetterGridLinePositions(1);
+			if(PlotMajorMode != MajorMode_QQ) SetBetterGridLinePositions(1);
 		}
 
 		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
@@ -1403,9 +1390,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 		else if(YAxis == YAxis_Logarithmic)
 		{
 			for(size_t Idx = 0; Idx < Len; ++Idx)
-			{
 				Data[Idx] = std::log10(Data[Idx]);
-			}
 		}
 		Graph = &this->MyAddSeries(XIn, Data, Len, IsInput, GraphColor, MajorMode);
 	}
@@ -1433,9 +1418,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 			this->SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
 		}
 		else
-		{
 			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");//.Fill(GraphColor).Opacity(0.7).Stacked();
-		}
 	}
 	
 	return GraphColor;

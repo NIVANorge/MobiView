@@ -247,7 +247,7 @@ SensitivityViewWindow::Run()
 		double Val = ParValues[NStep];
 		
 		// Write the value into the DataSet
-		ParentWindow->ParameterEditAccepted(CurrentParameter, DataSetCopy, Val);
+		SetParameterValue(CurrentParameter, DataSetCopy, Val, ParentWindow->ModelDll);
 		
 		// Run the model
 		ParentWindow->ModelDll.RunModel(DataSetCopy);

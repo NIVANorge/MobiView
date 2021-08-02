@@ -9,6 +9,8 @@ file
 	SetStatSettings.h,
 	MyRichView.h,
 	main.cpp,
+	ParameterView.cpp,
+	ParameterEditing.h,
 	ParameterEditing.cpp,
 	Statistics.cpp,
 	VisualizeBranches.cpp,
@@ -21,6 +23,7 @@ file
 	SensitivityViewWindow.cpp,
 	AdditionalPlotView.cpp,
 	OptimizationWindow.cpp,
+	DllFunctions.h,
 	DllInterface.h,
 	DllInterface.cpp,
 	StarOption.h,
@@ -32,7 +35,9 @@ file
 	logos.iml,
 	images.iml,
 	dlib\global_optimization\global_function_search.cpp,
-	dlib\threads\thread_pool_extension.cpp;
+	dlib\threads\thread_pool_extension.cpp,
+	Emcee.h,
+	Emcee.cpp;
 
 mainconfig
 	"" = "GUI";

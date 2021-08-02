@@ -1,9 +1,16 @@
 #ifndef _MobiView_DllInterface_h_
 #define _MobiView_DllInterface_h_
 
-#include <CtrlLib/CtrlLib.h>
+#include <stdint.h>
+#include <string>
+#include <windows.h>
 
-using namespace Upp;
+//using namespace Upp;
+
+#if !defined PLATFORM_WIN32 && (defined(WIN32) || defined(_WIN32) || defined(__WIN32__) || defined(__NT__))
+	#define PLATFORM_WIN32 1
+#endif
+
 
 #ifndef PLATFORM_WIN32
 	#define __cdecl
@@ -12,86 +19,97 @@ using namespace Upp;
 struct timestep_size
 {
 	int Type;         //NOTE: This is an int because it is an enum in the dll code.
-	int32 Magnitude;
+	int32_t Magnitude;
 };
 
 struct dll_branch_index
 {
 	const char *IndexName;
-	uint64 BranchCount;
+	uint64_t BranchCount;
 	char **BranchNames;
 };
 
+
+#define DLL_FUNCTION(RetType, Name, ...) typedef RetType (__cdecl *Name##_t)(__VA_ARGS__);
+#include "DllFunctions.h"
+#undef DLL_FUNCTION
+
+/*
 typedef void * (__cdecl *SetupModel_t)(const char *Parfile, const char *Inputfile);
 typedef void * (__cdecl *SetupModelBlankIndexSets_t)(const char *Inputfile);
 typedef void   (__cdecl *ReadInputs_t)(void *DataSetPtr, const char *Inputfile);
-typedef void   (__cdecl *SetIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64 IndexCount, char **IndexNames);
-typedef void   (__cdecl *SetBranchIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64 IndexCount, dll_branch_index *Indexes);
+typedef void   (__cdecl *SetIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64_t IndexCount, char **IndexNames);
+typedef void   (__cdecl *SetBranchIndexes_t)(void *DataSetPtr, const char *IndexSetName, uint64_t IndexCount, dll_branch_index *Indexes);
 typedef const char * (__cdecl *GetModelName_t)(void *DataSetPtr);
 typedef void * (__cdecl *RunModel_t)(void *DataSetPtr);
 typedef void * (__cdecl *CopyDataSet_t)(void *DataSetPtr, bool CopyResults);
 typedef void * (__cdecl *DeleteDataSet_t)(void *DataSetPtr);
 typedef void * (__cdecl *DeleteModelAndDataSet_t)(void *DataSetPtr);
-typedef int    (__cdecl *EncounteredError_t)(char *Errmsgout, uint64 ErrBufLen);
-typedef int    (__cdecl *EncounteredWarning_t)(char *Warnmsgout, uint64 WarnBufLen);
-typedef uint64 (__cdecl *GetTimesteps_t)(void *DataSetPtr);
+typedef int    (__cdecl *EncounteredError_t)(char *Errmsgout, uint64_t ErrBufLen);
+typedef int    (__cdecl *EncounteredWarning_t)(char *Warnmsgout, uint64_t WarnBufLen);
+typedef uint64_t (__cdecl *GetTimesteps_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetStartDate_t)(void *DataSetPtr, char *DateOut);
-typedef uint64 (__cdecl *GetInputTimesteps_t)(void *DataSetPtr);
+typedef uint64_t (__cdecl *GetInputTimesteps_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetInputStartDate_t)(void *DataSetPtr, char *DateOut);
-typedef void   (__cdecl *GetResultSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double *WriteTo);
-typedef void   (__cdecl *GetInputSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double *WriteTo, bool AlignWithResults);
-typedef void   (__cdecl *SetParameterDouble_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, double Value);
-typedef void   (__cdecl *SetParameterUInt_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, uint64 Value);
-typedef void   (__cdecl *SetParameterBool_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, bool Value);
-typedef void   (__cdecl *SetParameterTime_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, const char *Value);
-typedef void   (__cdecl *SetParameterEnum_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, const char *Value);
-typedef double (__cdecl *GetParameterDouble_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef uint64 (__cdecl *GetParameterUInt_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef bool   (__cdecl *GetParameterBool_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef void   (__cdecl *GetParameterTime_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount, char *WriteTo);
-typedef const char * (__cdecl *GetParameterEnum_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef uint64 (__cdecl *GetEnumValuesCount_t)(void *DataSetPtr, const char *Name);
+typedef void   (__cdecl *GetResultSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double *WriteTo);
+typedef void   (__cdecl *GetInputSeries_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double *WriteTo, bool AlignWithResults);
+typedef void   (__cdecl *SetParameterDouble_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double Value);
+typedef void   (__cdecl *SetParameterUInt_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, uint64_t Value);
+typedef void   (__cdecl *SetParameterBool_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, bool Value);
+typedef void   (__cdecl *SetParameterTime_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, const char *Value);
+typedef void   (__cdecl *SetParameterEnum_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, const char *Value);
+typedef double (__cdecl *GetParameterDouble_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef uint64_t (__cdecl *GetParameterUInt_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef bool   (__cdecl *GetParameterBool_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef void   (__cdecl *GetParameterTime_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, char *WriteTo);
+typedef const char * (__cdecl *GetParameterEnum_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef uint64_t (__cdecl *GetEnumValuesCount_t)(void *DataSetPtr, const char *Name);
 typedef void   (__cdecl *GetEnumValues_t)(void *DataSetPtr, const char *Name, char **NamesOut);
 typedef void   (__cdecl *GetParameterDoubleMinMax_t)(void *DataSetPtr, const char *Name, double *MinOut, double *MaxOut);
-typedef void   (__cdecl *GetParameterUIntMinMax_t)(void *DataSetPtr, const char *Name, uint64 *MinOut, uint64 *MaxOut);
+typedef void   (__cdecl *GetParameterUIntMinMax_t)(void *DataSetPtr, const char *Name, uint64_t *MinOut, uint64_t *MaxOut);
 typedef const char * (__cdecl *GetParameterDescription_t)(void *DataSetPtr, const char *Name);
 typedef const char * (__cdecl *GetParameterUnit_t)(void *DataSetPtr, const char *Name);
 typedef const char * (__cdecl *GetResultUnit_t)(void *DataSetPtr, const char *Name);
 typedef const char * (__cdecl *GetInputUnit_t)(void *DataSetPtr, const char *Name);
 typedef void   (__cdecl *WriteParametersToFile_t)(void *DataSetPtr, const char *Filename);
-typedef uint64 (__cdecl *GetIndexSetsCount_t)(void *DataSetPtr);
+typedef uint64_t (__cdecl *GetIndexSetsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetIndexSets_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
-typedef uint64 (__cdecl *GetIndexCount_t)(void *DataSetPtr, const char *IndexSetName);
+typedef uint64_t (__cdecl *GetIndexCount_t)(void *DataSetPtr, const char *IndexSetName);
 typedef void   (__cdecl *GetIndexes_t)(void *DataSetPtr, const char *IndexSetName, char **NamesOut);
 typedef bool   (__cdecl *IsParameterGroupName_t)(void *DataSetPtr, const char *Name);
-typedef uint64 (__cdecl *GetParameterGroupIndexSetsCount_t)(void *DataSetPtr, const char *ParameterGroupName);
+typedef uint64_t (__cdecl *GetParameterGroupIndexSetsCount_t)(void *DataSetPtr, const char *ParameterGroupName);
 typedef void   (__cdecl *GetParameterGroupIndexSets_t)(void *DataSetPtr, const char *ParameterGroupName, char **NamesOut);
-typedef uint64 (__cdecl *GetResultIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
+typedef uint64_t (__cdecl *GetResultIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
 typedef void   (__cdecl *GetResultIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
-typedef uint64 (__cdecl *GetInputIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
+typedef uint64_t (__cdecl *GetInputIndexSetsCount_t)(void *DataSetPtr, const char *ResultName);
 typedef void   (__cdecl *GetInputIndexSets_t)(void *DataSetPtr, const char *ResultName, char **NamesOut);
-typedef uint64 (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const char *ModuleName);
+typedef uint64_t (__cdecl *GetAllParameterGroupsCount_t)(void *DataSetPtr, const char *ModuleName);
 typedef void   (__cdecl *GetAllParameterGroups_t)(void *DataSetPtr, char **NamesOut, const char *ModuleName);
-typedef uint64 (__cdecl *GetAllModulesCount_t)(void *DataSetPtr);
+typedef uint64_t (__cdecl *GetAllModulesCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllModules_t)(void *DataSetPtr, char **NamesOut, char **VersionsOut);
 typedef const char * (__cdecl *GetModuleDescription_t)(void *DataSetPtr, const char *ModuleName);
-typedef uint64 (__cdecl *GetAllParametersCount_t)(void *DataSetPtr, const char *GroupName);
+typedef uint64_t (__cdecl *GetAllParametersCount_t)(void *DataSetPtr, const char *GroupName);
 typedef void   (__cdecl *GetAllParameters_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *GroupName);
-typedef uint64 (__cdecl *GetAllResultsCount_t)(void *DataSetPtr, const char *ModuleName);
+typedef uint64_t (__cdecl *GetAllResultsCount_t)(void *DataSetPtr, const char *ModuleName);
 typedef void   (__cdecl *GetAllResults_t)(void *DataSetPtr, char **NamesOut, char **TypesOut, const char *ModuleName);
-typedef uint64 (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
+typedef uint64_t (__cdecl *GetAllInputsCount_t)(void *DataSetPtr);
 typedef void   (__cdecl *GetAllInputs_t)(void *DataSetPtr, char **NamesOut, char **TypesOut);
-typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef bool   (__cdecl *ResultWasComputed_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64 IndexCount);
-typedef uint64 (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
+typedef bool   (__cdecl *InputWasProvided_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef bool   (__cdecl *ResultWasComputed_t)(void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount);
+typedef uint64_t (__cdecl *GetBranchInputsCount_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName);
 typedef void   (__cdecl *GetBranchInputs_t)(void *DataSetPtr, const char *IndexSetName, const char *IndexName, char **BranchInputsOut);
-typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64 BufLen);
+typedef void   (__cdecl *PrintResultStructure_t)(void *DataSetPtr, char *Buf, uint64_t BufLen);
 typedef timestep_size (__cdecl *GetTimestepSize_t)(void *DataSetPtr);
 typedef void   (__cdecl *CopyData_t)(void *SourceDataSetPtr, void *TargetDataSetPtr, bool CopyParams, bool CopyInputs, bool CopyResults);
-
+*/
 
 struct model_dll_interface
 {
+	#define DLL_FUNCTION(RetType, Name, ...) Name##_t Name;
+	#include "DllFunctions.h"
+	#undef DLL_FUNCTION
+	
+	/*
 	SetupModel_t         SetupModel;
 	SetupModelBlankIndexSets_t SetupModelBlankIndexSets;
 	ReadInputs_t         ReadInputs;
@@ -158,6 +176,7 @@ struct model_dll_interface
 	PrintResultStructure_t PrintResultStructure;
 	GetTimestepSize_t    GetTimestepSize;
 	CopyData_t           CopyData;
+	*/
 	
 #ifdef PLATFORM_WIN32
 	HINSTANCE hinstModelDll;

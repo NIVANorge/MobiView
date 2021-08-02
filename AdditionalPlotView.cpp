@@ -111,8 +111,8 @@ void AdditionalPlotView::UpdateLinkStatus()
 			{
 				if(FirstLinkable >= 0)
 				{
-					Plots[Row].Plot.SetXYMin(Plots[FirstLinkable].Plot.GetXMin());
-					Plots[Row].Plot.SetRange(Plots[FirstLinkable].Plot.GetXRange());
+					Plots[Row].Plot.SetXYMin(Plots[FirstLinkable].Plot.GetXMin(), Plots[Row].Plot.GetYMin());
+					Plots[Row].Plot.SetRange(Plots[FirstLinkable].Plot.GetXRange(), Plots[Row].Plot.GetYRange());
 					Plots[Row].Plot.LinkedWith(Plots[FirstLinkable].Plot);
 					Plots[Row].Refresh();
 				}

@@ -447,7 +447,7 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 		for(indexed_parameter &Param : *Parameters)
 		{
 			if(!Param.Virtual)
-				ParentWindow->ParameterEditAccepted(Param, DataSet, Par(ParIdx));
+				SetParameterValue(Param, DataSet, Par(ParIdx), ParentWindow->ModelDll);
 			++ParIdx;
 		}
 	}
@@ -480,7 +480,7 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 			}
 			
 			if(!Param.Virtual)
-				ParentWindow->ParameterEditAccepted(Param, DataSet, Val);
+				SetParameterValue(Param, DataSet, Val, ParentWindow->ModelDll);
 			++ParIdx;
 		}
 	}
@@ -615,6 +615,8 @@ struct optimization_model
 		
 		++NumEvals;
 		
+		/////////// BEGIN UI UPDATE
+		
 		if(IsMaximizing)
 			BestScore = std::max(BestScore, Value);
 		else
@@ -633,6 +635,8 @@ struct optimization_model
 			
 			ParentWindow->ProcessEvents();
 		}
+		
+		////////// END UI UPDATE
 		
 		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
 		
@@ -907,6 +911,14 @@ void OptimizationWindow::RunClicked()
 	//TODO: This is not ideal either since it makes it stay on top of other unrelated windows...
 	TopMost(true, false);
 }
+
+
+
+
+
+
+
+//// Serialization:
 
 void OptimizationWindow::LoadFromJson()
 {
