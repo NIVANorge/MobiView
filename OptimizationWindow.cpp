@@ -29,6 +29,16 @@ OptimizationTargetSetup::OptimizationTargetSetup()
 	CtrlLayout(*this);
 }
 
+OptimizationRunSetup::OptimizationRunSetup()
+{
+	CtrlLayout(*this);
+}
+
+MCMCRunSetup::MCMCRunSetup()
+{
+	CtrlLayout(*this);
+}
+
 OptimizationWindow::OptimizationWindow()
 {
 	//CtrlLayout(*this, "MobiView optimization setup");
@@ -75,21 +85,26 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.PushRemoveTarget.WhenPush = THISBACK(RemoveTargetClicked);
 	TargetSetup.PushClearTargets.WhenPush = THISBACK(ClearTargetsClicked);
 	TargetSetup.PushDisplay.WhenPush      = THISBACK(DisplayClicked);
-	TargetSetup.PushRun.WhenPush          = THISBACK(RunClicked);
 	
 	TargetSetup.PushAddTarget.SetImage(IconImg4::Add());
 	TargetSetup.PushRemoveTarget.SetImage(IconImg4::Remove());
 	TargetSetup.PushClearTargets.SetImage(IconImg4::RemoveGroup());
 	TargetSetup.PushDisplay.SetImage(IconImg4::ViewMorePlots());
-	TargetSetup.PushRun.SetImage(IconImg4::Run());	
 	
+	RunSetup.PushRun.WhenPush          = THISBACK(RunClicked);
+	RunSetup.PushRun.SetImage(IconImg4::Run());
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
 	
-	TargetSetup.EditMaxEvals.Min(1);
-	TargetSetup.EditMaxEvals.SetData(1000);
+	RunSetup.EditMaxEvals.Min(1);
+	RunSetup.EditMaxEvals.SetData(1000);
+	
+	TargetSetup.OptimizerTypeTab.Add(RunSetup, "Optimiser");
+	TargetSetup.OptimizerTypeTab.Add(MCMCSetup, "MCMC");
+	
+	TargetSetup.OptimizerTypeTab.WhenSet << THISBACK(TabChange);
 	
 	MainVertical.Vert();
 	MainVertical.Add(ParSetup);
@@ -437,7 +452,7 @@ typedef dlib::matrix<double,0,1> column_vector;
 
 
 inline int
-SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_parameter> *Parameters, const column_vector& Par, int ExprCount, const Array<String> &Syms, const Array<String> &Exprs)
+SetParameters(void *DataSet, std::vector<indexed_parameter> *Parameters, const column_vector& Par, int ExprCount, const Array<String> &Syms, const Array<String> &Exprs, model_dll_interface &ModelDll)
 {
 	//NOTE: The length of Par has to be equal to the length of Parameters - ExprCount
 	
@@ -447,7 +462,7 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 		for(indexed_parameter &Param : *Parameters)
 		{
 			if(!Param.Virtual)
-				SetParameterValue(Param, DataSet, Par(ParIdx), ParentWindow->ModelDll);
+				SetParameterValue(Param, DataSet, Par(ParIdx), ModelDll);
 			++ParIdx;
 		}
 	}
@@ -480,7 +495,7 @@ SetParameters(MobiView *ParentWindow, void *DataSet, std::vector<indexed_paramet
 			}
 			
 			if(!Param.Virtual)
-				SetParameterValue(Param, DataSet, Val, ParentWindow->ModelDll);
+				SetParameterValue(Param, DataSet, Val, ModelDll);
 			++ParIdx;
 		}
 	}
@@ -604,7 +619,7 @@ struct optimization_model
 	{
 		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
 		
-		SetParameters(ParentWindow, DataSetCopy, Parameters, Par, ExprCount, *Syms, *Exprs);
+		SetParameters(DataSetCopy, Parameters, Par, ExprCount, *Syms, *Exprs, ParentWindow->ModelDll);
 		
 		double Value = EvaluateObjectives(DataSetCopy);
 		
@@ -642,6 +657,24 @@ struct optimization_model
 		
 		return Value;
 	}
+	
+	/*
+	double Evaluate(double *Par)   //NOTE: Version that does not do UI update, and takes double* as argument.
+	{
+		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		
+		int FreeParCount = Parameters->size() - ExprCount;
+		column_vector Par2(Par, FreeParCount);
+		
+		SetParameters(DataSetCopy, Parameters, Par2, ExprCount, *Syms, *Exprs, ParentWindow->ModelDll);
+		
+		double Value = EvaluateObjectives(DataSetCopy);
+		
+		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
+		
+		return Value;
+	}*/
+	
 };
 
 
@@ -764,8 +797,8 @@ void OptimizationWindow::RunClicked()
 		return;
 	
 	Label *ProgressLabel = nullptr;
-	if(TargetSetup.OptionShowProgress.Get())
-		ProgressLabel = &TargetSetup.ProgressLabel;
+	if(RunSetup.OptionShowProgress.Get())
+		ProgressLabel = &RunSetup.ProgressLabel;
 	
 	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ExprCount, Syms, Exprs, ProgressLabel);
 	
@@ -801,7 +834,7 @@ void OptimizationWindow::RunClicked()
 	if(ParentWindow->CheckDllUserError()) return;
 	
 	//NOTE: This sets the parameters twice, but that should not be a problem
-	int ErrorAtRow = SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, InitialPars, ExprCount, Syms, Exprs);
+	int ErrorAtRow = SetParameters(ParentWindow->DataSet, &Parameters, InitialPars, ExprCount, Syms, Exprs, ParentWindow->ModelDll);
 	if(ErrorAtRow != -1)
 	{
 		TargetSetup.ErrorLabel.SetText(Format("Unable to parse the expression \"%s\" at row %d", Exprs[ErrorAtRow], ErrorAtRow));
@@ -862,7 +895,7 @@ void OptimizationWindow::RunClicked()
 	
 	ParentWindow->ProcessEvents();
 	
-	int MaxFunctionCalls = TargetSetup.EditMaxEvals.GetData();
+	int MaxFunctionCalls = RunSetup.EditMaxEvals.GetData();
 	dlib::function_evaluation Result;
 	
 	auto BeginTime = std::chrono::high_resolution_clock::now();
@@ -898,19 +931,39 @@ void OptimizationWindow::RunClicked()
 	}
 	else
 	{
-		SetParameters(ParentWindow, ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs);
+		SetParameters(ParentWindow->DataSet, &Parameters, Result.x, ExprCount, Syms, Exprs, ParentWindow->ModelDll);
 		ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.", 
 			Duration, NewScore, InitialScore));
 		ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 	}
 	
-	TargetSetup.ProgressLabel.SetText("");
+	RunSetup.ProgressLabel.SetText("");
 	TargetSetup.ErrorLabel.SetText("");
 	
 	//Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
 	//TODO: This is not ideal either since it makes it stay on top of other unrelated windows...
 	TopMost(true, false);
 }
+
+void OptimizationWindow::TabChange()
+{
+	int TabNum = TargetSetup.OptimizerTypeTab.Get();
+	
+	if (TabNum == 0)             // Regular optimizer  -- Show target stat
+	{
+		TargetSetup.TargetView.HeaderObject().ShowTab(4);
+	}
+	else if (TabNum == 1)        // MCMC               -- Target stat is differently determined
+	{
+		TargetSetup.TargetView.HeaderObject().HideTab(4);
+	}
+}
+
+
+
+
+
+
 
 
 
@@ -951,7 +1004,7 @@ void OptimizationWindow::LoadFromJson()
 	
 	Value MaxEvalsJson = SetupJson["MaxEvals"];
 	if(!IsNull(MaxEvalsJson))
-		TargetSetup.EditMaxEvals.SetData((int)MaxEvalsJson);
+		RunSetup.EditMaxEvals.SetData((int)MaxEvalsJson);
 
 	
 	ValueArray ParameterArr = SetupJson["Parameters"];
@@ -1106,7 +1159,7 @@ void OptimizationWindow::WriteToJson()
 	
 	Json MainFile;
 	
-	MainFile("MaxEvals", TargetSetup.EditMaxEvals.GetData());
+	MainFile("MaxEvals", RunSetup.EditMaxEvals.GetData());
 	
 	JsonArray ParameterArr;
 	

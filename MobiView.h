@@ -235,6 +235,22 @@ public:
 	OptimizationTargetSetup();
 };
 
+class OptimizationRunSetup : public WithOptimizerSetupLayout<ParentCtrl>
+{
+public:
+	typedef OptimizationRunSetup CLASSNAME;
+	
+	OptimizationRunSetup();	
+};
+
+class MCMCRunSetup : public WithMCMCSetupLayout<ParentCtrl>
+{
+public:
+	typedef MCMCRunSetup CLASSNAME;
+	
+	MCMCRunSetup();
+};
+
 struct optimization_target
 {
 	std::string ResultName;
@@ -281,6 +297,9 @@ private:
 	void WriteToJson();
 	void LoadFromJson();
 	
+	void TabChange();
+	
+	
 	std::vector<indexed_parameter> Parameters;
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
@@ -299,6 +318,9 @@ private:
 	Splitter MainVertical;
 	OptimizationParameterSetup ParSetup;
 	OptimizationTargetSetup    TargetSetup;
+	
+	OptimizationRunSetup       RunSetup;
+	MCMCRunSetup               MCMCSetup;
 };
 
 

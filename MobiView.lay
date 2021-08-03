@@ -148,7 +148,7 @@ LAYOUT(SensitivityLayout, 884, 448)
 	ITEM(Upp::Label, ParamLabel, HSizePosZ(352, 4).TopPosZ(4, 19))
 END_LAYOUT
 
-LAYOUT(OptimizationLayout, 672, 256)
+LAYOUT(OptimizationLayout, 688, 256)
 	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(32, 28))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(336, 108).BottomPosZ(4, 20))
@@ -159,17 +159,29 @@ LAYOUT(OptimizationLayout, 672, 256)
 	ITEM(Upp::Option, OptionUseExpr, NotNull(true).SetLabel(t_("Enable expressions")).RightPosZ(4, 108).BottomPosZ(4, 20))
 END_LAYOUT
 
-LAYOUT(OptimizationTargetLayout, 672, 304)
-	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).LeftPosZ(228, 108).BottomPosZ(28, 20))
-	ITEM(Upp::Label, ErrorLabel, HSizePosZ(340, 4).BottomPosZ(28, 20))
-	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(52, 60).BottomPosZ(28, 20))
-	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(116, 108).BottomPosZ(28, 20))
-	ITEM(Upp::ArrayCtrl, TargetView, HSizePosZ(4, 4).VSizePosZ(4, 76))
-	ITEM(Upp::Button, PushRemoveTarget, SetLabel(t_("Remove sel.")).LeftPosZ(116, 108).BottomPosZ(52, 20))
-	ITEM(Upp::Button, PushClearTargets, SetLabel(t_("Clear all")).LeftPosZ(228, 108).BottomPosZ(52, 20))
-	ITEM(Upp::Button, PushDisplay, SetLabel(t_("Display plots")).RightPosZ(4, 108).BottomPosZ(52, 20))
-	ITEM(Upp::Option, OptionShowProgress, SetLabel(t_("Show progress")).LeftPosZ(4, 108).BottomPosZ(4, 20))
-	ITEM(Upp::Button, PushAddTarget, SetLabel(t_("Add target")).LeftPosZ(4, 108).BottomPosZ(52, 20))
-	ITEM(Upp::Label, ProgressLabel, LeftPosZ(116, 552).BottomPosZ(4, 20))
+LAYOUT(OptimizationTargetLayout, 688, 352)
+	ITEM(Upp::Label, ErrorLabel, HSizePosZ(4, 4).BottomPosZ(88, 20))
+	ITEM(Upp::ArrayCtrl, TargetView, HSizePosZ(4, 4).VSizePosZ(4, 136))
+	ITEM(Upp::Button, PushRemoveTarget, SetLabel(t_("Remove sel.")).LeftPosZ(116, 108).BottomPosZ(112, 20))
+	ITEM(Upp::Button, PushClearTargets, SetLabel(t_("Clear all")).LeftPosZ(228, 108).BottomPosZ(112, 20))
+	ITEM(Upp::Button, PushDisplay, SetLabel(t_("Display plots")).RightPosZ(4, 108).BottomPosZ(112, 20))
+	ITEM(Upp::Button, PushAddTarget, SetLabel(t_("Add target")).LeftPosZ(4, 108).BottomPosZ(112, 20))
+	ITEM(Upp::TabCtrl, OptimizerTypeTab, HSizePosZ(4, 4).BottomPosZ(4, 80))
+END_LAYOUT
+
+LAYOUT(OptimizerSetupLayout, 672, 52)
+	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).RightPosZ(4, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(36, 60).BottomPosZ(28, 20))
+	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(100, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Option, OptionShowProgress, SetLabel(t_("Show progress")).LeftPosZ(4, 92).BottomPosZ(4, 20))
+	ITEM(Upp::Label, ProgressLabel, LeftPosZ(100, 568).BottomPosZ(4, 20))
+END_LAYOUT
+
+LAYOUT(MCMCSetupLayout, 672, 52)
+	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).RightPosZ(4, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Label, StepsLabel, SetLabel(t_("Steps:")).LeftPosZ(4, 60).BottomPosZ(4, 20))
+	ITEM(Upp::Label, WalkersLabel, SetLabel(t_("Walkers:")).LeftPosZ(4, 60).BottomPosZ(28, 20))
+	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(68, 108).BottomPosZ(4, 20))
+	ITEM(Upp::EditIntSpin, EditWalkers, NotNull(true).LeftPosZ(68, 108).BottomPosZ(28, 20))
 END_LAYOUT
 
