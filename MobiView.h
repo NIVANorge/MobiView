@@ -30,6 +30,7 @@ using namespace Upp;
 
 #include "PlotCtrl.h"
 #include "ParameterEditing.h"
+#include "Emcee.h"
 
 
 class MobiView;
@@ -263,6 +264,8 @@ struct optimization_target
 	double Weight;
 };
 
+struct optimization_model;
+
 class OptimizationWindow : public TopWindow
 {
 public:
@@ -301,6 +304,8 @@ private:
 	
 	void TabChange();
 	
+	void RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval);
+	
 	
 	std::vector<indexed_parameter> Parameters;
 	
@@ -324,7 +329,24 @@ private:
 	
 	OptimizationRunSetup       RunSetup;
 	MCMCRunSetup               MCMCSetup;
+	
+	mcmc_data                  Data;
 };
+
+class MCMCResultWindow : public TopWindow
+{
+public:
+	MCMCResultWindow();
+	
+	MobiView *ParentWindow;
+	
+	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms);
+	void ClearPlots();
+	void ResizePlots();
+	
+	Array<ScatterCtrl> ChainPlots;
+};
+
 
 
 
@@ -410,6 +432,8 @@ public:
 	
 	void OpenOptimizationView();
 	OptimizationWindow OptimizationWin;
+	
+	MCMCResultWindow MCMCResultWin;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);

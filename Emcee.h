@@ -19,6 +19,9 @@ struct mcmc_data
 		this->NSteps   = NSteps;
 		this->NWalkers = NWalkers;
 		this->NPars    = NPars;
+		
+		for(int Idx = 0; Idx < NSteps*NWalkers*NPars; ++Idx) ParData[Idx] = std::numeric_limits<double>::quiet_NaN();
+		for(int Idx = 0; Idx < NSteps*NWalkers; ++Idx)       LLData[Idx]  = std::numeric_limits<double>::quiet_NaN();
 	}
 	
 	void Free()
@@ -47,7 +50,7 @@ struct mcmc_data
 	}
 };
 
-void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A);
+void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, void (*Callback)(void *), void *CallbackState, int CallbackInterval);
 
 
 #endif

@@ -369,6 +369,7 @@ MobiView::MobiView() : Plotter(this)
 	ModelInfo.ParentWindow = this;
 	SensitivityWindow.ParentWindow = this;
 	OptimizationWin.ParentWindow = this;
+	MCMCResultWin.ParentWindow = this;
 }
 
 

@@ -178,12 +178,12 @@ LAYOUT(OptimizerSetupLayout, 672, 52)
 END_LAYOUT
 
 LAYOUT(MCMCSetupLayout, 672, 52)
+	ITEM(Upp::Button, PushViewChains, SetLabel(t_("View chains")).RightPosZ(4, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).RightPosZ(4, 108).BottomPosZ(28, 20))
 	ITEM(Upp::Label, StepsLabel, SetLabel(t_("Steps:")).LeftPosZ(64, 32).BottomPosZ(4, 20))
 	ITEM(Upp::Label, WalkersLabel, SetLabel(t_("Walkers:")).LeftPosZ(52, 44).BottomPosZ(28, 20))
 	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(100, 108).BottomPosZ(4, 20))
 	ITEM(Upp::EditIntSpin, EditWalkers, NotNull(true).LeftPosZ(100, 108).BottomPosZ(28, 20))
-	ITEM(Upp::Label, NotFunctionalLabel, SetLabel(t_("Not currently functional!")).SetFont(StdFontZ(21).Bold()).LeftPosZ(364, 284).TopPosZ(20, 32))
 	ITEM(Upp::Switch, InitialTypeSwitch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(212, 96).TopPosZ(4, 44))
 END_LAYOUT
 

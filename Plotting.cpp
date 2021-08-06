@@ -1418,7 +1418,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 			this->SetMarkColor(Index, Null); //NOTE: Calling Graph->MarkColor(Null) does not make it transparent, so we have to do it like this.
 		}
 		else
-			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");//.Fill(GraphColor).Opacity(0.7).Stacked();
+			Graph->NoMark().Stroke(1.5, GraphColor).Dash("");
 	}
 	
 	return GraphColor;

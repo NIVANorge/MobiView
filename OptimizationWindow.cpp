@@ -12,8 +12,6 @@
 
 #include "MobiView.h"
 
-#include "Emcee.h"
-
 #include <unordered_map>
 
 #define IMAGECLASS IconImg4
@@ -106,6 +104,8 @@ OptimizationWindow::OptimizationWindow()
 	
 	MCMCSetup.PushRun.WhenPush         = THISBACK(RunClicked);
 	MCMCSetup.PushRun.SetImage(IconImg4::Run());
+	MCMCSetup.PushViewChains.WhenPush << [&]() { ParentWindow->MCMCResultWin.Open(); };
+	MCMCSetup.PushViewChains.SetImage(IconImg4::ViewMorePlots());
 	
 	MCMCSetup.EditSteps.Min(10);
 	MCMCSetup.EditSteps.SetData(1000);
@@ -729,6 +729,19 @@ struct mcmc_run_data
 	double *MaxBound;
 };
 
+struct mcmc_callback_data
+{
+	MobiView *ParentWindow;
+};
+
+void MCMCCallbackFun(void *CallbackData)
+{
+	mcmc_callback_data *CBD = (mcmc_callback_data *)CallbackData;
+	for(ScatterCtrl &Plot : CBD->ParentWindow->MCMCResultWin.ChainPlots)
+		Plot.Refresh();
+	CBD->ParentWindow->ProcessEvents();
+}
+
 double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 {
 	mcmc_run_data *RunData0 = (mcmc_run_data *)RunData;
@@ -772,15 +785,28 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 	return Result;
 }
 
-void RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType)
+void OptimizationWindow::RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, 
+	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval)
 {
 	constexpr double A = 2.0; //NOTE: Could eventually make this configurable, but according to the Emcee guys, this is a good value
 	
 	size_t NPars = OptimModel->FreeParCount;
 	
-	mcmc_data Data;
+	MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
+	ResultWin->ClearPlots();
+	
+	Data.Free();
 	Data.Allocate(NWalkers, NPars, NSteps);
 	
+	Array<String> FreeSyms;
+	for(int Par = 0; Par < OptimModel->Parameters->size(); ++Par)
+		if(IsNull((*OptimModel->Exprs)[Par])) FreeSyms.push_back((*OptimModel->Syms)[Par]);
+	
+	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms);
+	if(!ResultWin->IsOpen())
+		ResultWin->Open();
+	
+	ParentWindow->ProcessEvents();
 	
 	std::mt19937_64 Generator;
 	
@@ -820,7 +846,10 @@ void RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimMod
 	RunData.MinBound = MinBound;
 	RunData.MaxBound = MaxBound;
 	
-	RunEmcee(MCMCLogLikelyhoodEval, &RunData, Data, A);
+	mcmc_callback_data CallbackData;
+	CallbackData.ParentWindow = ParentWindow;
+	
+	RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval);
 	
 	//TODO: Do something with the results, obviously..
 	
@@ -852,8 +881,6 @@ void RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimMod
 		
 		TestFile.close();
 	}
-	
-	Data.Free();
 }
 
 
@@ -1130,6 +1157,9 @@ void OptimizationWindow::RunClicked()
 		//Note to self: For some reason, using threads crashes the application. The debugger is not
 		//able to catch it. Is there an incompatibility with upp here?
 		
+		RunSetup.PushRun.Disable();
+		MCMCSetup.PushRun.Disable();
+		
 		if(PositiveGood)		
 			Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
 		else		
@@ -1151,6 +1181,9 @@ void OptimizationWindow::RunClicked()
 				Duration, NewScore, InitialScore));
 			ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 		}
+		
+		RunSetup.PushRun.Enable();
+		MCMCSetup.PushRun.Enable();
 	}
 	else if(RunType == 1)
 	{
@@ -1179,12 +1212,20 @@ void OptimizationWindow::RunClicked()
 		ParentWindow->ProcessEvents();
 		
 		
-		RunMobivewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(), InitialType);
+		int CallbackInterval = 50; //TODO: Set this up properly
+		
+		RunSetup.PushRun.Disable();
+		MCMCSetup.PushRun.Disable();
+		
+		RunMobivewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(), InitialType, CallbackInterval);
 		
 		auto EndTime = std::chrono::high_resolution_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 		
 		ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
+		
+		RunSetup.PushRun.Enable();
+		MCMCSetup.PushRun.Enable();
 	}
 	
 	
@@ -1528,6 +1569,80 @@ void OptimizationWindow::WriteToJson()
 }
 
 
+
+
+
+MCMCResultWindow::MCMCResultWindow()
+{
+	SetRect(0, 0, 1200, 900);
+	Title("MobiView MCMC results").Sizeable().Zoomable();
+	
+}
+
+void MCMCResultWindow::ClearPlots()
+{
+	for(ScatterCtrl &Plot : ChainPlots)
+	{
+		Plot.RemoveAllSeries();
+		Plot.Remove();
+	}
+	
+	ChainPlots.Clear();
+}
+
+void MCMCResultWindow::ResizePlots()
+{
+	int PlotCount = ChainPlots.size();
+	
+	int WinWidth  = GetRect().GetWidth();
+	int WinHeight = GetRect().GetHeight();
+	
+	int NumCols = 4;
+	
+	int PlotWidth = WinWidth / NumCols;
+	//int PlotHeight = (3 * WinHeight) / PlotCount - 50;   //TODO: Fix this
+	int PlotHeight = 160;
+
+	for(int PlotIdx = 0; PlotIdx < PlotCount; ++PlotIdx)
+	{
+		int XX = PlotIdx % NumCols;
+		int YY = PlotIdx / NumCols;
+		
+		ChainPlots[PlotIdx].LeftPos(XX*PlotWidth, PlotWidth);
+		ChainPlots[PlotIdx].TopPos(YY*PlotHeight, PlotHeight);
+	}
+}
+
+void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms)
+{
+	
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		ChainPlots.Create<ScatterCtrl>();
+		Add(ChainPlots.Top());
+	}
+	
+	ResizePlots();
+	
+	Color GraphColor(0, 0, 0);
+	
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		ScatterCtrl &Plot = ChainPlots[Par];
+		
+		Plot.SetPlotAreaLeftMargin(60).SetTitle(FreeSyms[Par]);
+		Plot.SetMouseHandling(false, false);
+		Plot.SetTitleFont(Plot.GetTitleFont().Height(14));
+		
+		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
+		{
+			Plot.AddSeries(&(*Data)(Walker, Par, 0), Data->NSteps, 0.0, 1.0).ShowLegend(false).NoMark().Stroke(1.0, GraphColor).Dash("");
+		}
+		
+		Plot.SetXYMin(0.0, MinBound[Par]);
+		Plot.SetRange((double)Data->NSteps, MaxBound[Par]-MinBound[Par]);
+	}
+}
 
 
 
