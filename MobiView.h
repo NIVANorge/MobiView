@@ -257,6 +257,8 @@ struct optimization_target
 	std::vector<std::string> ResultIndexes;
 	std::string InputName;
 	std::vector<std::string> InputIndexes;
+	std::string ErrParSym;
+	int ErrParNum;
 	residual_type Stat;
 	double Weight;
 };
@@ -304,12 +306,13 @@ private:
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
-	
-	Array<DropList>          TargetStatCtrls;
-	Array<EditDoubleNotNull> TargetWeightCtrls;
-	
 	Array<EditField>         EditSymCtrls;
 	Array<EditField>         EditExprCtrls;
+
+	Array<DropList>          TargetStatCtrls;
+	Array<EditDoubleNotNull> TargetWeightCtrls;
+	Array<EditField>         TargetErrCtrls;
+
 	
 	ToolBar Tool;
 	
