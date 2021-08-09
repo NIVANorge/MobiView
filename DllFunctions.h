@@ -45,6 +45,7 @@ DLL_FUNCTION(bool,         InputWasProvided,                 void *DataSetPtr, c
 DLL_FUNCTION(bool,         ResultWasComputed,                void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount)
 DLL_FUNCTION(bool,         IsParameterGroupName,             void *DataSetPtr, const char *Name)
 DLL_FUNCTION(timestep_size, GetTimestepSize,                 void *DataSetPtr)
+DLL_FUNCTION(const char *, GetParameterShortName,            void *DataSetPtr, const char *Name)
 
 DLL_FUNCTION(void,         WriteParametersToFile,            void *DataSetPtr, const char *Filename)
 DLL_FUNCTION(void,         PrintResultStructure,             void *DataSetPtr, char *Buf, uint64_t BufLen)

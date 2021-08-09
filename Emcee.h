@@ -50,7 +50,7 @@ struct mcmc_data
 	}
 };
 
-void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, void (*Callback)(void *), void *CallbackState, int CallbackInterval);
+void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, void (*Callback)(void *, int), void *CallbackState, int CallbackInterval);
 
 
 #endif

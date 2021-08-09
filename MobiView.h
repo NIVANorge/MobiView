@@ -333,9 +333,18 @@ private:
 	mcmc_data                  Data;
 };
 
-class MCMCResultWindow : public TopWindow
+struct triangle_plot_data
+{
+	std::vector<double> DistrX;
+	std::vector<double> DistrY;
+	std::vector<double> DistrZ;
+};
+
+class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
 {
 public:
+	typedef MCMCResultWindow CLASSNAME;
+	
 	MCMCResultWindow();
 	
 	MobiView *ParentWindow;
@@ -343,8 +352,32 @@ public:
 	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms);
 	void ClearPlots();
 	void ResizePlots();
+	void RefreshPlots(int CurStep = -1);
+	
+	void BurninSliderEvent();
+	void BurninEditEvent();
+	
+	double Burnin[2];
+	double BurninPlotY[2];
+	
 	
 	Array<ScatterCtrl> ChainPlots;
+	
+	
+	mcmc_data *Data;
+	
+	//TabCtrl ChoosePlotsTab;
+	//SliderCtrl BurninSlider;
+	//EditIntSpin BurninEdit;
+	
+	ParentCtrl ViewChainPlots;
+	ParentCtrl ViewTrianglePlots;
+	
+	const int DistrResolution = 30;
+	
+	std::vector<triangle_plot_data> TrianglePlotData;
+	Array<TableDataCArray>          TrianglePlotDS;
+	Array<ScatterCtrl>              TrianglePlots;
 };
 
 

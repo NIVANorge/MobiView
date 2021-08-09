@@ -264,6 +264,8 @@ public:
 private:
 	Vector<String> QQLabels;
 	
+	//TODO: TableDataVector should be replaced with TableDataCArray, and then we can get rid of the SurfX,
+	//SurfY, SurfZ stuff.
 	Vector<double> SurfX;
 	Vector<double> SurfY;
 	Vector<double> SurfZ;

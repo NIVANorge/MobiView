@@ -700,7 +700,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					else
 						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data, ProfileIndexSet, Row);
 					
-					for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];   //NOTE: This seems very slow. Is there a better way?
+					for(size_t Ts = 0; Ts < Timesteps; ++Ts) SurfZ << Data[Ts];
 					
 					++IdxIdx;
 					
