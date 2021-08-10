@@ -340,6 +340,12 @@ struct triangle_plot_data
 	std::vector<double> DistrZ;
 };
 
+struct histogram_data
+{
+	std::vector<double> DistrX;
+	std::vector<double> DistrY;
+};
+
 class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
 {
 public:
@@ -357,27 +363,34 @@ public:
 	void BurninSliderEvent();
 	void BurninEditEvent();
 	
+	void SubBar(Bar &bar);
+	
+	void SaveResults();
+	
+	
+	ToolBar Tool;
+	
 	double Burnin[2];
 	double BurninPlotY[2];
-	
 	
 	Array<ScatterCtrl> ChainPlots;
 	
 	
 	mcmc_data *Data;
+	Array<String> FreeSyms;
 	
-	//TabCtrl ChoosePlotsTab;
-	//SliderCtrl BurninSlider;
-	//EditIntSpin BurninEdit;
 	
 	ParentCtrl ViewChainPlots;
 	ParentCtrl ViewTrianglePlots;
 	
-	const int DistrResolution = 30;
+	const int DistrResolution = 20;
 	
 	std::vector<triangle_plot_data> TrianglePlotData;
 	Array<TableDataCArray>          TrianglePlotDS;
 	Array<ScatterCtrl>              TrianglePlots;
+	
+	std::vector<histogram_data>     HistogramData;
+	Array<ScatterCtrl>              Histograms;
 };
 
 

@@ -23,6 +23,7 @@ file
 	SensitivityViewWindow.cpp,
 	AdditionalPlotView.cpp,
 	OptimizationWindow.cpp,
+	MCMCResultWindow.cpp,
 	DllFunctions.h,
 	DllInterface.h,
 	DllInterface.cpp,
