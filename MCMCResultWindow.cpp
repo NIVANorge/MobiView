@@ -64,8 +64,11 @@ MCMCResultWindow::MCMCResultWindow()
 
 void MCMCResultWindow::SubBar(Bar &bar)
 {
-	//bar.Add(IconImg6::Open(), THISBACK(LoadFromJson)).Tip("Load setup from file");
-	bar.Add(IconImg6::Save(), THISBACK(SaveResults)).Tip("Save setup to file");
+	auto Load = [&](){ bool Success = LoadResults(); }; //TODO: Handle error?
+	
+	//bar.Add(IconImg6::Open(), Load).Tip("Load data from file");   //TODO: This still does not
+	//work correctly!
+	bar.Add(IconImg6::Save(), THISBACK(SaveResults)).Tip("Save data to file");
 }
 
 void MCMCResultWindow::ClearPlots()
@@ -575,9 +578,13 @@ void MCMCResultWindow::SaveResults()
 	File.close();
 }
 
-bool LoadResults(mcmc_resul)
+bool MCMCResultWindow::LoadResults()
 {
+	//TODO: This still does not work correctly!
+	
 	//NOTE: Error handling is very rudimentary for now.
+	
+	if(!Data) Data = &ParentWindow->OptimizationWin.Data; //TODO: Maybe this window should own the data block instead..
 	
 	FileSel Sel;
 	Sel.Type("MCMC results", "*.mcmc");
@@ -590,20 +597,54 @@ bool LoadResults(mcmc_resul)
 	Sel.ExecuteOpen();
 	std::string Filename = Sel.Get().ToStd();
 	
-	if(Filename.size() == 0) return;
+	if(Filename.size() == 0) return false;
 	
 	std::ifstream File(Filename.data(), std::ifstream::in);
 	
-	if(File.fail()) return;
+	if(File.fail()) return false;
 	
 	int NPars, NWalkers, NSteps;
-	bool Ok =  (File >> NPars);
-	Ok = Ok && (File >> NWalkers);
-	Ok = Ok && (File >> NSteps);
+	File >> NPars;
+	File >> NWalkers;
+	File >> NSteps;
 	
-	if(!Ok) return false;
+	if(File.eof() || File.bad() || File.fail()) return false;
 	
+	//TODO: Should actually read/write these!
+	std::vector<double> MinBound(NPars);
+	std::vector<double> MaxBound(NPars);
 	
-	//TODO: Complete!
+	Data->Allocate(NWalkers, NPars, NSteps);
+	
+	for(int Par = 0; Par < NPars; ++Par)
+	{
+		std::string Sym;
+		File >> Sym;
+		if(File.eof() || File.bad() || File.fail()) return false;
+		FreeSyms.push_back(Sym.data());
+		
+		std::string Line;
+		for(int Step = 0; Step < NSteps; ++Step)
+		{
+			std::getline(File, Line);
+			if(File.eof() || File.bad() || File.fail()) return false;
+			
+			std::stringstream LL(Line, std::ios_base::in);
+			for(int Walker = 0; Walker < NWalkers; ++Walker)
+			{
+				double Val;
+				LL >> Val;
+				if(LL.bad() || LL.fail()) return false;
+				
+				(*Data)(Walker, Par, Step) = Val;
+			}
+		}
+	}
+	
+	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms);
+	
+	RefreshPlots();
+	
+	return true;
 }
 

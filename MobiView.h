@@ -293,6 +293,8 @@ public:
 	
 	MobiView *ParentWindow;
 	
+	
+	mcmc_data                  Data;
 private:
 	
 	bool AddSingleParameter(const indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
@@ -329,8 +331,6 @@ private:
 	
 	OptimizationRunSetup       RunSetup;
 	MCMCRunSetup               MCMCSetup;
-	
-	mcmc_data                  Data;
 };
 
 struct triangle_plot_data
@@ -366,6 +366,7 @@ public:
 	void SubBar(Bar &bar);
 	
 	void SaveResults();
+	bool LoadResults();
 	
 	bool HaltWasPushed;
 private:
@@ -379,7 +380,7 @@ private:
 	Array<ScatterCtrl> ChainPlots;
 	
 	
-	mcmc_data *Data;
+	mcmc_data *Data = nullptr;
 	Array<String> FreeSyms;
 	
 	
