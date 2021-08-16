@@ -869,7 +869,7 @@ void MobiView::Load()
 	DllSel.ExecuteOpen();
 	DllFile = DllSel.Get().ToStd();
 	
-	bool ChangedDll = DllFile != PreviouslyLoadedModel;
+	bool ChangedDll = DllFile != PreviouslyLoadedModel.ToStd();
 	
 	bool Success = DllFile.size() > 0;
 	

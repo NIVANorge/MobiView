@@ -8,6 +8,26 @@
 #include <fstream>
 
 
+/*
+
+Possible TODO:
+
+- Multithreaded chains.
+- Responsivity of halt button.
+- Load saved results.
+- Restart with more steps.
+- Result summary, including (co)variances of parameters, quantiles of paramers and MAP.
+- Write MAP and median parameters to main dataset.
+- Autocorrelation computation
+- Projection of results with percentiles (plot).
+- More dynamic choice of LL function. Also use LL function in optimizer.
+- Other samplers or sampler moves.
+- Fix duration timer (sometimes negative number).
+
+*/
+
+
+
 MCMCResultWindow::MCMCResultWindow()
 {
 	CtrlLayout(*this);
@@ -37,6 +57,9 @@ MCMCResultWindow::MCMCResultWindow()
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
+	
+	PushHalt.WhenPush << [&](){ HaltWasPushed = true; };
+	PushHalt.SetImage(IconImg6::Remove());
 }
 
 void MCMCResultWindow::SubBar(Bar &bar)
@@ -260,6 +283,11 @@ void MCMCResultWindow::ResizePlots()
 
 void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms)
 {
+	HaltWasPushed = false;
+	BurninSlider.SetData(0);
+	BurninEdit.SetData(0);
+	
+	
 	this->FreeSyms.clear();
 	for(const String &Str : FreeSyms)
 		this->FreeSyms << Str;
@@ -510,7 +538,6 @@ void MCMCResultWindow::SaveResults()
 	if(!Data) return;
 	
 	FileSel Sel;
-
 	Sel.Type("MCMC results", "*.mcmc");
 	
 	if(!ParentWindow->ParameterFile.empty())
@@ -519,13 +546,11 @@ void MCMCResultWindow::SaveResults()
 		Sel.ActiveDir(GetCurrentDirectory());
 	
 	Sel.ExecuteSaveAs();
-	String Filename = Sel.Get();
+	std::string Filename = Sel.Get().ToStd();
 	
-	if(Filename.GetLength() == 0) return;
+	if(Filename.size() == 0) return;
 	
-	std::string Fn = Filename.ToStd();
-	
-	std::ofstream File(Fn.data());
+	std::ofstream File(Filename.data());
 	
 	if(File.fail()) return;
 	
@@ -548,5 +573,37 @@ void MCMCResultWindow::SaveResults()
 	
 	
 	File.close();
+}
+
+bool LoadResults(mcmc_resul)
+{
+	//NOTE: Error handling is very rudimentary for now.
+	
+	FileSel Sel;
+	Sel.Type("MCMC results", "*.mcmc");
+	
+	if(!ParentWindow->ParameterFile.empty())
+		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	else
+		Sel.ActiveDir(GetCurrentDirectory());
+	
+	Sel.ExecuteOpen();
+	std::string Filename = Sel.Get().ToStd();
+	
+	if(Filename.size() == 0) return;
+	
+	std::ifstream File(Filename.data(), std::ifstream::in);
+	
+	if(File.fail()) return;
+	
+	int NPars, NWalkers, NSteps;
+	bool Ok =  (File >> NPars);
+	Ok = Ok && (File >> NWalkers);
+	Ok = Ok && (File >> NSteps);
+	
+	if(!Ok) return false;
+	
+	
+	//TODO: Complete!
 }
 

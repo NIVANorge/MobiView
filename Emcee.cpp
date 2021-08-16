@@ -46,7 +46,7 @@ void EmceeStretchMove(double A, int Step, int Walker, int FirstEnsembleWalker, i
 	Data.LLValue(Walker, Step) = LL;
 }
 
-void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, void (*Callback)(void *, int), void *CallbackState, int CallbackInterval)
+bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval)
 {
 	size_t NEns1 = Data.NWalkers / 2;
 	size_t NEns2 = NEns1;
@@ -75,6 +75,11 @@ void RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_
 		for(int Walker = NEns1; Walker < Data.NWalkers; ++Walker)
 			EmceeStretchMove(A, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState);
 		
-		if((Step % CallbackInterval == 0) || (Step==Data.NSteps-1)) Callback(CallbackState, Step);
+		bool Halt = false;
+		if((Step % CallbackInterval == 0) || (Step==Data.NSteps-1)) Halt = !Callback(CallbackState, Step);
+		
+		if(Halt) return false;
 	}
+	
+	return true;
 }

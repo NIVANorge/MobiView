@@ -739,12 +739,17 @@ struct mcmc_callback_data
 	MobiView *ParentWindow;
 };
 
-void MCMCCallbackFun(void *CallbackData, int CurStep)
+bool MCMCCallbackFun(void *CallbackData, int CurStep)
 {
 	mcmc_callback_data *CBD = (mcmc_callback_data *)CallbackData;
 	
+	if(CBD->ParentWindow->MCMCResultWin.HaltWasPushed)
+		return false;
+	
 	CBD->ParentWindow->MCMCResultWin.RefreshPlots(CurStep);
 	CBD->ParentWindow->ProcessEvents();
+	
+	return true;
 }
 
 double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
@@ -790,7 +795,7 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 	return Result;
 }
 
-void OptimizationWindow::RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, 
+bool OptimizationWindow::RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, 
 	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval)
 {
 	constexpr double A = 2.0; //NOTE: Could eventually make this configurable, but according to the Emcee guys, this is a good value
@@ -854,9 +859,9 @@ void OptimizationWindow::RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimiza
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
 	
-	RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval);
+	bool Finished = RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval);
 	
-	//TODO: Do something with the results, obviously..
+	return Finished;
 }
 
 
@@ -1193,12 +1198,15 @@ void OptimizationWindow::RunClicked()
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
 		
-		RunMobivewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(), InitialType, CallbackInterval);
+		bool Finished = RunMobivewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(), InitialType, CallbackInterval);
 		
 		auto EndTime = std::chrono::high_resolution_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 		
-		ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
+		if(Finished)
+			ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
+		else
+			ParentWindow->Log("MCMC run halted by user");
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();

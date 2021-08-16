@@ -304,7 +304,7 @@ private:
 	
 	void TabChange();
 	
-	void RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval);
+	bool RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval);
 	
 	
 	std::vector<indexed_parameter> Parameters;
@@ -366,6 +366,9 @@ public:
 	void SubBar(Bar &bar);
 	
 	void SaveResults();
+	
+	bool HaltWasPushed;
+private:
 	
 	
 	ToolBar Tool;

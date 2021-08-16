@@ -189,8 +189,9 @@ END_LAYOUT
 
 LAYOUT(MCMCResultLayout, 856, 432)
 	ITEM(Upp::TabCtrl, ChoosePlotsTab, HSizePosZ(0, 0).VSizePosZ(0, 24))
-	ITEM(Upp::SliderCtrl, BurninSlider, HSizePosZ(60, 72).BottomPosZ(0, 24))
-	ITEM(Upp::EditIntSpin, BurninEdit, RightPosZ(4, 64).BottomPosZ(5, 19))
+	ITEM(Upp::SliderCtrl, BurninSlider, HSizePosZ(60, 144).BottomPosZ(0, 24))
+	ITEM(Upp::EditIntSpin, BurninEdit, RightPosZ(80, 64).BottomPosZ(5, 19))
 	ITEM(Upp::Label, LabelSetBurnin, SetLabel(t_("Set burnin:")).HSizePosZ(4, 796).BottomPosZ(0, 24))
+	ITEM(Upp::Button, PushHalt, SetLabel(t_("Halt")).RightPosZ(0, 80).BottomPosZ(4, 20))
 END_LAYOUT
 
