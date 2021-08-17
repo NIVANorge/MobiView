@@ -14,7 +14,6 @@ Possible TODO:
 
 - Multithreaded chains.
 - Responsivity of halt button.
-- Load saved results.
 - Restart with more steps.
 - Result summary, including (co)variances of parameters, quantiles of paramers and MAP.
 - Write MAP and median parameters to main dataset.
@@ -37,6 +36,7 @@ MCMCResultWindow::MCMCResultWindow()
 	
 	ChoosePlotsTab.Add(ViewChainPlots.SizePos(), "Chain plots");
 	ChoosePlotsTab.Add(ViewTrianglePlots.SizePos(), "Triangle plot");
+	ChoosePlotsTab.Add(ResultSummary.SizePos(), "Result summary");
 	ChoosePlotsTab.WhenSet << [&](){ RefreshPlots(); };
 	
 	BurninSlider.WhenAction = THISBACK(BurninSliderEvent);
@@ -66,8 +66,7 @@ void MCMCResultWindow::SubBar(Bar &bar)
 {
 	auto Load = [&](){ bool Success = LoadResults(); }; //TODO: Handle error?
 	
-	//bar.Add(IconImg6::Open(), Load).Tip("Load data from file");   //TODO: This still does not
-	//work correctly!
+	bar.Add(IconImg6::Open(), Load).Tip("Load data from file");
 	bar.Add(IconImg6::Save(), THISBACK(SaveResults)).Tip("Save data to file");
 }
 
@@ -99,6 +98,34 @@ void MCMCResultWindow::ClearPlots()
 	
 	Histograms.Clear();
 	HistogramData.clear();
+	
+	ResultSummary.Clear();
+}
+
+int SortData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vector<double>> &SortedOut)
+{
+	if(CurStep < 0) CurStep = Data->NSteps - 1;
+	int NumSteps = CurStep - Burnin;
+	if(NumSteps <= 0) return 0;
+	
+	SortedOut.resize(Data->NPars);
+			
+	int NumValues = NumSteps * Data->NWalkers;
+	
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		SortedOut[Par].resize(NumValues);
+		
+		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
+		{
+			for(int Step = Burnin; Step < CurStep; ++Step)
+				SortedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);	
+		}
+		
+		std::sort(SortedOut[Par].begin(), SortedOut[Par].end());
+	}
+			
+	return NumValues;
 }
 
 void MCMCResultWindow::RefreshPlots(int CurStep)
@@ -118,35 +145,15 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 	{
 	
 		// Triangle plots
-		if(CurStep < 0) CurStep = Data->NSteps-1;
+		int BurninVal = (int)Burnin[0];
 		
-		int BurninVal = Burnin[0];
+		std::vector<std::vector<double>> ParValues;	
+		int NumValues = SortData(Data, CurStep, BurninVal, ParValues);
 		
-		int NumSteps = CurStep - BurninVal;
-		if(NumSteps > 0)
+		if(NumValues > 0)
 		{
-			std::vector<std::vector<double>> ParValues;
-			ParValues.resize(Data->NPars);
-			
-			int NumValues = NumSteps * Data->NWalkers;
 			int LowerQuant = (int)((double)NumValues * 0.025);
 			int UpperQuant = (int)((double)NumValues * 0.975);
-			
-			for(int Par = 0; Par < Data->NPars; ++Par)
-			{
-				ParValues[Par].resize(NumValues);
-				
-				for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-				{
-					for(int Step = BurninVal; Step < CurStep; ++Step)
-						ParValues[Par][Walker*NumSteps + Step-BurninVal] = (*Data)(Walker, Par, Step);	
-				}
-				
-				std::sort(ParValues[Par].begin(), ParValues[Par].end());
-			}
-			
-			
-			
 			
 			int PlotIdx = 0;
 			if(Data->NPars > 1)
@@ -259,6 +266,10 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 			}
 		}
 	}
+	else if(ShowPlot == 2)
+		RefreshResultSummary(CurStep);
+	
+	
 }
 
 void MCMCResultWindow::ResizePlots()
@@ -294,6 +305,14 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 	this->FreeSyms.clear();
 	for(const String &Str : FreeSyms)
 		this->FreeSyms << Str;
+	
+	this->MinBound.resize(Data->NPars);
+	this->MaxBound.resize(Data->NPars);
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		this->MaxBound[Par] = MaxBound[Par];
+		this->MinBound[Par] = MinBound[Par];
+	}
 	
 	BurninSlider.Enable();
 	BurninEdit.Enable();
@@ -503,6 +522,70 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 	ResizePlots();
 }
 
+void MCMCResultWindow::RefreshResultSummary(int CurStep)
+{
+	ResultSummary.Clear();
+	
+	if(!Data) return;
+	
+	int BurninVal = (int)Burnin[0];
+	
+	if(CurStep < 0) CurStep = Data->NSteps - 1;
+		
+	std::vector<std::vector<double>> ParValues;	
+	int NumValues = SortData(Data, CurStep, BurninVal, ParValues);
+	
+	if(NumValues <= 0) return;
+	
+	int BestW = -1;
+	int BestS = -1;
+	Data->GetMAPIndex(BurninVal, CurStep, BestW, BestS);
+	
+	
+	int Precision = ParentWindow->StatSettings.Precision;
+	
+	std::vector<double> Means(Data->NPars);
+	std::vector<double> StdDevs(Data->NPars);
+	
+	String Table = "{{1:1:1:1:1";
+	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":1";
+	Table << " [* Name]:: [* Mean]:: [* Median]:: [* MAP]:: [* StdDev]";
+	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":: " << FormatDouble(Perc, 1) << "%";
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		timeseries_stats Stats;
+		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, true);
+		
+		String Sym = FreeSyms[Par];
+		Sym.Replace("_", "`_");
+		
+		Means[Par] = Stats.Mean;
+		StdDevs[Par] = Stats.StandardDev;
+		
+		//if(Par != 0) Table << ":: ";
+		Table 
+			<< ":: " << Sym
+			<< ":: " << FormatDouble(Stats.Mean, Precision)
+			<< ":: " << FormatDouble(Stats.Median, Precision)
+			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision) : "N/A")
+			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
+		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
+	}
+	Table << "}}&";
+	ResultSummary.Append(Table);
+	
+	//TODO: Finish computing correlation coefficients
+	/*
+	for(int Par1 = 0; Par1 < Data->NPars; ++Par)
+	{
+		for(int Par2 = 0; Par2  < Data->NPars; ++Par)
+		{
+			double Corr = 0.0;
+		}
+	}
+	*/
+}
+
 void MCMCResultWindow::BurninEditEvent()
 {
 	int Val = BurninEdit.GetData();
@@ -557,23 +640,28 @@ void MCMCResultWindow::SaveResults()
 	
 	if(File.fail()) return;
 	
-	File << Data->NPars << " " << Data->NWalkers << " " << Data->NSteps << "\n";
+	File << Data->NPars << " " << Data->NWalkers << " " << Data->NSteps << " " << (int)BurninEdit.GetData() << "\n";
 	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
 		String &ParName = FreeSyms[Par];
 		
-		File << ParName.ToStd() << "\n";
+		File << ParName.ToStd() << " " << MinBound[Par] << " " << MaxBound[Par] << "\n";
 		
 		for(int Step = 0; Step < Data->NSteps; ++Step)
 		{
 			for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
-				File << (*Data)(Par, Walker, Step) << "\t";
+				File << (*Data)(Walker, Par, Step) << "\t";
 			File << "\n";
 		}
 	}
-	
-	
+	File << "logprob\n";
+	for(int Step = 0; Step < Data->NSteps; ++Step)
+	{
+		for(int Walker = 0; Walker  < Data->NWalkers; ++Walker)
+			File << Data->LLValue(Walker, Step) << "\t";
+		File << "\n";
+	}
 	
 	File.close();
 }
@@ -603,33 +691,51 @@ bool MCMCResultWindow::LoadResults()
 	
 	if(File.fail()) return false;
 	
-	int NPars, NWalkers, NSteps;
-	File >> NPars;
-	File >> NWalkers;
-	File >> NSteps;
-	
+	std::string Line;
+	std::getline(File, Line);
 	if(File.eof() || File.bad() || File.fail()) return false;
+	std::stringstream LL(Line, std::ios_base::in);
 	
-	//TODO: Should actually read/write these!
+	int NPars, NWalkers, NSteps, BurninVal;
+	LL >> NPars;
+	LL >> NWalkers;
+	LL >> NSteps;
+	LL >> BurninVal;
+	if(LL.bad() || LL.fail()) return false;
+	
+	//NOTE: we need to have locals of these and pass them to BeginNewPlots, otherwise they will
+	//be cleared inside BeginNewPlots at the same time as it reads them. TODO: should pack
+	//these inside the Data struct instead.
 	std::vector<double> MinBound(NPars);
 	std::vector<double> MaxBound(NPars);
+	Array<String> FreeSyms;
 	
 	Data->Allocate(NWalkers, NPars, NSteps);
 	
 	for(int Par = 0; Par < NPars; ++Par)
 	{
-		std::string Sym;
-		File >> Sym;
+		std::getline(File, Line);
 		if(File.eof() || File.bad() || File.fail()) return false;
-		FreeSyms.push_back(Sym.data());
+		std::stringstream LL(Line, std::ios_base::in);
 		
-		std::string Line;
+		std::string Sym;
+		double Min, Max;
+		LL >> Sym;
+		LL >> Min;
+		LL >> Max;
+		
+		if(LL.bad() || LL.fail()) return false;
+		
+		FreeSyms.push_back(Sym.data());
+		MinBound[Par] = Min;
+		MaxBound[Par] = Max;
+		
 		for(int Step = 0; Step < NSteps; ++Step)
 		{
 			std::getline(File, Line);
-			if(File.eof() || File.bad() || File.fail()) return false;
-			
+			if(File.bad() || File.fail()) return false;
 			std::stringstream LL(Line, std::ios_base::in);
+			
 			for(int Walker = 0; Walker < NWalkers; ++Walker)
 			{
 				double Val;
@@ -641,9 +747,32 @@ bool MCMCResultWindow::LoadResults()
 		}
 	}
 	
+	std::getline(File, Line);
+	if(File.bad() || File.fail()) return false;
+	if(Line != "logprob") return false;
+	for(int Step = 0; Step < NSteps; ++Step)
+	{
+		std::getline(File, Line);
+		if(File.bad() || File.fail()) return false;
+		std::stringstream LL(Line, std::ios_base::in);
+		
+		for(int Walker = 0; Walker < NWalkers; ++Walker)
+		{
+			double Val;
+			LL >> Val;
+			if(LL.bad() || LL.fail()) return false;
+			
+			Data->LLValue(Walker, Step) = Val;
+		}
+	}
+	
 	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms);
 	
-	RefreshPlots();
+	BurninSlider.SetData(BurninVal);
+	BurninEdit.SetData(BurninVal);
+	BurninSliderEvent();
+	
+	//RefreshPlots();
 	
 	return true;
 }

@@ -48,6 +48,26 @@ struct mcmc_data
 	{
 		return LLData[Walker*NSteps + Step];
 	}
+	
+	void GetMAPIndex(int Burnin, int CurStep, int &BestW, int &BestS)
+	{
+		//NOTE: Doesn't do error handling, all bounds have to be checked externally
+		
+		double Best = -std::numeric_limits<double>::infinity();
+		for(int Step = Burnin; Step <= CurStep; ++Step)
+		{
+			for(int Walker = 0; Walker < NWalkers; ++Walker)
+			{
+				double Val = LLValue(Walker, Step);
+				if(Val > Best)
+				{
+					Best = Val;
+					BestW = Walker;
+					BestS = Step;
+				}
+			}
+		}
+	}
 };
 
 bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval);

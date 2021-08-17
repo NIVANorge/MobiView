@@ -304,7 +304,7 @@ SensitivityViewWindow::Run()
 			#define SET_SETTING(Handle, Name, Type) \
 				else if(Name == StatName)           \
 				{                                   \
-					ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings); \
+					ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings, false); \
 					StatData[NStep] = TimeseriesStats.Handle;                                                            \
 				}
 			//TODO: Use the GOF interval!

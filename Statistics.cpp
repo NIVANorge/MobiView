@@ -32,7 +32,7 @@ void DisplayStat(String ValName, double Val, String &Display, bool &TrackedFirst
 	Display << ValName << "::@W " << FormatDouble(Val, Precision);
 }
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col)
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col)
 {
 	int Precision = StatSettings.Precision;
 	
@@ -63,7 +63,7 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	PlotInfo.ScrollEnd();
 }
 
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange)
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange)
 {
 	int Precision = StatSettings.Precision;
 	
@@ -95,7 +95,7 @@ void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, St
 }
 
 
-void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, StatisticsSettings &StatSettings)
+void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, const StatisticsSettings &StatSettings, bool AlreadySorted)
 {
 	double Sum = 0.0;
 	double SumAbsDiff = 0.0;
@@ -140,8 +140,11 @@ void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len
 	
 	//TODO: Guard against FiniteCount==0
 	
-	SortedData.resize(FiniteCount);
-	std::sort(SortedData.begin(), SortedData.end());
+	if(!AlreadySorted)
+	{
+		SortedData.resize(FiniteCount);
+		std::sort(SortedData.begin(), SortedData.end());
+	}
 	
 	double Mean = Sum / (double)FiniteCount;
 	

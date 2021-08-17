@@ -535,7 +535,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), Parent->StatSettings);
+			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), Parent->StatSettings, false);
 			DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo);
 		}
 	}
@@ -760,7 +760,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 				
 				timeseries_stats Stats3 = {};
-				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings);
+				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings, false);
 				
 				Color Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
 				
@@ -778,7 +778,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			ComputeXValues(InputStartTime, BaselineStartTime, BaselineTimesteps, Parent->TimestepSize, BaselineXValues);
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), Parent->StatSettings);
+			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), Parent->StatSettings, false);
 			
 			Color Col = AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, InputStartTime, BaselineStartTime, Parent->TimestepSize, Stats.Min, Stats.Max);
 			DisplayTimeseriesStats(Stats, BS, Unit, Parent->StatSettings, PlotInfo, Col);
@@ -793,7 +793,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
 			
 			timeseries_stats Stats2 = {};
-			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), Parent->StatSettings);
+			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), Parent->StatSettings, false);
 		
 			Col = AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, InputStartTime, ResultStartTime, Parent->TimestepSize, Stats2.Min, Stats2.Max);
 
@@ -820,11 +820,11 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ObservedStats = {};
-			ComputeTimeseriesStats(ObservedStats, ObservedSeries+GofOffset, GofTimesteps, Parent->StatSettings);
+			ComputeTimeseriesStats(ObservedStats, ObservedSeries+GofOffset, GofTimesteps, Parent->StatSettings, false);
 			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit, Parent->StatSettings, PlotInfo);
 			
 			timeseries_stats ModeledStats = {};
-			ComputeTimeseriesStats(ModeledStats, ModeledSeries+GofOffset, GofTimesteps, Parent->StatSettings);
+			ComputeTimeseriesStats(ModeledStats, ModeledSeries+GofOffset, GofTimesteps, Parent->StatSettings, false);
 			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit, Parent->StatSettings, PlotInfo);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
@@ -856,7 +856,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, Parent->StatSettings);
+				ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, Parent->StatSettings, false);
 				
 				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDev);
 			}
@@ -1479,7 +1479,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings);
+		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings, false);
 		
 		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max, Null, MajorMode);
 		

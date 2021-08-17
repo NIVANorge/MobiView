@@ -372,6 +372,8 @@ public:
 private:
 	
 	
+	void RefreshResultSummary(int CurStep = -1);
+	
 	ToolBar Tool;
 	
 	double Burnin[2];
@@ -381,11 +383,15 @@ private:
 	
 	
 	mcmc_data *Data = nullptr;
+	//TODO: Pack these into Data?
 	Array<String> FreeSyms;
+	std::vector<double> MinBound;
+	std::vector<double> MaxBound;
 	
 	
 	ParentCtrl ViewChainPlots;
 	ParentCtrl ViewTrianglePlots;
+	MyRichView ResultSummary;
 	
 	const int DistrResolution = 20;
 	

@@ -97,7 +97,7 @@ struct StatisticsSettings
 {
 	#include "SetStatSettings.h"
 	
-	std::vector<double> Percentiles = {0.0, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 100.0};
+	std::vector<double> Percentiles = {2.5, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 97.5};
 	
 	int Precision = 5;
 	double EckhardtFilterParam = 0.925;
@@ -186,13 +186,13 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues);
 
 
-void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, StatisticsSettings &StatSettings);
+void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, const StatisticsSettings &StatSettings, bool AlreadySorted = false);
 void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len);
 void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
-void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange);
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
+void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange);
 
 class PlotCtrl;
 
