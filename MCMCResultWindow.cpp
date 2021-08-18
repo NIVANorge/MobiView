@@ -546,6 +546,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	
 	std::vector<double> Means(Data->NPars);
 	std::vector<double> StdDevs(Data->NPars);
+	Array<String> Syms;
 	
 	String Table = "{{1:1:1:1:1";
 	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":1";
@@ -558,6 +559,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 		
 		String Sym = FreeSyms[Par];
 		Sym.Replace("_", "`_");
+		Syms << Sym;
 		
 		Means[Par] = Stats.Mean;
 		StdDevs[Par] = Stats.StandardDev;
@@ -571,19 +573,47 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
 		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
 	}
-	Table << "}}&";
+	Table << "}}&[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction.&&";
 	ResultSummary.Append(Table);
 	
 	//TODO: Finish computing correlation coefficients
-	/*
-	for(int Par1 = 0; Par1 < Data->NPars; ++Par)
+
+	Table = "{{1:";
+	for(int Par = 0; Par < Data->NPars-2; ++Par) Table << "1:";
+	Table << "1 ";
+	
+	for(int Par = 0; Par < Data->NPars-1; ++Par)
+		Table << ":: " << Syms[Par];
+		
+	for(int Par1 = 1; Par1 < Data->NPars; ++Par1)
 	{
-		for(int Par2 = 0; Par2  < Data->NPars; ++Par)
+		Table << ":: " << Syms[Par1];
+		for(int Par2 = 0; Par2 < Data->NPars-1; ++Par2)
 		{
+			Table << "::";
+			if(Par2 >= Par1){ Table << "@W "; continue; }
+			
 			double Corr = 0.0;
+			for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
+			{
+				for(int Step = BurninVal; Step <= CurStep; ++Step)
+				{
+					double Val1 = (*Data)(Walker, Par1, Step);
+					double Val2 = (*Data)(Walker, Par2, Step);
+					Corr += (Val1 - Means[Par1])*(Val2 - Means[Par2]);
+				}
+			}
+			Corr /= (StdDevs[Par1]*StdDevs[Par2]*(double)NumValues);
+			
+			int R = 0, B = 0;
+			if(Corr > 0) R = (int)(255.0*Corr/2.0);
+			if(Corr < 0) B = (int)(-255.0*Corr/2.0);
+			Table << Format("@(%d.%d.%d) %.2f", 255-B, 255-R-B, 255-R, Corr);
 		}
 	}
-	*/
+	Table << "}}&[* Table 2:] Pearson correlation coefficients between the parameters in the posterior distribution.";
+
+	ResultSummary.Append(Table);
 }
 
 void MCMCResultWindow::BurninEditEvent()
