@@ -6,7 +6,6 @@
 
 #define DLIB_NO_GUI_SUPPORT  //NOTE: Turns off dlib's own GUI since we are using upp.
 
-
 #include "dlib/optimization.h"
 #include "dlib/global_optimization.h"
 
@@ -479,7 +478,6 @@ void OptimizationWindow::ClearAll()
 
 typedef dlib::matrix<double,0,1> column_vector;
 
-
 inline int
 SetParameters(void *DataSet, std::vector<indexed_parameter> *Parameters, const column_vector& Par, bool UseExpr, const Array<String> &Syms, const Array<String> &Exprs, model_dll_interface &ModelDll)
 {
@@ -531,6 +529,34 @@ SetParameters(void *DataSet, std::vector<indexed_parameter> *Parameters, const c
 	
 	return -1;
 }
+
+void OptimizationWindow::SetParameterValues(void *DataSet, double *Pars, size_t NPars)
+{
+	//NOTE: This one is only here to be used by the MCMC result window when it wants to write
+	//back parameter sets. TODO: This may not be the best way of organizing it...
+	
+	std::unordered_map<std::string, std::pair<int,int>> SymRow;
+	
+	int ParCount = ParSetup.ParameterView.GetCount();  //NOTE: May be different from NPars.
+	
+	//TODO: Shouldn't these be packed into indexed_parameter instead??
+	Array<String> Syms(ParCount);
+	Array<String> Exprs(ParCount);
+
+	int ExprCount = 0;
+	for(int Row = 0; Row < ParCount; ++Row)
+	{
+		Syms[Row]  = ParSetup.ParameterView.Get(Row, Id("__sym"));
+		Exprs[Row] = ParSetup.ParameterView.Get(Row, Id("__expr"));
+		if(!IsNull(Exprs[Row]) && Exprs[Row] != "") ++ExprCount;
+	}
+	
+	column_vector Pars2(NPars);
+	for(int Par = 0; Par < NPars; ++Par) Pars2(Par) = Pars[Par];
+
+	SetParameters(DataSet, &Parameters, Pars2, ExprCount > 0, Syms, Exprs, ParentWindow->ModelDll);
+}
+
 
 double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam);
 
@@ -743,8 +769,10 @@ bool MCMCCallbackFun(void *CallbackData, int CurStep)
 {
 	mcmc_callback_data *CBD = (mcmc_callback_data *)CallbackData;
 	
+	/*
 	if(CBD->ParentWindow->MCMCResultWin.HaltWasPushed)
 		return false;
+	*/
 	
 	CBD->ParentWindow->MCMCResultWin.RefreshPlots(CurStep);
 	CBD->ParentWindow->ProcessEvents();
@@ -787,7 +815,6 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 			continue;
 		
 		double StdDev = ErrParam * Sim[Idx];
-		
 		double Factor = (Obs[Idx] - Sim[Idx]) / StdDev;
 		
 		Result += -std::log(StdDev*Root2Pi) - 0.5*Factor*Factor;
@@ -812,6 +839,7 @@ bool OptimizationWindow::RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimiza
 	for(int Par = 0; Par < OptimModel->Parameters->size(); ++Par)
 		if(IsNull((*OptimModel->Exprs)[Par])) FreeSyms.push_back((*OptimModel->Syms)[Par]);
 	
+	ResultWin->ChoosePlotsTab.Set(0);
 	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms);
 	if(!ResultWin->IsOpen())
 		ResultWin->Open();
@@ -903,7 +931,7 @@ void OptimizationWindow::RunClicked()
 	int ActiveIdx = 0;
 	if((bool)ParSetup.OptionUseExpr.Get() || RunType==1)    //TODO: Non-ideal. Instead we should maybe force use exprs for RunType MCMC
 	{
-		EvalExpr TestExpression;
+		//EvalExpr TestExpression;
 		for(int Row = 0; Row < ParCount; ++Row)
 		{
 			String Sym  = ParSetup.ParameterView.Get(Row, Id("__sym"));
@@ -1250,35 +1278,12 @@ void OptimizationWindow::TabChange()
 
 
 //// Serialization:
-
-void OptimizationWindow::LoadFromJson()
+	
+void OptimizationWindow::LoadFromJsonString(String &JsonData)
 {
-	FileSel Sel;
-	
-	Sel.Type("Calibration setups", "*.json");
-	
-	if(!ParentWindow->ParameterFile.empty())
-		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
-	else
-		Sel.ActiveDir(GetCurrentDirectory());
-	
-	Sel.ExecuteOpen();
-	String Filename = Sel.Get();
-	
-	if(!FileExists(Filename)) return;
-	
-	if(GetFileName(Filename) == "settings.json")
-	{
-		PromptOK("settings.json is used by MobiView to store various settings and should not be used to store calibration setups.");
-		return;
-	}
-	
 	ClearAll();
 	
-	String SetupFile = LoadFile(Filename);
-	
-	Value SetupJson  = ParseJSON(SetupFile);
-	
+	Value SetupJson  = ParseJSON(JsonData);	
 	
 	Value MaxEvalsJson = SetupJson["MaxEvals"];
 	if(!IsNull(MaxEvalsJson))
@@ -1436,10 +1441,10 @@ void OptimizationWindow::LoadFromJson()
 	EnableExpressionsClicked();
 }
 
-void OptimizationWindow::WriteToJson()
+void OptimizationWindow::LoadFromJson()
 {
 	FileSel Sel;
-
+	
 	Sel.Type("Calibration setups", "*.json");
 	
 	if(!ParentWindow->ParameterFile.empty())
@@ -1447,10 +1452,10 @@ void OptimizationWindow::WriteToJson()
 	else
 		Sel.ActiveDir(GetCurrentDirectory());
 	
-	Sel.ExecuteSaveAs();
+	Sel.ExecuteOpen();
 	String Filename = Sel.Get();
 	
-	if(Filename.GetLength() == 0) return;
+	if(!FileExists(Filename)) return;
 	
 	if(GetFileName(Filename) == "settings.json")
 	{
@@ -1458,6 +1463,13 @@ void OptimizationWindow::WriteToJson()
 		return;
 	}
 	
+	String JsonData = LoadFile(Filename);
+	
+	LoadFromJsonString(JsonData);
+}
+
+String OptimizationWindow::SaveToJsonString()
+{
 	Json MainFile;
 	
 	MainFile("MaxEvals", RunSetup.EditMaxEvals.GetData());
@@ -1548,8 +1560,34 @@ void OptimizationWindow::WriteToJson()
 	
 	MainFile("Targets", TargetArr);
 	
+	return MainFile.ToString();
+}
+
+void OptimizationWindow::WriteToJson()
+{
+	FileSel Sel;
+
+	Sel.Type("Calibration setups", "*.json");
 	
-	SaveFile(Filename, MainFile.ToString());
+	if(!ParentWindow->ParameterFile.empty())
+		Sel.ActiveDir(GetFileFolder(ParentWindow->ParameterFile.data()));
+	else
+		Sel.ActiveDir(GetCurrentDirectory());
+	
+	Sel.ExecuteSaveAs();
+	String Filename = Sel.Get();
+	
+	if(Filename.GetLength() == 0) return;
+	
+	if(GetFileName(Filename) == "settings.json")
+	{
+		PromptOK("settings.json is used by MobiView to store various settings and should not be used to store calibration setups.");
+		return;
+	}
+	
+	String JsonData = SaveToJsonString();
+	
+	SaveFile(Filename, JsonData);
 }
 
 

@@ -7,7 +7,6 @@
 
 #include <fstream>
 
-
 /*
 
 Possible TODO:
@@ -15,8 +14,7 @@ Possible TODO:
 - Multithreaded chains.
 - Responsivity of halt button.
 - Restart with more steps.
-- Result summary, including (co)variances of parameters, quantiles of paramers and MAP.
-- Write MAP and median parameters to main dataset.
+- Scrollable plot areas.
 - Autocorrelation computation
 - Projection of results with percentiles (plot).
 - More dynamic choice of LL function. Also use LL function in optimizer.
@@ -34,9 +32,15 @@ MCMCResultWindow::MCMCResultWindow()
 	SetRect(0, 0, 1200, 900);
 	Title("MobiView MCMC results").Sizeable().Zoomable();
 	
+	ViewResultSummary.Add(ResultSummary.HSizePos().VSizePos(0, 30));
+	ViewResultSummary.Add(PushWriteMAP.SetLabel("MAP to main").LeftPos(0, 100).BottomPos(5, 25));
+	ViewResultSummary.Add(PushWriteMedian.SetLabel("Median to main").LeftPos(105, 100).BottomPos(5, 25));
+	PushWriteMAP.WhenPush = THISBACK(MAPToMainPushed);
+	PushWriteMedian.WhenPush = THISBACK(MedianToMainPushed);
+	
 	ChoosePlotsTab.Add(ViewChainPlots.SizePos(), "Chain plots");
 	ChoosePlotsTab.Add(ViewTrianglePlots.SizePos(), "Triangle plot");
-	ChoosePlotsTab.Add(ResultSummary.SizePos(), "Result summary");
+	ChoosePlotsTab.Add(ViewResultSummary.SizePos(), "Result summary");
 	ChoosePlotsTab.WhenSet << [&](){ RefreshPlots(); };
 	
 	BurninSlider.WhenAction = THISBACK(BurninSliderEvent);
@@ -58,8 +62,8 @@ MCMCResultWindow::MCMCResultWindow()
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
-	PushHalt.WhenPush << [&](){ HaltWasPushed = true; };
-	PushHalt.SetImage(IconImg6::Remove());
+	//PushHalt.WhenPush << [&](){ HaltWasPushed = true; };
+	//PushHalt.SetImage(IconImg6::Remove());
 }
 
 void MCMCResultWindow::SubBar(Bar &bar)
@@ -102,27 +106,28 @@ void MCMCResultWindow::ClearPlots()
 	ResultSummary.Clear();
 }
 
-int SortData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vector<double>> &SortedOut)
+int FlattenData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vector<double>> &FlattenedOut, bool Sort=true)
 {
 	if(CurStep < 0) CurStep = Data->NSteps - 1;
 	int NumSteps = CurStep - Burnin;
 	if(NumSteps <= 0) return 0;
 	
-	SortedOut.resize(Data->NPars);
+	FlattenedOut.resize(Data->NPars);
 			
 	int NumValues = NumSteps * Data->NWalkers;
 	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
-		SortedOut[Par].resize(NumValues);
+		FlattenedOut[Par].resize(NumValues);
 		
 		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
 		{
 			for(int Step = Burnin; Step < CurStep; ++Step)
-				SortedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);	
+				FlattenedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);	
 		}
 		
-		std::sort(SortedOut[Par].begin(), SortedOut[Par].end());
+		if(Sort)
+			std::sort(FlattenedOut[Par].begin(), FlattenedOut[Par].end());
 	}
 			
 	return NumValues;
@@ -148,7 +153,7 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 		int BurninVal = (int)Burnin[0];
 		
 		std::vector<std::vector<double>> ParValues;	
-		int NumValues = SortData(Data, CurStep, BurninVal, ParValues);
+		int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, true);
 		
 		if(NumValues > 0)
 		{
@@ -297,9 +302,10 @@ void MCMCResultWindow::ResizePlots()
 
 void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms)
 {
-	HaltWasPushed = false;
+	//HaltWasPushed = false;
 	BurninSlider.SetData(0);
 	BurninEdit.SetData(0);
+	Burnin[0] = 0; Burnin[1] = 0;
 	
 	
 	this->FreeSyms.clear();
@@ -533,7 +539,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	if(CurStep < 0) CurStep = Data->NSteps - 1;
 		
 	std::vector<std::vector<double>> ParValues;	
-	int NumValues = SortData(Data, CurStep, BurninVal, ParValues);
+	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
 	
 	if(NumValues <= 0) return;
 	
@@ -555,7 +561,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
 		timeseries_stats Stats;
-		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, true);
+		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
 		
 		String Sym = FreeSyms[Par];
 		Sym.Replace("_", "`_");
@@ -573,7 +579,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
 		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
 	}
-	Table << "}}&[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction.&&";
+	Table << "}}&[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution.&&";
 	ResultSummary.Append(Table);
 	
 	//TODO: Finish computing correlation coefficients
@@ -594,14 +600,11 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 			if(Par2 >= Par1){ Table << "@W "; continue; }
 			
 			double Corr = 0.0;
-			for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
+			for(int Step = 0; Step < ParValues[0].size(); ++Step)
 			{
-				for(int Step = BurninVal; Step <= CurStep; ++Step)
-				{
-					double Val1 = (*Data)(Walker, Par1, Step);
-					double Val2 = (*Data)(Walker, Par2, Step);
-					Corr += (Val1 - Means[Par1])*(Val2 - Means[Par2]);
-				}
+				double Val1 = ParValues[Par1][Step];
+				double Val2 = ParValues[Par2][Step];
+				Corr += (Val1 - Means[Par1])*(Val2 - Means[Par2]);
 			}
 			Corr /= (StdDevs[Par1]*StdDevs[Par2]*(double)NumValues);
 			
@@ -615,6 +618,53 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 
 	ResultSummary.Append(Table);
 }
+
+void MCMCResultWindow::MAPToMainPushed()
+{
+	//TODO: Should check that parameter setup in optim. window still correspond to this
+	//parameter data!
+	
+	if(!Data) return;
+	
+	int BestW = -1;
+	int BestS = -1;
+	Data->GetMAPIndex((int)Burnin[0], Data->NSteps-1, BestW, BestS);
+	
+	if(BestW < 0 || BestS < 0) return;
+	
+	std::vector<double> Pars(Data->NPars);
+	for(int Par = 0; Par < Data->NPars; ++Par)
+		Pars[Par] = (*Data)(BestW, Par, BestS);
+	
+	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size());
+	ParentWindow->RunModel();
+}
+
+void MCMCResultWindow::MedianToMainPushed()
+{
+	//TODO: Should check that parameter setup in optim. window still correspond to this
+	//parameter data!
+	//TODO: This is redoing a lot of unnecessary work, but it may not be a problem..
+	
+	if(!Data) return;
+	
+	std::vector<std::vector<double>> ParValues;
+	int CurStep = Data->NSteps-1;
+	FlattenData(Data, CurStep, (int)Burnin[0], ParValues, false);
+	
+	std::vector<double> Pars(Data->NPars);
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		timeseries_stats Stats;
+		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
+		
+		Pars[Par] = Stats.Median;
+	}
+	
+	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size());
+	ParentWindow->RunModel();
+}
+
 
 void MCMCResultWindow::BurninEditEvent()
 {
@@ -693,12 +743,15 @@ void MCMCResultWindow::SaveResults()
 		File << "\n";
 	}
 	
+	String JsonData = ParentWindow->OptimizationWin.SaveToJsonString();
+	File << JsonData.ToStd();
+	
 	File.close();
 }
 
 bool MCMCResultWindow::LoadResults()
 {
-	//TODO: This still does not work correctly!
+	
 	
 	//NOTE: Error handling is very rudimentary for now.
 	
@@ -800,9 +853,14 @@ bool MCMCResultWindow::LoadResults()
 	
 	BurninSlider.SetData(BurninVal);
 	BurninEdit.SetData(BurninVal);
-	BurninSliderEvent();
+	Burnin[0] = (double)BurninVal; Burnin[1] = (double)BurninVal;
 	
-	//RefreshPlots();
+	
+	std::string JsonData(std::istreambuf_iterator<char>(File), {});
+	String JsonData2(JsonData.data());
+	ParentWindow->OptimizationWin.LoadFromJsonString(JsonData2);
+	
+	RefreshPlots();
 	
 	return true;
 }

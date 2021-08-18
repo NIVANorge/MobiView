@@ -291,8 +291,12 @@ public:
 	
 	void DisplayClicked();
 	
+	void SetParameterValues(void *DataSet, double *Pars, size_t NPars);
+	
 	MobiView *ParentWindow;
 	
+	void LoadFromJsonString(String &Json);
+	String SaveToJsonString();
 	
 	mcmc_data                  Data;
 private:
@@ -368,7 +372,10 @@ public:
 	void SaveResults();
 	bool LoadResults();
 	
-	bool HaltWasPushed;
+	void MAPToMainPushed();
+	void MedianToMainPushed();
+	
+	//bool HaltWasPushed;
 private:
 	
 	
@@ -388,10 +395,12 @@ private:
 	std::vector<double> MinBound;
 	std::vector<double> MaxBound;
 	
-	
 	ParentCtrl ViewChainPlots;
 	ParentCtrl ViewTrianglePlots;
+	ParentCtrl ViewResultSummary;
 	MyRichView ResultSummary;
+	Button PushWriteMAP;
+	Button PushWriteMedian;
 	
 	const int DistrResolution = 20;
 	
