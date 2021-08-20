@@ -38,8 +38,9 @@ MCMCResultWindow::MCMCResultWindow()
 	PushWriteMAP.WhenPush = THISBACK(MAPToMainPushed);
 	PushWriteMedian.WhenPush = THISBACK(MedianToMainPushed);
 	
-	ChoosePlotsTab.Add(ViewChainPlots.SizePos(), "Chain plots");
-	ChoosePlotsTab.Add(ViewTrianglePlots.SizePos(), "Triangle plot");
+
+	ChoosePlotsTab.Add(ChainPlotScroller.SizePos(), "Chain plots");
+	ChoosePlotsTab.Add(TrianglePlotScroller.SizePos(), "Triangle plot");
 	ChoosePlotsTab.Add(ViewResultSummary.SizePos(), "Result summary");
 	ChoosePlotsTab.WhenSet << [&](){ RefreshPlots(); };
 	
@@ -123,7 +124,7 @@ int FlattenData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vect
 		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
 		{
 			for(int Step = Burnin; Step < CurStep; ++Step)
-				FlattenedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);	
+				FlattenedOut[Par][Walker*NumSteps + Step-Burnin] = (*Data)(Walker, Par, Step);
 		}
 		
 		if(Sort)
@@ -152,7 +153,7 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 		// Triangle plots
 		int BurninVal = (int)Burnin[0];
 		
-		std::vector<std::vector<double>> ParValues;	
+		std::vector<std::vector<double>> ParValues;
 		int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, true);
 		
 		if(NumValues > 0)
@@ -277,17 +278,16 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 	
 }
 
-void MCMCResultWindow::ResizePlots()
+void MCMCResultWindow::ResizeChainPlots()
 {
 	int PlotCount = ChainPlots.size();
 	
-	int WinWidth  = GetRect().GetWidth();
-	int WinHeight = GetRect().GetHeight();
+	int WinWidth  = GetRect().GetWidth()-50; //Allow for the scrollbar.
 	
 	int NumCols = 4;
+	int NumRows = PlotCount / 4 + (int)(PlotCount % 4 != 0);
 	
 	int PlotWidth = WinWidth / NumCols;
-	//int PlotHeight = (3 * WinHeight) / PlotCount - 50;   //TODO: Fix this
 	int PlotHeight = 160;
 
 	for(int PlotIdx = 0; PlotIdx < PlotCount; ++PlotIdx)
@@ -298,6 +298,12 @@ void MCMCResultWindow::ResizePlots()
 		ChainPlots[PlotIdx].LeftPos(XX*PlotWidth, PlotWidth);
 		ChainPlots[PlotIdx].TopPos(YY*PlotHeight, PlotHeight);
 	}
+	
+	int TotX = WinWidth;
+	int TotY = PlotHeight*NumRows + 50;
+	ChainPlotScroller.ClearPane();
+	Size TriSize(TotX, TotY);
+	ChainPlotScroller.AddPane(ViewChainPlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
 }
 
 void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms)
@@ -358,6 +364,9 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 			Plot.LinkedWith(ChainPlots[0]);
 	}
 	
+	ResizeChainPlots();
+	
+	
 	this->Data = Data;
 	
 	if(Data->NPars > 1)
@@ -380,6 +389,13 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 		int DimY = 0;
 		int SumDimX = 0;
 		int SumDimY = 0;
+		
+		int TotX = Data->NPars*Dim + Largemargin + (2*Data->NPars - 1)*SmallmarginX + 50;
+		int TotY = Data->NPars*Dim + Largemargin + (2*Data->NPars - 1)*SmallmarginY + 50;
+		TrianglePlotScroller.ClearPane();
+		Size TriSize(TotX, TotY);
+		TrianglePlotScroller.AddPane(ViewTrianglePlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
+		
 		
 		for(int Par1 = 0; Par1 < Data->NPars; ++Par1)
 		{
@@ -524,8 +540,7 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 			SumDimX += DimX;
 		}
 	}
-	
-	ResizePlots();
+
 }
 
 void MCMCResultWindow::RefreshResultSummary(int CurStep)

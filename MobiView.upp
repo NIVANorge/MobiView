@@ -1,7 +1,8 @@
 uses
 	CtrlLib,
 	ScatterCtrl,
-	plugin/md;
+	plugin/md,
+	AutoScroller;
 
 file
 	MobiView.h,

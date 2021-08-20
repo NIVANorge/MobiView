@@ -5,6 +5,7 @@
 
 #include <CtrlLib/CtrlLib.h>
 #include <ScatterCtrl/ScatterCtrl.h>
+#include <AutoScroller/AutoScroller.h>
 
 #include <map>
 #include <vector>
@@ -199,7 +200,7 @@ class StatPlotCtrl : public WithSensitivityStatPlotLayout<ParentCtrl>
 public:
 	typedef StatPlotCtrl CLASSNAME;
 	
-	StatPlotCtrl();		
+	StatPlotCtrl();
 };
 
 class SensitivityViewWindow : public WithSensitivityLayout<TopWindow>
@@ -241,7 +242,7 @@ class OptimizationRunSetup : public WithOptimizerSetupLayout<ParentCtrl>
 public:
 	typedef OptimizationRunSetup CLASSNAME;
 	
-	OptimizationRunSetup();	
+	OptimizationRunSetup();
 };
 
 class MCMCRunSetup : public WithMCMCSetupLayout<ParentCtrl>
@@ -361,7 +362,7 @@ public:
 	
 	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms);
 	void ClearPlots();
-	void ResizePlots();
+	void ResizeChainPlots();
 	void RefreshPlots(int CurStep = -1);
 	
 	void BurninSliderEvent();
@@ -394,6 +395,9 @@ private:
 	Array<String> FreeSyms;
 	std::vector<double> MinBound;
 	std::vector<double> MaxBound;
+	
+	AutoScroller ChainPlotScroller;
+	AutoScroller TrianglePlotScroller;
 	
 	ParentCtrl ViewChainPlots;
 	ParentCtrl ViewTrianglePlots;
