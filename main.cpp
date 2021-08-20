@@ -897,7 +897,6 @@ void MobiView::Load()
 	
 	Success = InputFile.size() > 0;
 	
-	//bool ChangedInput = InputFile != PreviouslyLoadedInputFile;
 	bool ChangedInputPath = GetFileDirectory(InputFile.data()) != GetFileDirectory(PreviouslyLoadedInputFile);
 	
 	if(!Success)

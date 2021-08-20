@@ -1,5 +1,6 @@
 #include "MobiView.h"
 
+#include <plugin/md/Markdown.h>
 
 #define IMAGECLASS LogoImg
 #define IMAGEFILE <MobiView/logos.iml>
@@ -53,6 +54,8 @@ void ModelInfoViewWindow::RefreshText()
 	
 	Buf << "[3 The model [* " << ModelName << "] contains the following modules:\n";
 	
+	MarkdownConverter Mdc;
+	
 	for(size_t Module = 0; Module < ModuleNames.size(); ++Module)
 	{
 		Buf += "\n[* ";
@@ -62,8 +65,8 @@ void ModelInfoViewWindow::RefreshText()
 		Buf += ")]\n";
 		
 		const char *ModuleDesc = ParentWindow->ModelDll.GetModuleDescription(ParentWindow->DataSet, ModuleNames[Module]);
-		if(ModuleDesc)
-			Buf += ModuleDesc;
+		if(ModuleDesc && strlen(ModuleDesc) != 0)
+			Buf += Mdc.ToQtf(String(ModuleDesc));
 		else
 			Buf += "(no description provided by model creator)";
 		Buf += "\n";

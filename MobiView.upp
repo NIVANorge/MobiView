@@ -1,6 +1,7 @@
 uses
 	CtrlLib,
-	ScatterCtrl;
+	ScatterCtrl,
+	plugin/md;
 
 file
 	MobiView.h,
