@@ -265,6 +265,20 @@ struct optimization_target
 	double Weight;
 };
 
+inline bool operator==(const optimization_target &T1, const optimization_target &T2)
+{
+	return
+		   T1.ResultName == T2.ResultName
+		&& T1.ResultIndexes == T2.ResultIndexes
+		&& T1.InputName == T2.InputName
+		&& T1.InputIndexes == T2.InputIndexes
+		&& T1.ErrParSym == T2.ErrParSym
+		&& T1.ErrParNum == T2.ErrParNum
+		&& T1.Stat == T2.Stat
+		&& T1.Weight == T2.Weight;
+}
+
+
 struct optimization_model;
 
 class OptimizationWindow : public TopWindow
@@ -288,21 +302,30 @@ public:
 	
 	void ClearAll();
 	
-	void RunClicked();
+	void RunClicked(int RunMode);
 	
 	void DisplayClicked();
 	
-	void SetParameterValues(void *DataSet, double *Pars, size_t NPars);
+	void SetParameterValues(void *DataSet, double *Pars, size_t NPars, std::vector<indexed_parameter> &Parameters);
+	
+	void SetError(const String &ErrStr);
 	
 	MobiView *ParentWindow;
 	
 	void LoadFromJsonString(String &Json);
 	String SaveToJsonString();
 	
-	mcmc_data                  Data;
+	void SymbolEdited(int Row);
+	void ExprEdited(int Row);
+	void ErrSymEdited(int Row);
+	void WeightEdited(int Row);
+	void StatEdited(int Row);
+	
+	bool ErrSymFixup(int RunType);
+	
 private:
 	
-	bool AddSingleParameter(const indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
+	bool AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
 	void AddOptimizationTarget(optimization_target &Target);
 	
 	void SubBar(Bar &bar);
@@ -311,10 +334,7 @@ private:
 	
 	void TabChange();
 	
-	bool RunMobivewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval);
-	
-	
-	std::vector<indexed_parameter> Parameters;
+	bool RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel, double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType);
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
@@ -328,14 +348,18 @@ private:
 	
 	ToolBar Tool;
 	
-	std::vector<optimization_target> Targets;
-	
 	Splitter MainVertical;
 	OptimizationParameterSetup ParSetup;
 	OptimizationTargetSetup    TargetSetup;
 	
+public:
 	OptimizationRunSetup       RunSetup;
 	MCMCRunSetup               MCMCSetup;
+	
+	mcmc_data                  Data;
+	
+	std::vector<indexed_parameter> Parameters;
+	std::vector<optimization_target> Targets;
 };
 
 struct triangle_plot_data
@@ -351,6 +375,14 @@ struct histogram_data
 	std::vector<double> DistrY;
 };
 
+class MCMCProjectionCtrl : public WithMCMCProjectionLayout<ParentCtrl>
+{
+public:
+	typedef MCMCProjectionCtrl CLASSNAME;
+	
+	MCMCProjectionCtrl();
+};
+
 class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
 {
 public:
@@ -360,7 +392,7 @@ public:
 	
 	MobiView *ParentWindow;
 	
-	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms);
+	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType);
 	void ClearPlots();
 	void ResizeChainPlots();
 	void RefreshPlots(int CurStep = -1);
@@ -376,6 +408,9 @@ public:
 	void MAPToMainPushed();
 	void MedianToMainPushed();
 	
+	
+	void GenerateProjectionsPushed();
+	void ReplotProjections();
 	//bool HaltWasPushed;
 private:
 	
@@ -385,7 +420,8 @@ private:
 	ToolBar Tool;
 	
 	double Burnin[2];
-	double BurninPlotY[2];
+	//double BurninPlotY[2];
+	std::vector<double> BurninPlotY;
 	
 	Array<ScatterCtrl> ChainPlots;
 	
@@ -395,6 +431,7 @@ private:
 	Array<String> FreeSyms;
 	std::vector<double> MinBound;
 	std::vector<double> MaxBound;
+	
 	
 	AutoScroller ChainPlotScroller;
 	AutoScroller TrianglePlotScroller;
@@ -414,6 +451,14 @@ private:
 	
 	std::vector<histogram_data>     HistogramData;
 	Array<ScatterCtrl>              Histograms;
+	
+	MCMCProjectionCtrl  ViewProjections;
+	ParentCtrl          ProjectionPlotPane;
+	Array<MyPlot>       ProjectionPlots;
+	
+public:
+	std::vector<indexed_parameter> Parameters;
+	std::vector<optimization_target> Targets;
 };
 
 

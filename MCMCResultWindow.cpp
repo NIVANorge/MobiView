@@ -13,16 +13,20 @@ Possible TODO:
 
 - Multithreaded chains.
 - Responsivity of halt button.
-- Restart with more steps.
-- Scrollable plot areas.
-- Autocorrelation computation
-- Projection of results with percentiles (plot).
+- Autocorrelation computation, maybe autocorr plot.
+- Projection of results with percentiles (plot). Also compute coverage (% of obs within
+confidence interval)
 - More dynamic choice of LL function. Also use LL function in optimizer.
 - Other samplers or sampler moves.
 - Fix duration timer (sometimes negative number).
 
 */
 
+
+MCMCProjectionCtrl::MCMCProjectionCtrl()
+{
+	CtrlLayout(*this);
+}
 
 
 MCMCResultWindow::MCMCResultWindow()
@@ -38,10 +42,21 @@ MCMCResultWindow::MCMCResultWindow()
 	PushWriteMAP.WhenPush = THISBACK(MAPToMainPushed);
 	PushWriteMedian.WhenPush = THISBACK(MedianToMainPushed);
 	
+	
+	ViewProjections.PushGenerate.WhenPush = THISBACK(GenerateProjectionsPushed);
+	ViewProjections.EditSamples.Min(1);
+	ViewProjections.EditSamples.SetData(1000);
+	ViewProjections.GenerateProgress.Hide();
+	ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
+	ViewProjections.ConfidenceMin.MinMax(0.0, 100.0).SetData(2.5);
+	ViewProjections.ConfidenceMax.MinMax(0.0, 100.0).SetData(97.5);
+	
 
 	ChoosePlotsTab.Add(ChainPlotScroller.SizePos(), "Chain plots");
 	ChoosePlotsTab.Add(TrianglePlotScroller.SizePos(), "Triangle plot");
-	ChoosePlotsTab.Add(ViewResultSummary.SizePos(), "Result summary");
+	ChoosePlotsTab.Add(ViewResultSummary.SizePos(), "Parameter distribution summary");
+	ChoosePlotsTab.Add(ViewProjections.SizePos(), "Result projections");
+	
 	ChoosePlotsTab.WhenSet << [&](){ RefreshPlots(); };
 	
 	BurninSlider.WhenAction = THISBACK(BurninSliderEvent);
@@ -56,9 +71,6 @@ MCMCResultWindow::MCMCResultWindow()
 	BurninEdit.Disable();
 	BurninSlider.Disable();
 	
-	//TODO: This is stupid...
-	BurninPlotY[0] = -1e6;
-	BurninPlotY[1] =  1e6;
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
@@ -306,13 +318,15 @@ void MCMCResultWindow::ResizeChainPlots()
 	ChainPlotScroller.AddPane(ViewChainPlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
 }
 
-void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms)
+void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType)
 {
 	//HaltWasPushed = false;
-	BurninSlider.SetData(0);
-	BurninEdit.SetData(0);
-	Burnin[0] = 0; Burnin[1] = 0;
-	
+	if(RunType == 1)  //NOTE: If we extend an earlier run, we keep the Burnin that was set.
+	{
+		BurninSlider.SetData(0);
+		BurninEdit.SetData(0);
+		Burnin[0] = 0; Burnin[1] = 0;
+	}
 	
 	this->FreeSyms.clear();
 	for(const String &Str : FreeSyms)
@@ -342,6 +356,8 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 	Color GraphColor(0, 0, 0);
 	Color BurninColor(255, 0, 0);
 	
+	BurninPlotY.resize(2*Data->NPars);
+	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
 		ScatterCtrl &Plot = ChainPlots[Par];
@@ -355,7 +371,10 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 		for(int Walker = 0; Walker < Data->NWalkers; ++Walker)
 			Plot.AddSeries(&(*Data)(Walker, Par, 0), Data->NSteps, 0.0, 1.0).ShowLegend(false).NoMark().Stroke(1.0, GraphColor).Dash("").Opacity(0.4);
 		
-		Plot.AddSeries((double*)&Burnin[0], (double*)&BurninPlotY[0], (int)2).ShowLegend(false).NoMark().Stroke(1.0, BurninColor).Dash("");
+		BurninPlotY[2*Par]     = MinBound[Par];
+		BurninPlotY[2*Par + 1] = MaxBound[Par];
+		
+		Plot.AddSeries((double*)&Burnin[0], BurninPlotY.data()+2*Par, (int)2).ShowLegend(false).NoMark().Stroke(1.0, BurninColor).Dash("");
 		
 		Plot.SetXYMin(0.0, MinBound[Par]);
 		Plot.SetRange((double)Data->NSteps, MaxBound[Par]-MinBound[Par]);
@@ -553,7 +572,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	
 	if(CurStep < 0) CurStep = Data->NSteps - 1;
 		
-	std::vector<std::vector<double>> ParValues;	
+	std::vector<std::vector<double>> ParValues;
 	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
 	
 	if(NumValues <= 0) return;
@@ -568,6 +587,9 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	std::vector<double> Means(Data->NPars);
 	std::vector<double> StdDevs(Data->NPars);
 	Array<String> Syms;
+	
+	double Acceptance = 100.0*(double)Data->NAccepted / (double)(Data->NWalkers*Data->NSteps);
+	ResultSummary.Append(Format("Acceptance rate: %.2f%%&&", Acceptance));
 	
 	String Table = "{{1:1:1:1:1";
 	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":1";
@@ -586,7 +608,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 		StdDevs[Par] = Stats.StandardDev;
 		
 		//if(Par != 0) Table << ":: ";
-		Table 
+		Table
 			<< ":: " << Sym
 			<< ":: " << FormatDouble(Stats.Mean, Precision)
 			<< ":: " << FormatDouble(Stats.Median, Precision)
@@ -651,7 +673,8 @@ void MCMCResultWindow::MAPToMainPushed()
 	for(int Par = 0; Par < Data->NPars; ++Par)
 		Pars[Par] = (*Data)(BestW, Par, BestS);
 	
-	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size());
+	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size(), Parameters);
+	ParentWindow->Log("Wrote MCMC MAP parameters to main dataset.");
 	ParentWindow->RunModel();
 }
 
@@ -676,7 +699,8 @@ void MCMCResultWindow::MedianToMainPushed()
 		Pars[Par] = Stats.Median;
 	}
 	
-	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size());
+	ParentWindow->OptimizationWin.SetParameterValues(ParentWindow->DataSet, Pars.data(), Pars.size(), Parameters);
+	ParentWindow->Log("Wrote MCMC median parameters to main dataset");
 	ParentWindow->RunModel();
 }
 
@@ -713,6 +737,27 @@ void MCMCResultWindow::BurninSliderEvent()
 		RefreshPlots();
 }
 
+void MCMCResultWindow::GenerateProjectionsPushed()
+{
+	int NSamples   = ViewProjections.EditSamples.GetData();
+	double MinConf = ViewProjections.ConfidenceMin.GetData();
+	double MaxConf = ViewProjections.ConfidenceMax.GetData();
+	
+	for(ScatterCtrl &Plot : ProjectionPlots)
+	{
+		Plot.RemoveAllSeries();
+		Plot.Remove();
+	}
+	ProjectionPlots.Clear();
+	
+	//TODO: Need a simple way to get an optimization_model ...
+}
+
+void MCMCResultWindow::ReplotProjections()
+{
+}
+
+
 
 void MCMCResultWindow::SaveResults()
 {
@@ -735,7 +780,7 @@ void MCMCResultWindow::SaveResults()
 	
 	if(File.fail()) return;
 	
-	File << Data->NPars << " " << Data->NWalkers << " " << Data->NSteps << " " << (int)BurninEdit.GetData() << "\n";
+	File << Data->NPars << " " << Data->NWalkers << " " << Data->NSteps << " " << (int)BurninEdit.GetData() << " " << Data->NAccepted << "\n";
 	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
@@ -766,8 +811,6 @@ void MCMCResultWindow::SaveResults()
 
 bool MCMCResultWindow::LoadResults()
 {
-	
-	
 	//NOTE: Error handling is very rudimentary for now.
 	
 	if(!Data) Data = &ParentWindow->OptimizationWin.Data; //TODO: Maybe this window should own the data block instead..
@@ -794,11 +837,12 @@ bool MCMCResultWindow::LoadResults()
 	if(File.eof() || File.bad() || File.fail()) return false;
 	std::stringstream LL(Line, std::ios_base::in);
 	
-	int NPars, NWalkers, NSteps, BurninVal;
+	int NPars, NWalkers, NSteps, BurninVal, NAccepted;
 	LL >> NPars;
 	LL >> NWalkers;
 	LL >> NSteps;
 	LL >> BurninVal;
+	LL >> NAccepted;
 	if(LL.bad() || LL.fail()) return false;
 	
 	//NOTE: we need to have locals of these and pass them to BeginNewPlots, otherwise they will
@@ -809,6 +853,7 @@ bool MCMCResultWindow::LoadResults()
 	Array<String> FreeSyms;
 	
 	Data->Allocate(NWalkers, NPars, NSteps);
+	Data->NAccepted = NAccepted;
 	
 	for(int Par = 0; Par < NPars; ++Par)
 	{
@@ -864,7 +909,7 @@ bool MCMCResultWindow::LoadResults()
 		}
 	}
 	
-	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms);
+	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1);
 	
 	BurninSlider.SetData(BurninVal);
 	BurninEdit.SetData(BurninVal);
@@ -874,6 +919,12 @@ bool MCMCResultWindow::LoadResults()
 	std::string JsonData(std::istreambuf_iterator<char>(File), {});
 	String JsonData2(JsonData.data());
 	ParentWindow->OptimizationWin.LoadFromJsonString(JsonData2);
+	ParentWindow->OptimizationWin.MCMCSetup.PushExtendRun.Enable();
+	ParentWindow->OptimizationWin.ErrSymFixup(1);
+	
+	Parameters = ParentWindow->OptimizationWin.Parameters;
+	Targets    = ParentWindow->OptimizationWin.Targets;
+	
 	
 	RefreshPlots();
 	

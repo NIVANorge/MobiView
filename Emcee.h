@@ -9,8 +9,8 @@ struct mcmc_data
 {
 	double *ParData = nullptr;
 	double *LLData  = nullptr;
-	
-	size_t NSteps, NWalkers, NPars;
+	size_t NSteps=0, NWalkers=0, NPars=0;
+	size_t NAccepted = 0;
 	
 	void Allocate(size_t NWalkers, size_t NPars, size_t NSteps)
 	{
@@ -22,6 +22,43 @@ struct mcmc_data
 		
 		for(int Idx = 0; Idx < NSteps*NWalkers*NPars; ++Idx) ParData[Idx] = std::numeric_limits<double>::quiet_NaN();
 		for(int Idx = 0; Idx < NSteps*NWalkers; ++Idx)       LLData[Idx]  = std::numeric_limits<double>::quiet_NaN();
+		
+		NAccepted = 0;
+	}
+	
+	void ExtendSteps(size_t NStepsNew)
+	{
+		if(!ParData || NStepsNew <= NSteps) return;
+		
+		double *ParDataNew = (double *)malloc(sizeof(double)*NStepsNew*NWalkers*NPars);
+		double *LLDataNew  = (double *)malloc(sizeof(double)*NStepsNew*NWalkers);
+		
+		for(int Walker = 0; Walker < NWalkers; ++Walker)
+		{
+			for(int Par = 0; Par < NPars; ++Par)
+			{
+				for(int Step = 0; Step < NStepsNew; ++Step)
+				{
+					if(Step < NSteps)
+						ParDataNew[Step + NStepsNew*(Par + NPars*Walker)] = (*this)(Walker, Par, Step);
+					else
+						ParDataNew[Step + NStepsNew*(Par + NPars*Walker)] = std::numeric_limits<double>::quiet_NaN();
+				}
+			}
+			
+			for(int Step = 0; Step < NStepsNew; ++Step)
+			{
+				if(Step < NSteps)
+					LLDataNew[Walker*NStepsNew + Step] = LLValue(Walker, Step);
+				else
+					LLDataNew[Walker*NStepsNew + Step] = std::numeric_limits<double>::quiet_NaN();
+			}
+		}
+		NSteps = NStepsNew;
+		free(ParData);
+		free(LLData);
+		ParData = ParDataNew;
+		LLData  = LLDataNew;
 	}
 	
 	void Free()
@@ -70,7 +107,7 @@ struct mcmc_data
 	}
 };
 
-bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval);
+bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
 
 
 #endif

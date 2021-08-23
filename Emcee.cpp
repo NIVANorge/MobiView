@@ -11,9 +11,11 @@
 using namespace Upp; //NOTE: Just for the random generators. Could be switched out.
 
 
-void EmceeStretchMove(double A, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data &Data,
+bool EmceeStretchMove(double A, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data &Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
 {
+	bool Accepted = true;
+	
 	double PrevLL = Data.LLValue(Walker, Step-1);
 	
 	// Draw a random stretch factor
@@ -21,13 +23,13 @@ void EmceeStretchMove(double A, int Step, int Walker, int FirstEnsembleWalker, i
 	double ZZ = (A - 1.0)*U + 1.0;
 	ZZ = ZZ*ZZ/A;
 	
-	int EnsembleWalker = (int)Random(NEnsemble) + FirstEnsembleWalker; //NOTE: Only works for the particular way the Ensembles are ordered right now. 
+	int EnsembleWalker = (int)Random(NEnsemble) + FirstEnsembleWalker; //NOTE: Only works for the particular way the Ensembles are ordered right now.
 	
 	for(int Par = 0; Par < Data.NPars; ++Par)
 	{
 		double Xj = Data(EnsembleWalker, Par, EnsembleStep);
 		double Xk = Data(Walker, Par, Step-1);
-		Data(Walker, Par, Step) = Xj + ZZ*(Xk - Xj); 
+		Data(Walker, Par, Step) = Xj + ZZ*(Xk - Xj);
 	}
 	
 	double LL = LogLikelyhood(LLFunState, Walker, Step);
@@ -41,12 +43,14 @@ void EmceeStretchMove(double A, int Step, int Walker, int FirstEnsembleWalker, i
 			Data(Walker, Par, Step) = Data(Walker, Par, Step-1);
 			
 		LL = PrevLL;
+		Accepted = false;
 	}
 	
 	Data.LLValue(Walker, Step) = LL;
+	return Accepted;
 }
 
-bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval)
+bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep)
 {
 	size_t NEns1 = Data.NWalkers / 2;
 	size_t NEns2 = NEns1;
@@ -54,10 +58,11 @@ bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_
 	
 	// Compute the LLs of the initial walkers (Can be paralellized too, but probably unnecessary)
 	// NOTE: This assumes that Data(Walker, Par, 0) has been filled with an initial ensemble.
-	for(int Walker = 0; Walker < Data.NWalkers; ++Walker)
-		Data.LLValue(Walker, 0) = LogLikelyhood(LLFunState, Walker, 0);
+	if(InitialStep == 0) //NOTE: If the initial step is not 0, this is a continuation of an earlier run, and so the LL value will already have been computed.
+		for(int Walker = 0; Walker < Data.NWalkers; ++Walker)
+			Data.LLValue(Walker, 0) = LogLikelyhood(LLFunState, Walker, 0);
 
-	for(int Step = 1; Step < Data.NSteps; ++Step)
+	for(int Step = InitialStep+1; Step < Data.NSteps; ++Step)
 	{
 		//First complementary ensemble is ensemble2 from previous step
 		int FirstEnsembleWalker = NEns1;
@@ -65,7 +70,7 @@ bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_
 		
 		//TODO: This for loop should be parallellized:
 		for(int Walker = 0; Walker < NEns1; ++Walker)
-			EmceeStretchMove(A, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);
+			Data.NAccepted += (int)EmceeStretchMove(A, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);
 		
 		//Second complementary ensemble is ensemble1 from this step
 		FirstEnsembleWalker = 0;
@@ -73,10 +78,10 @@ bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_
 		
 		//TODO: Paralellize
 		for(int Walker = NEns1; Walker < Data.NWalkers; ++Walker)
-			EmceeStretchMove(A, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState);
+			Data.NAccepted += (int)EmceeStretchMove(A, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState);
 		
 		bool Halt = false;
-		if((Step % CallbackInterval == 0) || (Step==Data.NSteps-1)) Halt = !Callback(CallbackState, Step);
+		if(((Step-InitialStep) % CallbackInterval == 0) || (Step==Data.NSteps-1)) Halt = !Callback(CallbackState, Step);
 		
 		if(Halt) return false;
 	}

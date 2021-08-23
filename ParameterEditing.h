@@ -25,6 +25,11 @@ struct parameter_index
 	std::string Name;  //May be invalid if Locked=true
 };
 
+inline bool operator==(const parameter_index &Ind1, const parameter_index &Ind2)
+{
+	return Ind1.Locked == Ind2.Locked && Ind1.IndexSetName == Ind2.IndexSetName && Ind1.Name == Ind2.Name;
+}
+
 struct indexed_parameter
 {
 	bool Valid = false;
@@ -32,7 +37,21 @@ struct indexed_parameter
 	std::string Name;
 	parameter_type Type;
 	std::vector<parameter_index> Indexes;
+	std::string Symbol;
+	std::string Expr;
 };
+
+inline bool operator==(const indexed_parameter &Par1, const indexed_parameter &Par2)
+{
+	return
+		   Par1.Valid == Par2.Valid
+		&& Par1.Virtual == Par2.Virtual
+		&& Par1.Name == Par2.Name
+		&& Par1.Type == Par2.Type
+		&& Par1.Indexes == Par2.Indexes
+		&& Par1.Symbol == Par2.Symbol
+		&& Par1.Expr == Par2.Expr;
+}
 
 
 
