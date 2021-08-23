@@ -739,6 +739,8 @@ void MCMCResultWindow::BurninSliderEvent()
 
 void MCMCResultWindow::GenerateProjectionsPushed()
 {
+	if(!Data) return;
+	
 	int NSamples   = ViewProjections.EditSamples.GetData();
 	double MinConf = ViewProjections.ConfidenceMin.GetData();
 	double MaxConf = ViewProjections.ConfidenceMax.GetData();
@@ -750,12 +752,54 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	}
 	ProjectionPlots.Clear();
 	
-	//TODO: Need a simple way to get an optimization_model ...
+	ViewProjections.GenerateProgress.Show();
+	ViewProjections.GenerateProgress.Set(0, NSamples);
+	
+	int BurninVal = (int)Burnin[0];
+	
+	std::vector<std::vector<double>> ParValues;
+	int CurStep = -1;
+	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
+	
+	std::mt19937_64 Generator;
+	std::uniform_int_distribution<int> Dist(0, NumValues);
+	
+	std::vector<double> Pars(Data->NPars);
+	
+	for(int Sample = 0; Sample < NSamples; ++Sample)
+	{
+		int Draw = Dist(Generator);
+		for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
+		
+		//TODO: Run model with this set and extract stuff, then plot percentiles.
+		
+		ViewProjections.GenerateProgress.Set(Sample);
+		if(Sample % 50 == 0)
+			ParentWindow->ProcessEvents();
+	}
+	
+	ViewProjections.GenerateProgress.Hide();
 }
 
 void MCMCResultWindow::ReplotProjections()
 {
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
