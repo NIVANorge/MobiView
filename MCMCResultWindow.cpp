@@ -744,13 +744,32 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int NSamples   = ViewProjections.EditSamples.GetData();
 	double MinConf = ViewProjections.ConfidenceMin.GetData();
 	double MaxConf = ViewProjections.ConfidenceMax.GetData();
+	bool ParametricOnly = ViewProjections.OptionUncertainty.GetData();
 	
-	for(ScatterCtrl &Plot : ProjectionPlots)
-	{
-		Plot.RemoveAllSeries();
-		Plot.Remove();
-	}
+	for(MyPlot &Plot : ProjectionPlots)
+		Plot.ClearAll(false);
+	
 	ProjectionPlots.Clear();
+	
+	ProjectionPlots.InsertN(0, Targets.size());
+	
+	ViewProjections.PlotScroll.ClearPane();
+	
+	int HSize = ViewProjections.PlotScroll.GetRect().Width();
+	
+	int PlotHeight = 400;
+	int AccumY = 0;
+	
+	int TargetIdx = 0;
+	for(optimization_target &Target : Targets)
+	{
+		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize-30).TopPos(AccumY, PlotHeight));
+		AccumY += PlotHeight;
+		++TargetIdx;
+	}
+	Size PaneSz(HSize, AccumY);
+	ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
+	
 	
 	ViewProjections.GenerateProgress.Show();
 	ViewProjections.GenerateProgress.Set(0, NSamples);
@@ -761,28 +780,136 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int CurStep = -1;
 	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
 	
+	std::vector<double> Pars(Data->NPars);
+	
+	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	
+	ParentWindow->ModelDll.RunModel(DataSet); //NOTE: One initial run so that everything is set up.
+	
+	char TimeStr[256];
+	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
+	ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
+	Time ResultStartTime;
+	StrToTime(ResultStartTime, TimeStr);
+	
+	std::vector<std::vector<std::vector<double>>> DataBlock;
+	DataBlock.resize(Targets.size());
+	for(int Target = 0; Target < Targets.size(); ++Target)
+	{
+		DataBlock[Target].resize(NSamples);
+		for(int Sample = 0; Sample < NSamples; ++Sample)
+			DataBlock[Target][Sample].resize(ResultTimesteps);
+	}
+	
+	std::vector<plot_setup> PlotSetups;
+	ParentWindow->OptimizationWin.TargetsToPlotSetups(Targets, PlotSetups);
+	
 	std::mt19937_64 Generator;
 	std::uniform_int_distribution<int> Dist(0, NumValues);
 	
-	std::vector<double> Pars(Data->NPars);
-	
+	//TODO Paralellize this for loop
 	for(int Sample = 0; Sample < NSamples; ++Sample)
 	{
 		int Draw = Dist(Generator);
 		for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
 		
-		//TODO: Run model with this set and extract stuff, then plot percentiles.
+		ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
+	
+		ParentWindow->ModelDll.RunModel(DataSet);
+		
+		for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+		{
+			double *ResultYValues = DataBlock[TargetIdx][Sample].data();
+			String Legend;
+			String Unit;
+			ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+			if(!ParametricOnly)
+			{
+				double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
+				for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
+				{
+					double Val = ResultYValues[Ts];
+					std::normal_distribution<double> Distr(Val, ErrPar*Val);
+					ResultYValues[Ts] = Distr(Generator);
+				}
+			}
+		}
 		
 		ViewProjections.GenerateProgress.Set(Sample);
 		if(Sample % 50 == 0)
 			ParentWindow->ProcessEvents();
 	}
 	
+	std::vector<double> Buffer(NSamples);
+	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+	{
+		MyPlot &Plot = ProjectionPlots[TargetIdx];
+		if(TargetIdx != 0) Plot.LinkedWith(ProjectionPlots[0]);
+		Plot.PlotSetup = PlotSetups[TargetIdx];
+		Plot.PlotSetup.ScatterInputs = true;    //TODO: Make configurable!
+		
+		double *ResultXValues = Plot.PlotData.Allocate(ResultTimesteps).data();
+		ComputeXValues(ResultStartTime, ResultStartTime, ResultTimesteps, ParentWindow->TimestepSize, ResultXValues);
+		
+		double *InputYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
+		
+		String Legend;
+		String Unit;
+		Color GraphColor = Plot.PlotColors.Next();
+		ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSet, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, true);
+		Legend = "Observed";
+		Plot.AddPlot(Legend, Unit, ResultXValues, InputYValues, ResultTimesteps, true, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		
+		double *UpperYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
+		double *MedianYValues = Plot.PlotData.Allocate(ResultTimesteps).data();
+		double *LowerYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
+		
+		int NumObs = 0;
+		int Coverage = 0;
+		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
+		{
+			for(int Sample = 0; Sample < NSamples; ++Sample)
+				Buffer[Sample] = DataBlock[TargetIdx][Sample][Ts];
+			
+			std::sort(Buffer.begin(), Buffer.end());
+	
+			//TODO: Should be more robust...
+			UpperYValues[Ts]  = Buffer[(int)((double)NSamples*MaxConf/100.0)];
+			MedianYValues[Ts] = Buffer[NSamples/2];
+			LowerYValues[Ts]  = Buffer[(int)((double)NSamples*MinConf/100.0)];
+			
+			if(std::isfinite(InputYValues[Ts]))
+			{
+				++NumObs;
+				if(InputYValues[Ts] >= LowerYValues[Ts] && InputYValues[Ts] <= UpperYValues[Ts]) ++Coverage;
+			}
+		}
+		
+		Unit = Null;
+		
+		Legend = Format("%.2f percentile", MaxConf);
+		GraphColor = Plot.PlotColors.Next();
+		Plot.AddPlot(Legend, Unit, ResultXValues, UpperYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		
+		Legend = "Median";
+		GraphColor = Plot.PlotColors.Next();
+		Plot.AddPlot(Legend, Unit, ResultXValues, MedianYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		
+		Legend = Format("%.2f percentile", MinConf);
+		GraphColor = Plot.PlotColors.Next();
+		Plot.AddPlot(Legend, Unit, ResultXValues, LowerYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		
+		double CoveragePercent = 100.0*(double)Coverage/(double)NumObs;
+		Plot.SetTitle(Format("\"%s\"  Coverage: %.2f%%", Targets[TargetIdx].ResultName.data(), CoveragePercent));
+		
+		Plot.FormatAxes(MajorMode_Regular, 0, ResultStartTime, ParentWindow->TimestepSize);
+		Plot.SetLabelY(" ");
+		Plot.Refresh();
+	}
+	
+	ParentWindow->ModelDll.DeleteDataSet(DataSet);
+	
 	ViewProjections.GenerateProgress.Hide();
-}
-
-void MCMCResultWindow::ReplotProjections()
-{
 }
 
 

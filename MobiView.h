@@ -323,6 +323,9 @@ public:
 	
 	bool ErrSymFixup(int RunType);
 	
+	//TODO: This should be a general function, not a member of this class...
+	void TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups);
+	
 private:
 	
 	bool AddSingleParameter(indexed_parameter &Parameter, int SourceRow, bool ReadAdditionalData=true);
@@ -410,7 +413,7 @@ public:
 	
 	
 	void GenerateProjectionsPushed();
-	void ReplotProjections();
+
 	//bool HaltWasPushed;
 private:
 	
@@ -455,6 +458,7 @@ private:
 	MCMCProjectionCtrl  ViewProjections;
 	ParentCtrl          ProjectionPlotPane;
 	Array<MyPlot>       ProjectionPlots;
+	
 	
 public:
 	std::vector<indexed_parameter> Parameters;

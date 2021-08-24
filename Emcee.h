@@ -14,6 +14,8 @@ struct mcmc_data
 	
 	void Allocate(size_t NWalkers, size_t NPars, size_t NSteps)
 	{
+		Free();
+		
 		ParData = (double *)malloc(sizeof(double)*NSteps*NWalkers*NPars);
 		LLData  = (double *)malloc(sizeof(double)*NSteps*NWalkers);
 		this->NSteps   = NSteps;

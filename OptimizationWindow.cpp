@@ -413,23 +413,10 @@ void OptimizationWindow::AddTargetClicked()
 	AddOptimizationTarget(Target);
 }
 
-void OptimizationWindow::DisplayClicked()
+
+void OptimizationWindow::TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups)
 {
-	if(!ParentWindow->DataSet || !ParentWindow->ModelDll.IsLoaded())
-	{
-		SetError("Can't display plots before a model is loaded");
-		return;
-	}
-	
-	if(Targets.empty())
-	{
-		SetError("There are no targets to display the plots of");
-	 	return;
-	}
-	
-	SetError("");
-	
-	std::vector<plot_setup> PlotSetups;
+	PlotSetups.clear();
 	PlotSetups.reserve(Targets.size());
 	
 	for(optimization_target &Target : Targets)
@@ -470,6 +457,27 @@ void OptimizationWindow::DisplayClicked()
 		
 		PlotSetups.push_back(PlotSetup);
 	}
+}
+
+
+void OptimizationWindow::DisplayClicked()
+{
+	if(!ParentWindow->DataSet || !ParentWindow->ModelDll.IsLoaded())
+	{
+		SetError("Can't display plots before a model is loaded");
+		return;
+	}
+	
+	if(Targets.empty())
+	{
+		SetError("There are no targets to display the plots of");
+	 	return;
+	}
+	
+	SetError("");
+	
+	std::vector<plot_setup> PlotSetups;
+	TargetsToPlotSetups(Targets, PlotSetups);
 	
 	AdditionalPlotView *Plots = &ParentWindow->OtherPlots;
 	
