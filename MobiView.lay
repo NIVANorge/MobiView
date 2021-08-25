@@ -185,7 +185,9 @@ LAYOUT(MCMCSetupLayout, 672, 52)
 	ITEM(Upp::Label, WalkersLabel, SetLabel(t_("Walkers:")).LeftPosZ(52, 44).BottomPosZ(28, 20))
 	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(100, 108).BottomPosZ(4, 20))
 	ITEM(Upp::EditIntSpin, EditWalkers, NotNull(true).LeftPosZ(100, 108).BottomPosZ(28, 20))
-	ITEM(Upp::Switch, InitialTypeSwitch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(212, 96).TopPosZ(4, 44))
+	ITEM(Upp::Switch, InitialTypeSwitch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(324, 96).TopPosZ(4, 44))
+	ITEM(Upp::DropList, SelectErrStruct, LeftPosZ(212, 108).BottomPosZ(5, 19))
+	ITEM(Upp::Label, LabelErrStruct, SetLabel(t_("Error structure:")).LeftPosZ(212, 80).TopPosZ(4, 19))
 END_LAYOUT
 
 LAYOUT(MCMCResultLayout, 856, 432)
@@ -202,8 +204,7 @@ LAYOUT(MCMCProjectionLayout, 680, 588)
 	ITEM(Upp::Button, PushGenerate, SetLabel(t_("Generate plots")).LeftPosZ(580, 96).BottomPosZ(20, 20))
 	ITEM(Upp::Option, OptionUncertainty, SetLabel(t_("Parametric uncertainty only")).LeftPosZ(164, 156).BottomPosZ(20, 20))
 	ITEM(Upp::ProgressIndicator, GenerateProgress, HSizePosZ(4, 4).BottomPosZ(0, 20))
-	ITEM(Upp::EditDoubleNotNull, ConfidenceMin, LeftPosZ(444, 64).BottomPosZ(21, 19))
-	ITEM(Upp::EditDoubleNotNull, ConfidenceMax, LeftPosZ(508, 64).BottomPosZ(21, 19))
+	ITEM(Upp::EditDoubleNotNull, Confidence, LeftPosZ(444, 64).BottomPosZ(21, 19))
 	ITEM(Upp::Label, LabelConfidence, SetLabel(t_("Confidence interval (%)")).LeftPosZ(324, 120).BottomPosZ(20, 20))
 END_LAYOUT
 

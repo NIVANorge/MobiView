@@ -14,12 +14,11 @@ Possible TODO:
 - Multithreaded chains.
 - Responsivity of halt button.
 - Autocorrelation computation, maybe autocorr plot.
-- Projection of results with percentiles (plot). Also compute coverage (% of obs within
-confidence interval)
 - More dynamic choice of LL function. Also use LL function in optimizer.
 - Other samplers or sampler moves.
 - Fix duration timer (sometimes negative number).
-
+- Make result format more robust (it can have encoding problems it seems, so doesn't allow
+editing by hand).
 */
 
 
@@ -48,8 +47,7 @@ MCMCResultWindow::MCMCResultWindow()
 	ViewProjections.EditSamples.SetData(1000);
 	ViewProjections.GenerateProgress.Hide();
 	ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
-	ViewProjections.ConfidenceMin.MinMax(0.0, 100.0).SetData(2.5);
-	ViewProjections.ConfidenceMax.MinMax(0.0, 100.0).SetData(97.5);
+	ViewProjections.Confidence.MinMax(0.0, 100.0).SetData(95.0);
 	
 
 	ChoosePlotsTab.Add(ChainPlotScroller.SizePos(), "Chain plots");
@@ -81,7 +79,7 @@ MCMCResultWindow::MCMCResultWindow()
 
 void MCMCResultWindow::SubBar(Bar &bar)
 {
-	auto Load = [&](){ bool Success = LoadResults(); }; //TODO: Handle error?
+	auto Load = [&](){ bool Success = LoadResults(); if(!Success) PromptOK("There was an error in the file format"); }; //TODO: Handle error?
 	
 	bar.Add(IconImg6::Open(), Load).Tip("Load data from file");
 	bar.Add(IconImg6::Save(), THISBACK(SaveResults)).Tip("Save data to file");
@@ -117,6 +115,12 @@ void MCMCResultWindow::ClearPlots()
 	HistogramData.clear();
 	
 	ResultSummary.Clear();
+	
+	ChainPlotsFinished    = false;
+	TrianglePlotFinished = false;
+	StatsFinished         = false;
+	
+	//Debatable whether this should clear target plots.
 }
 
 int FlattenData(mcmc_data *Data, int &CurStep, int Burnin, std::vector<std::vector<double>> &FlattenedOut, bool Sort=true)
@@ -152,16 +156,19 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 	
 	int ShowPlot = ChoosePlotsTab.Get();
 	
-
+	bool LastStep = CurStep == -1 || (Data && CurStep==Data->NSteps-1);
 	
 	if(ShowPlot == 0)
 	{
+		if(LastStep && ChainPlotsFinished) return;
 		// Chain plots
 		for(ScatterCtrl &Plot : ChainPlots) Plot.Refresh();
+		
+		if(LastStep) ChainPlotsFinished = true;
 	}
 	else if(ShowPlot == 1)
 	{
-	
+		if(LastStep && TrianglePlotFinished) return;
 		// Triangle plots
 		int BurninVal = (int)Burnin[0];
 		
@@ -283,9 +290,14 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 				}
 			}
 		}
+		if(LastStep) TrianglePlotFinished = true;
 	}
 	else if(ShowPlot == 2)
+	{
+		if(LastStep && StatsFinished) return;
 		RefreshResultSummary(CurStep);
+		if(LastStep) StatsFinished = true;
+	}
 	
 	
 }
@@ -318,7 +330,7 @@ void MCMCResultWindow::ResizeChainPlots()
 	ChainPlotScroller.AddPane(ViewChainPlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
 }
 
-void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType)
+void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType, mcmc_error_structure ErrStruct)
 {
 	//HaltWasPushed = false;
 	if(RunType == 1)  //NOTE: If we extend an earlier run, we keep the Burnin that was set.
@@ -327,6 +339,8 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 		BurninEdit.SetData(0);
 		Burnin[0] = 0; Burnin[1] = 0;
 	}
+	
+	this->ErrStruct = ErrStruct;
 	
 	this->FreeSyms.clear();
 	for(const String &Str : FreeSyms)
@@ -742,8 +756,9 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	if(!Data) return;
 	
 	int NSamples   = ViewProjections.EditSamples.GetData();
-	double MinConf = ViewProjections.ConfidenceMin.GetData();
-	double MaxConf = ViewProjections.ConfidenceMax.GetData();
+	double Conf = ViewProjections.Confidence.GetData();
+	double MinConf = 0.5*(100.0-Conf);
+	double MaxConf = 100.0-MinConf;
 	bool ParametricOnly = ViewProjections.OptionUncertainty.GetData();
 	
 	for(MyPlot &Plot : ProjectionPlots)
@@ -826,10 +841,13 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			if(!ParametricOnly)
 			{
 				double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
+				double StdDev = 0.0;
+				if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Val;
+				else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
 				for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
 				{
 					double Val = ResultYValues[Ts];
-					std::normal_distribution<double> Distr(Val, ErrPar*Val);
+					std::normal_distribution<double> Distr(Val, StdDev);
 					ResultYValues[Ts] = Distr(Generator);
 				}
 			}
@@ -1080,13 +1098,6 @@ bool MCMCResultWindow::LoadResults()
 		}
 	}
 	
-	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1);
-	
-	BurninSlider.SetData(BurninVal);
-	BurninEdit.SetData(BurninVal);
-	Burnin[0] = (double)BurninVal; Burnin[1] = (double)BurninVal;
-	
-	
 	std::string JsonData(std::istreambuf_iterator<char>(File), {});
 	String JsonData2(JsonData.data());
 	ParentWindow->OptimizationWin.LoadFromJsonString(JsonData2);
@@ -1096,6 +1107,13 @@ bool MCMCResultWindow::LoadResults()
 	Parameters = ParentWindow->OptimizationWin.Parameters;
 	Targets    = ParentWindow->OptimizationWin.Targets;
 	
+	ErrStruct = (mcmc_error_structure)(int)ParentWindow->OptimizationWin.MCMCSetup.SelectErrStruct.GetData();
+	
+	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1, ErrStruct);
+	
+	BurninSlider.SetData(BurninVal);
+	BurninEdit.SetData(BurninVal);
+	Burnin[0] = (double)BurninVal; Burnin[1] = (double)BurninVal;
 	
 	RefreshPlots();
 	

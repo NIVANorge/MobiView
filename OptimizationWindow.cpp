@@ -115,6 +115,11 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.EditWalkers.SetData(25);
 	MCMCSetup.InitialTypeSwitch.SetData(0);
 	
+	MCMCSetup.SelectErrStruct.Add((int)MCMCError_Normal_Heteroskedastic, "Normal hetereoskedastic");
+	//MCMCSetup.SelectErrStruct.Add((int)MCMCError_LogNormal_Hetereoscedastic, "Log-normal hetereoskedastic");
+	MCMCSetup.SelectErrStruct.Add((int)MCMCError_Normal, "Normal");
+	//MCMCSetup.SelectErrStruct.Add((int)MCMCError_LogNormal, "Log-normal");
+	MCMCSetup.SelectErrStruct.SetData(0);
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
@@ -582,7 +587,7 @@ SetParameters(void *DataSet, std::vector<indexed_parameter> *Parameters, const c
 }
 
 
-double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam);
+double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam, mcmc_error_structure ErrStruct);
 
 struct optimization_model
 {
@@ -600,6 +605,8 @@ struct optimization_model
 	
 	int ExprCount;
 	int FreeParCount;
+	
+	mcmc_error_structure ErrStruct;
 	
 	int64 NumEvals = 0;
 	double InitialScore, BestScore;
@@ -702,7 +709,7 @@ struct optimization_model
 			else if(RunType == 1 || RunType == 2)
 			{
 				double ErrParam = Par(Target.ErrParNum);
-				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam);
+				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, ErrStruct);
 			}
 			
 			Aggregate += Value*Target.Weight;
@@ -835,10 +842,9 @@ double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 	return RunData0->Model->Evaluate(Pars);
 }
 
-double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam)
+double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam, mcmc_error_structure ErrStruct)
 {
-	//TODO: We should allow different error models.
-	const double Root2Pi = std::sqrt(2.0*M_PI);
+	static const double Root2Pi = std::sqrt(2.0*M_PI);
 	
 	double Result = 0.0;
 	for(int Idx = 0; Idx < Timesteps; ++Idx)
@@ -849,7 +855,12 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 		if(!std::isfinite(Obs[Idx]))
 			continue;
 		
-		double StdDev = ErrParam * Sim[Idx];
+		double StdDev;
+		if(ErrStruct == MCMCError_Normal_Heteroskedastic)
+			StdDev = ErrParam * Sim[Idx];
+		else if(ErrStruct == MCMCError_Normal)
+			StdDev = ErrParam;
+		
 		double Factor = (Obs[Idx] - Sim[Idx]) / StdDev;
 		
 		Result += -std::log(StdDev*Root2Pi) - 0.5*Factor*Factor;
@@ -858,7 +869,7 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 }
 
 bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
-	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType)
+	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType, mcmc_error_structure ErrStruct)
 {
 	constexpr double A = 2.0; //NOTE: Could eventually make this configurable, but according to the Emcee guys, this is a good value
 	
@@ -913,7 +924,7 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	ResultWin->Targets    = Targets;
 	
 	ResultWin->ChoosePlotsTab.Set(0);
-	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
+	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType, ErrStruct);
 	
 	if(!ResultWin->IsOpen())
 		ResultWin->Open();
@@ -959,6 +970,8 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	RunData.Data  = &Data;
 	RunData.MinBound = MinBound;
 	RunData.MaxBound = MaxBound;
+	
+	OptimModel->ErrStruct = ErrStruct;
 	
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
@@ -1159,6 +1172,12 @@ void OptimizationWindow::RunClicked(int RunType)
 				return;
 			}
 			
+			if((RunType==1 || RunType==2) && Par.Symbol == "")
+			{
+				SetError("In an MCMC run you should provide a symbol for all the parameters that don't have an expression.");
+				return;
+			}
+			
 			++ActiveIdx;
 		}
 		else
@@ -1230,7 +1249,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
-		MCMCSetup.PushExtendRun.Disable();
 		
 		if(PositiveGood)
 			Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
@@ -1242,7 +1260,8 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		double NewScore = Result.y;
 		
-		if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)))
+		//if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)) || !std::isfinite(NewScore))
+		if(NewScore > InitialScore || !std::isfinite(NewScore))
 		{
 			ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
 		}
@@ -1256,7 +1275,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();
-		MCMCSetup.PushExtendRun.Enable();
 	}
 	else if(RunType == 1 || RunType == 2)
 	{
@@ -1265,6 +1283,8 @@ void OptimizationWindow::RunClicked(int RunType)
 		int InitialType = MCMCSetup.InitialTypeSwitch.GetData();
 		
 		int NPars = OptimizationModel.FreeParCount;
+		
+		mcmc_error_structure ErrStruct = (mcmc_error_structure)(int)MCMCSetup.SelectErrStruct.GetData();
 		
 		std::vector<double> InitialVals(NPars);
 		std::vector<double> MinVals(NPars);
@@ -1277,7 +1297,6 @@ void OptimizationWindow::RunClicked(int RunType)
 			MaxVals[Idx]     = MaxBound(Idx);
 		}
 		
-		auto BeginTime = std::chrono::high_resolution_clock::now();
 		
 		//TODO: Reduce this when threading is implemented.
 		double ExpectedDuration = Ms*1e-3*(double)NWalkers*(double)NSteps;
@@ -1292,9 +1311,11 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
-		MCMCSetup.PushExtendRun.Disable();
 		
-		bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(), InitialType, CallbackInterval, RunType);
+		auto BeginTime = std::chrono::high_resolution_clock::now();
+		
+		bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
+										InitialType, CallbackInterval, RunType, ErrStruct);
 		
 		auto EndTime = std::chrono::high_resolution_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
@@ -1306,7 +1327,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();
-		MCMCSetup.PushExtendRun.Enable();
 	}
 	
 	
@@ -1439,6 +1459,10 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	Value RunType  = SetupJson["RunType"];
 	if(!IsNull(RunType))
 		TargetSetup.OptimizerTypeTab.SetData(RunType);
+	
+	Value ErrStruct  = SetupJson["ErrStruct"];
+	if(!IsNull(ErrStruct))
+		MCMCSetup.SetData(SerializeErrorStructure((mcmc_error_structure)(int)ErrStruct));
 	
 	ValueArray TargetArr = SetupJson["Targets"];
 	if(!IsNull(TargetArr))
@@ -1593,6 +1617,9 @@ String OptimizationWindow::SaveToJsonString()
 	
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);
+	
+	mcmc_error_structure ErrStruct = (mcmc_error_structure)(int)MCMCSetup.SelectErrStruct.GetData();
+	MainFile("ErrStruct", SerializeErrorStructure(ErrStruct));
 	
 	JsonArray TargetArr;
 	
