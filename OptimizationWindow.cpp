@@ -1276,7 +1276,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		double NewScore = Result.y;
 		
 		//if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)) || !std::isfinite(NewScore))
-		if(NewScore > InitialScore || !std::isfinite(NewScore))
+		if(NewScore < InitialScore || !std::isfinite(NewScore))
 		{
 			ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
 		}
@@ -1321,7 +1321,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		double ExpectedDuration1 = Ms*1e-3*(double)NWalkers*(double)NActualSteps/(double)NCores;
 		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
 		
-		ParentWindow->Log(Format("%s Expected duration around %.1f-%.1f seconds. Number of concurrent threads: %d. The window will be frozen and unresponsive until the run is finished.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
+		ParentWindow->Log(Format("%s Expected duration around %.1f to %.1f seconds. Number of concurrent threads: %d. The window will be frozen and unresponsive until the run is finished.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
 		ParentWindow->ProcessEvents();
 		
 		
