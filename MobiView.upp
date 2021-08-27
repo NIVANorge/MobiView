@@ -40,7 +40,9 @@ file
 	dlib\global_optimization\global_function_search.cpp,
 	dlib\threads\thread_pool_extension.cpp,
 	Emcee.h,
-	Emcee.cpp;
+	Emcee.cpp,
+	Acor.h,
+	Acor.cpp;
 
 mainconfig
 	"" = "GUI";

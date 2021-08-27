@@ -198,13 +198,13 @@ LAYOUT(MCMCResultLayout, 856, 432)
 END_LAYOUT
 
 LAYOUT(MCMCProjectionLayout, 680, 588)
-	ITEM(Upp::AutoScroller, PlotScroll, HSizePosZ(4, 4).VSizePosZ(4, 44))
-	ITEM(Upp::EditIntSpin, EditSamples, LeftPosZ(56, 104).BottomPosZ(21, 19))
-	ITEM(Upp::Label, SamplesLabel, SetLabel(t_("Samples:")).LeftPosZ(4, 48).BottomPosZ(21, 19))
-	ITEM(Upp::Button, PushGenerate, SetLabel(t_("Generate plots")).LeftPosZ(580, 96).BottomPosZ(20, 20))
-	ITEM(Upp::Option, OptionUncertainty, SetLabel(t_("Parametric uncertainty only")).LeftPosZ(164, 156).BottomPosZ(20, 20))
-	ITEM(Upp::ProgressIndicator, GenerateProgress, HSizePosZ(4, 4).BottomPosZ(0, 20))
-	ITEM(Upp::EditDoubleNotNull, Confidence, LeftPosZ(444, 64).BottomPosZ(21, 19))
-	ITEM(Upp::Label, LabelConfidence, SetLabel(t_("Confidence interval (%)")).LeftPosZ(324, 120).BottomPosZ(20, 20))
+	ITEM(Upp::TabCtrl, PlotSelectTab, HSizePosZ(4, 4).VSizePosZ(4, 48))
+	ITEM(Upp::EditIntSpin, EditSamples, LeftPosZ(56, 104).BottomPosZ(25, 19))
+	ITEM(Upp::Label, SamplesLabel, SetLabel(t_("Samples:")).LeftPosZ(4, 48).BottomPosZ(25, 19))
+	ITEM(Upp::Button, PushGenerate, SetLabel(t_("Generate plots")).LeftPosZ(504, 96).BottomPosZ(24, 20))
+	ITEM(Upp::Option, OptionUncertainty, SetLabel(t_("Parametric uncertainty only")).LeftPosZ(164, 156).BottomPosZ(24, 20))
+	ITEM(Upp::ProgressIndicator, GenerateProgress, HSizePosZ(4, 4).BottomPosZ(4, 20))
+	ITEM(Upp::EditDoubleNotNull, Confidence, LeftPosZ(440, 64).BottomPosZ(25, 19))
+	ITEM(Upp::Label, LabelConfidence, SetLabel(t_("Confidence interval (%)")).LeftPosZ(324, 116).BottomPosZ(24, 20))
 END_LAYOUT
 

@@ -615,8 +615,11 @@ struct optimization_model
 	
 	int RunType = 0;
 	
+	void *DataSetBase = nullptr;
+	
+	
 	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets,
-		Label *ProgressLabel, int RunType)
+		Label *ProgressLabel, int RunType, void *DataSetBase)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
@@ -629,6 +632,8 @@ struct optimization_model
 			if(Parameter.Expr != "")
 				ExprCount++;
 		FreeParCount = Parameters->size() - ExprCount;
+		
+		this->DataSetBase = DataSetBase;
 	}
 	
 	double EvaluateObjectives(void *DataSet, const column_vector &Par)
@@ -723,12 +728,18 @@ struct optimization_model
 	{
 		//NOTE: This one is for use by the Dlib optimizer
 		
-		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		//NOTE: Since the optimizer is not multithreaded, there is no reason to do an
+		//additional copy each run.
+		//If we ever do get threading to work for this, we have to have a separate copy per
+		//paralell run.
+		
+		//void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(DataSetBase, false);
+		void *DataSetCopy = DataSetBase;
 		
 		double Value = EvaluateObjectives(DataSetCopy, Par);
 		
 		
-		// TODO: The following is about updating the UI during optimization
+		// NOTE: The following is about updating the UI during optimization
 		// It is not thread safe, so should be turned off if we
 		// eventually are able to run the optimizer multi-threaded:
 		
@@ -757,20 +768,8 @@ struct optimization_model
 		
 		////////// END UI UPDATE
 		
-		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
-		
-		return Value;
-	}
-	
-	double Evaluate(const column_vector &Pars)
-	{
-		//NOTE: This one is for use by the MCMC sampler.
-		
-		void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
-
-		double Value = EvaluateObjectives(DataSetCopy, Pars);
-		
-		ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
+		//NOTE: See note about threading above
+		//ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
 		
 		return Value;
 	}
@@ -798,6 +797,7 @@ struct mcmc_run_data
 {
 	optimization_model *Model;
 	mcmc_data          *Data;
+	std::vector<void *> DataSets;
 	double *MinBound;
 	double *MaxBound;
 };
@@ -839,7 +839,7 @@ double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 		Pars(Par) = Val;
 	}
 	
-	return RunData0->Model->Evaluate(Pars);
+	return RunData0->Model->EvaluateObjectives(RunData0->DataSets[Walker], Pars);
 }
 
 double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam, mcmc_error_structure ErrStruct)
@@ -970,13 +970,22 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	RunData.Data  = &Data;
 	RunData.MinBound = MinBound;
 	RunData.MaxBound = MaxBound;
+	RunData.DataSets.resize(NWalkers);
+	
+	//TODO: For Emcee we really only need a set of datasets that is the size of a
+	//partial ensemble, which is about half of the total ensemble.
+	for(int Walker = 0; Walker < NWalkers; ++Walker)
+		RunData.DataSets[Walker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
 	
 	OptimModel->ErrStruct = ErrStruct;
 	
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
 	
-	bool Finished = RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	bool Finished = RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, &Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	
+	for(int Walker = 0; Walker < NWalkers; ++Walker)
+		ParentWindow->ModelDll.DeleteDataSet(RunData.DataSets[Walker]);
 	
 	return Finished;
 }
@@ -1115,7 +1124,9 @@ void OptimizationWindow::RunClicked(int RunType)
 	if(RunSetup.OptionShowProgress.Get())
 		ProgressLabel = &RunSetup.ProgressLabel;
 	
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, RunType);
+	void *DataSetBase = nullptr;
+	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, RunType, DataSetBase);
 	
 	// Initial evaluation on the parameters given in the main dataset.
 	column_vector InitialPars(OptimizationModel.FreeParCount);
@@ -1203,7 +1214,9 @@ void OptimizationWindow::RunClicked(int RunType)
 	}
 	else
 	{
-		InitialScore = OptimizationModel.Evaluate(InitialPars);
+		void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		InitialScore = OptimizationModel.EvaluateObjectives(DataSet, InitialPars);
+		ParentWindow->ModelDll.DeleteDataSet(DataSet);
 	}
 	
 	auto End = std::chrono::high_resolution_clock::now();
@@ -1218,7 +1231,7 @@ void OptimizationWindow::RunClicked(int RunType)
 	if(UpdateStep <= 0) UpdateStep = 1;
 	OptimizationModel.UpdateStep = UpdateStep;
 		
-		
+	bool PushExtendEnabled = MCMCSetup.PushExtendRun.IsEnabled();
 	if(RunType == 0)
 	{
 		dlib::function_evaluation InitialEval;
@@ -1231,6 +1244,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			return;
 		
 		int MaxFunctionCalls = RunSetup.EditMaxEvals.GetData();
+
 		double ExpectedDuration = Ms*1e-3*(double)MaxFunctionCalls;
 			
 		ParentWindow->Log(Format("Running optimization. Expected duration around %g seconds. The window will be frozen and unresponsive until the optimization is finished.", ExpectedDuration));
@@ -1249,6 +1263,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
+		MCMCSetup.PushExtendRun.Disable();
 		
 		if(PositiveGood)
 			Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
@@ -1275,6 +1290,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();
+		if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
 	}
 	else if(RunType == 1 || RunType == 2)
 	{
@@ -1298,12 +1314,14 @@ void OptimizationWindow::RunClicked(int RunType)
 		}
 		
 		
-		//TODO: Reduce this when threading is implemented.
-		double ExpectedDuration = Ms*1e-3*(double)NWalkers*(double)NSteps;
-		if(RunType==1)
-			ParentWindow->Log(Format("Running MCMC. Expected duration around %g seconds. The window will be frozen and unresponsive until the run is finished.", ExpectedDuration));
-		else
-			ParentWindow->Log("Extending MCMC run. The window will be frozen and unresponsive until the run is finished.");
+		auto NCores = std::thread::hardware_concurrency();
+		int NActualSteps = (RunType==1) ? (NSteps) : (NSteps - Data.NSteps);
+		String Prefix = (RunType==1) ? "Running MCMC." : "Extending MCMC run.";
+		
+		double ExpectedDuration1 = Ms*1e-3*(double)NWalkers*(double)NActualSteps/(double)NCores;
+		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
+		
+		ParentWindow->Log(Format("%s Expected duration around %.1f-%.1f seconds. Number of concurrent threads: %d. The window will be frozen and unresponsive until the run is finished.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
 		ParentWindow->ProcessEvents();
 		
 		
@@ -1327,6 +1345,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();
+		MCMCSetup.PushExtendRun.Enable();
 	}
 	
 	
@@ -1460,9 +1479,9 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	if(!IsNull(RunType))
 		TargetSetup.OptimizerTypeTab.SetData(RunType);
 	
-	Value ErrStruct  = SetupJson["ErrStruct"];
+	String ErrStruct  = SetupJson["ErrStruct"].ToString();
 	if(!IsNull(ErrStruct))
-		MCMCSetup.SetData(SerializeErrorStructure((mcmc_error_structure)(int)ErrStruct));
+		MCMCSetup.SelectErrStruct.SetData((int)DeserializeErrorStructure(ErrStruct));
 	
 	ValueArray TargetArr = SetupJson["Targets"];
 	if(!IsNull(TargetArr))

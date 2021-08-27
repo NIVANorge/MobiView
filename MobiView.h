@@ -470,8 +470,12 @@ private:
 	Button PushWriteMAP;
 	Button PushWriteMedian;
 	
+	std::vector<double> AcorTimes;
+	std::vector<bool>   AcorBelowTolerance;
+	
 	const int DistrResolution = 20;
 	
+	//Ugh, why not just use a plot_data_storage for this??
 	std::vector<triangle_plot_data> TrianglePlotData;
 	Array<TableDataCArray>          TrianglePlotDS;
 	Array<ScatterCtrl>              TrianglePlots;
@@ -480,14 +484,14 @@ private:
 	Array<ScatterCtrl>              Histograms;
 	
 	MCMCProjectionCtrl  ViewProjections;
+	
+	AutoScroller        ProjectionPlotScroll;
 	ParentCtrl          ProjectionPlotPane;
 	Array<MyPlot>       ProjectionPlots;
 	
-	
-	bool ChainPlotsFinished   = false;
-	bool TrianglePlotFinished = false;
-	bool StatsFinished        = false;
-	
+	AutoScroller        AutoCorrPlotScroll;
+	ParentCtrl          AutoCorrPlotPane;
+	Array<MyPlot>       AutoCorrPlots;
 	
 public:
 	std::vector<indexed_parameter> Parameters;

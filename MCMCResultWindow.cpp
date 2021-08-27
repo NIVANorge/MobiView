@@ -7,18 +7,22 @@
 
 #include <fstream>
 
+#include "Acor.h"
+
 /*
 
 Possible TODO:
 
-- Multithreaded chains.
-- Responsivity of halt button.
-- Autocorrelation computation, maybe autocorr plot.
-- More dynamic choice of LL function. Also use LL function in optimizer.
+- Responsivity of halt button (or rather reintroduce one that works).
+- More dynamic choice of LL function/error structure (per target instead of global). Also use LL function in optimizer.
+- More error structures (e.g. some that remove autocorrelation).
+- Don't recompute autocorrelation times every time that tab is clicked (it is slow).
 - Other samplers or sampler moves.
 - Fix duration timer (sometimes negative number).
 - Make result format more robust (it can have encoding problems it seems, so doesn't allow
 editing by hand).
+- In Projection window, show multiple confidence intervals (if desired), residual plot of
+median.
 */
 
 
@@ -46,8 +50,10 @@ MCMCResultWindow::MCMCResultWindow()
 	ViewProjections.EditSamples.Min(1);
 	ViewProjections.EditSamples.SetData(1000);
 	ViewProjections.GenerateProgress.Hide();
-	ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
+	//ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
 	ViewProjections.Confidence.MinMax(0.0, 100.0).SetData(95.0);
+	ViewProjections.PlotSelectTab.Add(ProjectionPlotScroll.SizePos(), "Confidence interval");
+	ViewProjections.PlotSelectTab.Add(AutoCorrPlotScroll.SizePos(), "Median residual autocorr.");
 	
 
 	ChoosePlotsTab.Add(ChainPlotScroller.SizePos(), "Chain plots");
@@ -115,10 +121,8 @@ void MCMCResultWindow::ClearPlots()
 	HistogramData.clear();
 	
 	ResultSummary.Clear();
-	
-	ChainPlotsFinished    = false;
-	TrianglePlotFinished = false;
-	StatsFinished         = false;
+
+	AcorTimes.clear();
 	
 	//Debatable whether this should clear target plots.
 }
@@ -160,15 +164,11 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 	
 	if(ShowPlot == 0)
 	{
-		if(LastStep && ChainPlotsFinished) return;
 		// Chain plots
 		for(ScatterCtrl &Plot : ChainPlots) Plot.Refresh();
-		
-		if(LastStep) ChainPlotsFinished = true;
 	}
 	else if(ShowPlot == 1)
 	{
-		if(LastStep && TrianglePlotFinished) return;
 		// Triangle plots
 		int BurninVal = (int)Burnin[0];
 		
@@ -290,13 +290,10 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 				}
 			}
 		}
-		if(LastStep) TrianglePlotFinished = true;
 	}
 	else if(ShowPlot == 2)
 	{
-		if(LastStep && StatsFinished) return;
 		RefreshResultSummary(CurStep);
-		if(LastStep) StatsFinished = true;
 	}
 	
 	
@@ -596,7 +593,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	Data->GetMAPIndex(BurninVal, CurStep, BestW, BestS);
 	
 	
-	int Precision = ParentWindow->StatSettings.Precision;
+	int Precision = 2;//ParentWindow->StatSettings.Precision;
 	
 	std::vector<double> Means(Data->NPars);
 	std::vector<double> StdDevs(Data->NPars);
@@ -605,10 +602,23 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	double Acceptance = 100.0*(double)Data->NAccepted / (double)(Data->NWalkers*Data->NSteps);
 	ResultSummary.Append(Format("Acceptance rate: %.2f%%&&", Acceptance));
 	
-	String Table = "{{1:1:1:1:1";
+	String Table = "{{1:1:1:1:1:1";
 	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":1";
-	Table << " [* Name]:: [* Mean]:: [* Median]:: [* MAP]:: [* StdDev]";
+	Table << " [* Name]:: [* Int.acor.T.]:: [* Mean]:: [* Median]:: [* MAP]:: [* StdDev]";
 	for(double Perc : ParentWindow->StatSettings.Percentiles) Table << ":: " << FormatDouble(Perc, 1) << "%";
+	
+	bool ComputeAcor = false;
+	if(CurStep == Data->NSteps-1 && AcorTimes.empty())
+	{
+		ComputeAcor = true;
+		AcorTimes.resize(Data->NPars);
+		AcorBelowTolerance.resize(Data->NPars);
+	}
+	
+	//NOTE: These are parameters to the autocorrelation time computation
+	int C=5, Tol=10; //TODO: these should probably be configurable..
+	
+	bool AnyBelowTolerance = false;
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
 		timeseries_stats Stats;
@@ -621,16 +631,40 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 		Means[Par] = Stats.Mean;
 		StdDevs[Par] = Stats.StandardDev;
 		
-		//if(Par != 0) Table << ":: ";
+		
+		
+		bool BelowTolerance;
+		double Acor;
+		if(ComputeAcor)
+		{
+			Acor = IntegratedTime(Data, Par, 5, 10, &BelowTolerance);
+			AcorTimes[Par] = Acor;
+			AcorBelowTolerance[Par] = BelowTolerance;
+		}
+		else
+		{
+			Acor = AcorTimes[Par];
+			BelowTolerance = AcorBelowTolerance[Par];
+		}
+		if(BelowTolerance) AnyBelowTolerance = true;
+		
+		
+		String AcorStr = FormatDouble(Acor, Precision);
+		if(BelowTolerance) AcorStr = Format("[@R `*%s]", AcorStr);
+		
 		Table
 			<< ":: " << Sym
+			<< ":: " << AcorStr
 			<< ":: " << FormatDouble(Stats.Mean, Precision)
 			<< ":: " << FormatDouble(Stats.Median, Precision)
 			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision) : "N/A")
 			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
 		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
 	}
-	Table << "}}&[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution.&&";
+	Table << "}}&";
+	if(AnyBelowTolerance) Table << Format("[@R `*The chain is shorter than %d times the integrated autocorrelation time for this parameter. Consider running for more steps.]&", Tol);
+	Table << "[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution. Int.acor.T.=(estimated) integrated autocorrelation time.&&";
+
 	ResultSummary.Append(Table);
 	
 	//TODO: Finish computing correlation coefficients
@@ -762,15 +796,26 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	bool ParametricOnly = ViewProjections.OptionUncertainty.GetData();
 	
 	for(MyPlot &Plot : ProjectionPlots)
+	{
 		Plot.ClearAll(false);
-	
+		Plot.Remove();
+	}
 	ProjectionPlots.Clear();
-	
 	ProjectionPlots.InsertN(0, Targets.size());
 	
-	ViewProjections.PlotScroll.ClearPane();
+	for(MyPlot &Plot : AutoCorrPlots)
+	{
+		Plot.ClearAll(false);
+		Plot.Remove();
+	}
+	AutoCorrPlots.Clear();
+	AutoCorrPlots.InsertN(0, Targets.size());
 	
-	int HSize = ViewProjections.PlotScroll.GetRect().Width();
+	
+	ProjectionPlotScroll.ClearPane();
+	AutoCorrPlotScroll.ClearPane();
+	
+	int HSize = ProjectionPlotScroll.GetRect().Width();
 	
 	int PlotHeight = 400;
 	int AccumY = 0;
@@ -778,13 +823,14 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int TargetIdx = 0;
 	for(optimization_target &Target : Targets)
 	{
-		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize-30).TopPos(AccumY, PlotHeight));
+		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize-50).TopPos(AccumY, PlotHeight));
+		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize-50).TopPos(AccumY, PlotHeight));
 		AccumY += PlotHeight;
 		++TargetIdx;
 	}
 	Size PaneSz(HSize, AccumY);
-	ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
-	
+	ProjectionPlotScroll.AddPane(ProjectionPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
+	AutoCorrPlotScroll.AddPane(AutoCorrPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
 	
 	ViewProjections.GenerateProgress.Show();
 	ViewProjections.GenerateProgress.Set(0, NSamples);
@@ -811,10 +857,12 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	DataBlock.resize(Targets.size());
 	for(int Target = 0; Target < Targets.size(); ++Target)
 	{
-		DataBlock[Target].resize(NSamples);
-		for(int Sample = 0; Sample < NSamples; ++Sample)
+		DataBlock[Target].resize(NSamples+1);   //NOTE: the final +1 is to make space for a run with the median parameter set
+		for(int Sample = 0; Sample < NSamples+1; ++Sample)
 			DataBlock[Target][Sample].resize(ResultTimesteps);
 	}
+
+	
 	
 	std::vector<plot_setup> PlotSetups;
 	ParentWindow->OptimizationWin.TargetsToPlotSetups(Targets, PlotSetups);
@@ -825,6 +873,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	//TODO Paralellize this for loop
 	for(int Sample = 0; Sample < NSamples; ++Sample)
 	{
+
 		int Draw = Dist(Generator);
 		for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
 		
@@ -842,11 +891,12 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			{
 				double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
 				double StdDev = 0.0;
-				if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Val;
-				else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
 				for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
 				{
 					double Val = ResultYValues[Ts];
+					if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Val;
+					else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
+				
 					std::normal_distribution<double> Distr(Val, StdDev);
 					ResultYValues[Ts] = Distr(Generator);
 				}
@@ -857,6 +907,26 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		if(Sample % 50 == 0)
 			ParentWindow->ProcessEvents();
 	}
+	
+	//Run once with the median parameter set too.
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		timeseries_stats Stats;
+		ComputeTimeseriesStats(Stats, ParValues[Par].data(), ParValues[Par].size(), ParentWindow->StatSettings, false);
+		
+		Pars[Par] = Stats.Median;
+	}
+	ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
+	ParentWindow->ModelDll.RunModel(DataSet);
+	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+	{
+		double *ResultYValues = DataBlock[TargetIdx][NSamples].data();
+		String Legend;
+		String Unit;
+		ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+	}
+	
+	
 	
 	std::vector<double> Buffer(NSamples);
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
@@ -923,6 +993,65 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		Plot.FormatAxes(MajorMode_Regular, 0, ResultStartTime, ParentWindow->TimestepSize);
 		Plot.SetLabelY(" ");
 		Plot.Refresh();
+		
+		
+		
+		
+		MyPlot &AcorPlot = AutoCorrPlots[TargetIdx];
+		
+		//TODO: It is debatable how much the auto-correlation makes sense when there is hole in
+		//the data
+		
+		//NOTE: This is the Y values of the median parameter set, not to be confused with the
+		//median of the Y values over all the parameter sets.
+		double *YValuesOfMedian = DataBlock[TargetIdx][NSamples].data();
+		
+		// Compute standardized residuals
+		double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
+		std::vector<double> ResidualYValues;
+		ResidualYValues.reserve(ResultTimesteps);
+		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
+		{
+			double Sim = YValuesOfMedian[Ts];
+			double Obs = InputYValues[Ts];
+			
+			if(!std::isfinite(Obs) || !std::isfinite(Sim)) continue;
+			
+			double StdDev;
+			if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Sim;
+			else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
+			
+			ResidualYValues.push_back((Obs - Sim)/StdDev);
+		}
+		std::vector<double> &Acor = AcorPlot.PlotData.Allocate(ResidualYValues.size());
+		NormalizedAutocorrelation1D(ResidualYValues, Acor);
+		
+		GraphColor = Color(0, 0, 0);
+		AcorPlot.AddSeries(Acor.data(), Acor.size(), 0.0, 1.0).NoMark().Stroke(1.5, GraphColor).Dash("").Legend("Autocorrelation of standardized residual");
+		
+		double ConfP = Conf/100.0;
+		double Z = 0.5*std::erfc(0.5*(1.0 - ConfP)/(std::sqrt(2.0))); //NOTE: This is just the cumulative distribution function of the normal distribution
+		Z /= std::sqrt((double)Acor.size());
+
+		double *Lines = AcorPlot.PlotData.Allocate(4).data();
+		Lines[0] = Lines[1] = Z;
+		Lines[2] = Lines[3] = -Z;
+		AcorPlot.AddSeries(Lines, 2, 0.0, (double)Acor.size()).NoMark().Stroke(1.5, GraphColor).Dash(LINE_DASHED).Legend(Format("%.2f percentile", MaxConf));
+		AcorPlot.AddSeries(Lines+2, 2, 0.0, (double)Acor.size()).NoMark().Stroke(1.5, GraphColor).Dash(LINE_DASHED).Legend(Format("%.2f percentile", MinConf));
+		
+		AcorPlot.ZoomToFit(true, false).SetMouseHandling(false, true);
+		AcorPlot.SetXYMin(Null, -1.0).SetRange(Null, 2.0);
+		AcorPlot.SetBetterGridLinePositions(0);
+		AcorPlot.SetBetterGridLinePositions(1);
+		
+		//AcorPlot.WhenZoomScroll << [&](){ AcorPlot.SetBetterGridLinePositions(1); }; // This
+		//somehow screws up the center of the plot.
+		
+		AcorPlot.SetTitle(Format("\"%s\"", Targets[TargetIdx].ResultName.data()));
+		AcorPlot.SetLabelY("Autocorrelation");
+		AcorPlot.SetLabelX("Lag");
+		
+		AcorPlot.Refresh();
 	}
 	
 	ParentWindow->ModelDll.DeleteDataSet(DataSet);
@@ -1020,6 +1149,8 @@ bool MCMCResultWindow::LoadResults()
 	std::ifstream File(Filename.data(), std::ifstream::in);
 	
 	if(File.fail()) return false;
+	
+	ClearPlots();
 	
 	std::string Line;
 	std::getline(File, Line);

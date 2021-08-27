@@ -1,9 +1,8 @@
 #ifndef _MobiView_Emcee_h_
 #define _MobiView_Emcee_h_
 
-
-#include <Core/Core.h> //TODO: We should get rid of this dependency somehow.. //NOTE: Just for the random generators. Could be switched out.
-
+#include <limits>
+#include <stdlib.h>
 
 struct mcmc_data
 {
@@ -109,7 +108,7 @@ struct mcmc_data
 	}
 };
 
-bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data &Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
+bool RunEmcee(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
 
 
 #endif
