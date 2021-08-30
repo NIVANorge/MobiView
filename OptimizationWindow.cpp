@@ -41,8 +41,6 @@ MCMCRunSetup::MCMCRunSetup()
 
 OptimizationWindow::OptimizationWindow()
 {
-	//CtrlLayout(*this, "MobiView optimization setup");
-	
 	SetRect(0, 0, 740, 740);
 	Title("MobiView optimization and MCMC setup").Sizeable().Zoomable();
 	
@@ -63,8 +61,8 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.TargetView.AddColumn(Id("__resultindexes"), "Result idxs.");
 	TargetSetup.TargetView.AddColumn(Id("__inputname"), "Input name");
 	TargetSetup.TargetView.AddColumn(Id("__inputindexes"), "Input idxs.");
-	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Target stat.");
-	TargetSetup.TargetView.AddColumn(Id("__errparam"), "Error param.");
+	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Error structure");
+	TargetSetup.TargetView.AddColumn(Id("__errparam"), "Error param(s).");
 	TargetSetup.TargetView.AddColumn(Id("__weight"), "Weight");
 	
 	TargetSetup.TargetView.HeaderObject().HideTab(5);
@@ -114,12 +112,6 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.EditWalkers.Min(10);
 	MCMCSetup.EditWalkers.SetData(25);
 	MCMCSetup.InitialTypeSwitch.SetData(0);
-	
-	MCMCSetup.SelectErrStruct.Add((int)MCMCError_Normal_Heteroskedastic, "Normal hetereoskedastic");
-	//MCMCSetup.SelectErrStruct.Add((int)MCMCError_LogNormal_Hetereoscedastic, "Log-normal hetereoskedastic");
-	MCMCSetup.SelectErrStruct.Add((int)MCMCError_Normal, "Normal");
-	//MCMCSetup.SelectErrStruct.Add((int)MCMCError_LogNormal, "Log-normal");
-	MCMCSetup.SelectErrStruct.SetData(0);
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
@@ -323,7 +315,13 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	String InputIndexStr = MakeIndexString(Target.InputIndexes);
 	String ResultIndexStr = MakeIndexString(Target.ResultIndexes);
 	
-	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, (int)Target.Stat, Target.ErrParSym.data(), Target.Weight);
+	int TabNum = TargetSetup.OptimizerTypeTab.Get();
+	int TargetStat;
+	if(TabNum == 0) TargetStat      = (int)Target.Stat;
+	else if(TabNum == 1) TargetStat = (int)Target.ErrStruct;
+	else assert(0);
+	
+	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight);
 	
 	TargetStatCtrls.Create<DropList>();
 	DropList &SelectStat = TargetStatCtrls.Top();
@@ -331,14 +329,20 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	TargetErrCtrls.Create<EditField>();
 	EditField &ErrCtrl = TargetErrCtrls.Top();
 	
-	#define SET_SETTING(Handle, Name, Type)
-	#define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type) \
-		if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
-	
-	#include "SetStatSettings.h"
-	
-	#undef SET_SETTING
-	#undef SET_RES_SETTING
+	if(TabNum == 0)
+	{
+		#define SET_SETTING(Handle, Name, Type)
+		#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
+		#include "SetStatSettings.h"
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+	}
+	else if(TabNum == 1)
+	{
+		#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
+		#include "LLSettings.h"
+		#undef SET_LL_SETTING
+	}
 	
 	int Row = TargetSetup.TargetView.GetCount() - 1;
 	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
@@ -359,7 +363,11 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 
 void OptimizationWindow::StatEdited(int Row)
 {
-	Targets[Row].Stat = (residual_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+	int TabNum = TargetSetup.OptimizerTypeTab.Get();
+	if(TabNum == 0)
+		Targets[Row].Stat      = (residual_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+	else if(TabNum == 1)
+		Targets[Row].ErrStruct = (mcmc_error_structure)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
 }
 
 void OptimizationWindow::ErrSymEdited(int Row)
@@ -413,6 +421,7 @@ void OptimizationWindow::AddTargetClicked()
 		Target.ResultIndexes.push_back(std::string(Idx));
 	
 	Target.Stat = ResidualType_MAE;
+	Target.ErrStruct = MCMCError_NormalHet1; //This is the easiest one to start with maybe. Or should we just do Normal?
 	Target.Weight = 1.0;
 	
 	AddOptimizationTarget(Target);
@@ -587,7 +596,7 @@ SetParameters(void *DataSet, std::vector<indexed_parameter> *Parameters, const c
 }
 
 
-double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam, mcmc_error_structure ErrStruct);
+double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct);
 
 struct optimization_model
 {
@@ -605,8 +614,6 @@ struct optimization_model
 	
 	int ExprCount;
 	int FreeParCount;
-	
-	mcmc_error_structure ErrStruct;
 	
 	int64 NumEvals = 0;
 	double InitialScore, BestScore;
@@ -713,8 +720,9 @@ struct optimization_model
 			}
 			else if(RunType == 1 || RunType == 2)
 			{
-				double ErrParam = Par(Target.ErrParNum);
-				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, ErrStruct);
+				std::vector<double> ErrParam(Target.ErrParNum.size());
+				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Par(Target.ErrParNum[Idx]);
+				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, Target.ErrStruct);
 			}
 			
 			Aggregate += Value*Target.Weight;
@@ -842,11 +850,21 @@ double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 	return RunData0->Model->EvaluateObjectives(RunData0->DataSets[Walker], Pars);
 }
 
-double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrParam, mcmc_error_structure ErrStruct)
+//TODO: Move the following functions to their own file?
+
+inline double LogPDFNormal(double X, double Mu, double SigmaSquared)
 {
-	static const double Root2Pi = std::sqrt(2.0*M_PI);
-	
+	static const double Log2PI = std::log(2.0*M_PI);
+	double Factor = (X - Mu);
+	return -0.5*std::log(SigmaSquared) - Log2PI - 0.5*Factor*Factor/SigmaSquared;
+}
+
+double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct)
+{
 	double Result = 0.0;
+	
+	double PrevEta = std::numeric_limits<double>::infinity();
+	
 	for(int Idx = 0; Idx < Timesteps; ++Idx)
 	{
 		if(!std::isfinite(Sim[Idx]))
@@ -855,21 +873,129 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, double ErrPara
 		if(!std::isfinite(Obs[Idx]))
 			continue;
 		
-		double StdDev;
-		if(ErrStruct == MCMCError_Normal_Heteroskedastic)
-			StdDev = ErrParam * Sim[Idx];
-		else if(ErrStruct == MCMCError_Normal)
-			StdDev = ErrParam;
-		
-		double Factor = (Obs[Idx] - Sim[Idx]) / StdDev;
-		
-		Result += -std::log(StdDev*Root2Pi) - 0.5*Factor*Factor;
+		if(ErrStruct == MCMCError_Normal)
+		{
+			double StdDev = ErrParam[0];
+			Result += LogPDFNormal(Obs[Idx], Sim[Idx], StdDev*StdDev);
+		}
+		else if(ErrStruct == MCMCError_NormalHet1)
+		{
+			double StdDev = ErrParam[0] * Sim[Idx];
+			Result += LogPDFNormal(Obs[Idx], Sim[Idx], StdDev*StdDev);
+		}
+		else if(ErrStruct == MCMCError_WLS)
+		{
+			double StdDev = ErrParam[0] + ErrParam[1]*Sim[Idx];
+			Result += LogPDFNormal(Obs[Idx], Sim[Idx], StdDev*StdDev);
+		}
+		else if(ErrStruct == MCMCError_WLSAR1)
+		{
+			double StdDev = ErrParam[0] + ErrParam[1]*Sim[Idx];
+			double Eta = (Obs[Idx] - Sim[Idx]) / StdDev;
+			if(!std::isfinite(PrevEta))
+				Result += -std::log(StdDev) + LogPDFNormal(Eta, 0.0, 1.0);
+			else
+			{
+				double X    = Eta - PrevEta*ErrParam[2];
+				double Std2 = 1.0 - ErrParam[2]*ErrParam[2];
+				Result += -std::log(StdDev) + LogPDFNormal(X, 0.0, Std2);
+			}
+			PrevEta = Eta;
+		}
+		else
+			assert(!"Error structure not supported");
 	}
 	return Result;
 }
 
+void AddRandomError(double* Series, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::mt19937_64 &Generator)
+{
+	double PrevEta = std::numeric_limits<double>::infinity();
+	
+	for(int Ts = 0; Ts < Timesteps; ++Ts)
+	{
+		if(ErrStruct == MCMCError_Normal)
+		{
+			double StdDev = ErrParam[0];
+			std::normal_distribution<double> Distr(Series[Ts], StdDev);
+			Series[Ts] = Distr(Generator);
+		}
+		else if(ErrStruct == MCMCError_NormalHet1)
+		{
+			double StdDev = ErrParam[0]*Series[Ts];
+			std::normal_distribution<double> Distr(Series[Ts], StdDev);
+			Series[Ts] = Distr(Generator);
+		}
+		else if(ErrStruct == MCMCError_WLS)
+		{
+			double StdDev = ErrParam[0] + ErrParam[1]*Series[Ts];
+			std::normal_distribution<double> Distr(Series[Ts], StdDev);
+			Series[Ts] = Distr(Generator);
+		}
+		else if(ErrStruct == MCMCError_WLSAR1)
+		{
+			std::normal_distribution<double> Distr(0.0, 1.0);
+			double Y = Distr(Generator);
+			double StdDev = ErrParam[0] + ErrParam[1]*Series[Ts];
+			double Eta;
+			if(!std::isfinite(PrevEta))
+				Eta = Y;
+			else
+				Eta = ErrParam[2]*PrevEta + Y;
+		
+			Series[Ts] += StdDev*Eta;
+			PrevEta = Eta;
+		}
+		else assert(!"Error structure not supported");
+	}
+}
+
+void ComputeStandardizedResiduals(double *Obs, double *Sim, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::vector<double> &ResidualsOut)
+{
+	double PrevEta = std::numeric_limits<double>::infinity();
+	
+	for(int Ts = 0; Ts < Timesteps; ++Ts)
+	{
+		if(!std::isfinite(Obs[Ts]) || !std::isfinite(Sim[Ts])) continue;
+		
+		double Resid;
+		if(ErrStruct == MCMCError_Normal)
+		{
+			double StdDev = ErrParam[0];
+			Resid = (Obs[Ts] - Sim[Ts])/StdDev;
+		}
+		else if(ErrStruct == MCMCError_NormalHet1)
+		{
+			double StdDev = ErrParam[0]*Sim[Ts];
+			Resid = (Obs[Ts] - Sim[Ts])/StdDev;
+		}
+		else if(ErrStruct == MCMCError_WLS)
+		{
+			double StdDev = ErrParam[0] + ErrParam[1]*Sim[Ts];
+			Resid = (Obs[Ts] - Sim[Ts]) / StdDev;
+		}
+		else if(ErrStruct == MCMCError_WLSAR1)
+		{
+			double StdDev = ErrParam[0] + ErrParam[1]*Sim[Ts];
+			double Eta    = (Obs[Ts] - Sim[Ts]) / StdDev;
+			if(!std::isfinite(PrevEta))
+				Resid = Eta;
+			else
+				Resid = Eta - ErrParam[2]*PrevEta;   //NOTE: The standardized residual is then Y, which is supposed to be normally (independently) distributed.
+			
+			PrevEta = Eta;
+		}
+		else assert(!"Error structure not supported");
+				
+		ResidualsOut.push_back(Resid);
+	}
+}
+
+
+
+
 bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
-	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType, mcmc_error_structure ErrStruct)
+	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType)
 {
 	constexpr double A = 2.0; //NOTE: Could eventually make this configurable, but according to the Emcee guys, this is a good value
 	
@@ -924,7 +1050,7 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	ResultWin->Targets    = Targets;
 	
 	ResultWin->ChoosePlotsTab.Set(0);
-	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType, ErrStruct);
+	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
 	
 	if(!ResultWin->IsOpen())
 		ResultWin->Open();
@@ -977,8 +1103,6 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	for(int Walker = 0; Walker < NWalkers; ++Walker)
 		RunData.DataSets[Walker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
 	
-	OptimModel->ErrStruct = ErrStruct;
-	
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
 	
@@ -1021,26 +1145,45 @@ bool OptimizationWindow::ErrSymFixup(int RunType)
 	{
 		for(optimization_target &Target : Targets)
 		{
-			if(SymRow.find(Target.ErrParSym) == SymRow.end())
-			{
-				SetError("At least one target lacks a valid error symbol");
-				return false;
-			}
+			Target.ErrParNum.clear();
 			
-			int ParSymRow = SymRow[Target.ErrParSym].first;
-			indexed_parameter &Par = Parameters[SymRow[Target.ErrParSym].first];
-			if(!Par.Virtual)
-			{
-				SetError("Only virtual parameters can be error parameters.");
-				return false;
-			}
-			if(Par.Expr != "")
-			{
-				SetError("Error parameters can not be results of expressions.");
-				return false;
-			}
+			Vector<String> Symbols = Split(Target.ErrParSym.data(), ',', true);
+			for(String &Symbol : Symbols) { Symbol = TrimLeft(TrimRight(Symbol)); }
 			
-			Target.ErrParNum = SymRow[Target.ErrParSym].second;
+			#define SET_LL_SETTING(Handle, Name, NumErr) \
+				else if(Target.ErrStruct == MCMCError_##Handle && Symbols.size() != NumErr) {\
+					SetError(Format("The error structure %s requires %d error parameters. Only %d were provided. Provide them as a comma-separated list of parameter symbols", Name, NumErr, Symbols.size())); \
+					return false; \
+				}
+			if(false) {}
+			#include "LLSettings.h"
+			#undef SET_LL_SETTING
+			
+			for(String &Symbol : Symbols)
+			{
+				std::string Sym = Symbol.ToStd();
+				
+				if(SymRow.find(Sym) == SymRow.end())
+				{
+					SetError(Format("The error parameter symbol %s is not the symbol of a parameter in the parameter list.", Sym.data()));
+					return false;
+				}
+				
+				int ParSymRow = SymRow[Sym].first;
+				indexed_parameter &Par = Parameters[SymRow[Sym].first];
+				if(!Par.Virtual)
+				{
+					SetError(Format("Only virtual parameters can be error parameters. The parameter with symbol %s is not virtual", Sym.data()));
+					return false;
+				}
+				if(Par.Expr != "")
+				{
+					SetError(Format("Error parameters can not be results of expressions. The parameter with symbol %s was set as an error parameter, but also has an expression", Sym.data()));
+					return false;
+				}
+				
+				Target.ErrParNum.push_back(SymRow[Sym].second);
+			}
 		}
 	}
 	
@@ -1300,8 +1443,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		int NPars = OptimizationModel.FreeParCount;
 		
-		mcmc_error_structure ErrStruct = (mcmc_error_structure)(int)MCMCSetup.SelectErrStruct.GetData();
-		
 		std::vector<double> InitialVals(NPars);
 		std::vector<double> MinVals(NPars);
 		std::vector<double> MaxVals(NPars);
@@ -1333,7 +1474,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		auto BeginTime = std::chrono::high_resolution_clock::now();
 		
 		bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
-										InitialType, CallbackInterval, RunType, ErrStruct);
+										InitialType, CallbackInterval, RunType);
 		
 		auto EndTime = std::chrono::high_resolution_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
@@ -1363,13 +1504,39 @@ void OptimizationWindow::TabChange()
 	
 	if (TabNum == 0)             // Regular optimizer  -- Show target stat
 	{
-		TargetSetup.TargetView.HeaderObject().ShowTab(4);
+		//TargetSetup.TargetView.HeaderObject().ShowTab(4);
 		TargetSetup.TargetView.HeaderObject().HideTab(5);
 	}
 	else if (TabNum == 1)        // MCMC               -- Target stat is differently determined
 	{
-		TargetSetup.TargetView.HeaderObject().HideTab(4);
+		//TargetSetup.TargetView.HeaderObject().HideTab(4);
 		TargetSetup.TargetView.HeaderObject().ShowTab(5);
+	}
+	
+	//TODO: Alternatively we could just switch out the column...
+	
+	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+	{
+		DropList &List = TargetStatCtrls[TargetIdx];
+		List.Clear();
+		if(TabNum == 0)
+		{
+			#define SET_SETTING(Handle, Name, Type)
+			#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) List.Add((int)ResidualType_##Handle, Name);
+			#include "SetStatSettings.h"
+			#undef SET_SETTING
+			#undef SET_RES_SETTING
+			
+			List.SetData((int)Targets[TargetIdx].Stat);
+		}
+		else if(TabNum == 1)
+		{
+			#define SET_LL_SETTING(Handle, Name, NumErr) List.Add((int)MCMCError_##Handle, Name);
+			#include "LLSettings.h"
+			#undef SET_LL_SETTING
+			
+			List.SetData((int)Targets[TargetIdx].ErrStruct);
+		}
 	}
 }
 
@@ -1477,11 +1644,7 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	
 	Value RunType  = SetupJson["RunType"];
 	if(!IsNull(RunType))
-		TargetSetup.OptimizerTypeTab.SetData(RunType);
-	
-	String ErrStruct  = SetupJson["ErrStruct"].ToString();
-	if(!IsNull(ErrStruct))
-		MCMCSetup.SelectErrStruct.SetData((int)DeserializeErrorStructure(ErrStruct));
+		TargetSetup.OptimizerTypeTab.Set(RunType);
 	
 	ValueArray TargetArr = SetupJson["Targets"];
 	if(!IsNull(TargetArr))
@@ -1508,13 +1671,18 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 			{
 				if(false){}
 				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) \
-					else if(String(Name) == StatName) Target.Stat = ResidualType_##Handle;
-				
+				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == StatName) Target.Stat = ResidualType_##Handle;
 				#include "SetStatSettings.h"
-				
 				#undef SET_SETTING
 				#undef SET_RES_SETTING
+			}
+			String ErrStructName = TargetJson["ErrStruct"];
+			if(!IsNull(ErrStructName))
+			{
+				#define SET_LL_SETTING(Handle, Name, NumErr) else if(Name == ErrStructName) Target.ErrStruct = MCMCError_##Handle;
+				if(false){}
+				#include "LLSettings.h"
+				#undef SET_LL_SETTING
 			}
 			
 			ValueArray ResultIndexArr = TargetJson["ResultIndexes"];
@@ -1637,9 +1805,6 @@ String OptimizationWindow::SaveToJsonString()
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);
 	
-	mcmc_error_structure ErrStruct = (mcmc_error_structure)(int)MCMCSetup.SelectErrStruct.GetData();
-	MainFile("ErrStruct", SerializeErrorStructure(ErrStruct));
-	
 	JsonArray TargetArr;
 	
 	Row = 0;
@@ -1659,12 +1824,26 @@ String OptimizationWindow::SaveToJsonString()
 			InputIndexArr << Index.data();
 		TargetJson("InputIndexes", InputIndexArr);
 		
-		String StatName = TargetStatCtrls[Row].GetValue();
-		double Weight   = TargetSetup.TargetView.Get(Row, Id("__weight"));
+		String StatName;
+		#define SET_SETTING(Handle, Name, Type)
+		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.Stat == ResidualType_##Handle) StatName = Name;
+		if(false){}
+		#include "SetStatSettings.h"
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+		
+		String ErrStructName;
+		#define SET_LL_SETTING(Handle, Name, NumErr) else if(Target.ErrStruct == MCMCError_##Handle) ErrStructName = Name;
+		if(false){}
+		#include "LLSettings.h"
+		#undef SET_LL_SETTING
+		
+		//TODO: Fix this one when we make multiple error params possible
 		String ErrName  = TargetSetup.TargetView.Get(Row, Id("__errparam"));
 		
 		TargetJson("Stat", StatName);
-		TargetJson("Weight", Weight);
+		TargetJson("ErrStruct", ErrStructName);
+		TargetJson("Weight", Target.Weight);
 		TargetJson("ErrPar", ErrName);
 		
 		TargetArr << TargetJson;

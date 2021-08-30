@@ -253,6 +253,16 @@ public:
 	MCMCRunSetup();
 };
 
+
+
+#define SET_LL_SETTING(Handle, Name, NumErr) MCMCError_##Handle,
+enum mcmc_error_structure
+{
+	MCMCError_Unknown = -1,
+	#include "LLSettings.h"
+};
+#undef SET_LL_SETTING
+
 struct optimization_target
 {
 	std::string ResultName;
@@ -260,8 +270,9 @@ struct optimization_target
 	std::string InputName;
 	std::vector<std::string> InputIndexes;
 	std::string ErrParSym;
-	int ErrParNum;
+	std::vector<int> ErrParNum;
 	residual_type Stat;
+	mcmc_error_structure ErrStruct;
 	double Weight;
 };
 
@@ -275,31 +286,10 @@ inline bool operator==(const optimization_target &T1, const optimization_target 
 		&& T1.ErrParSym == T2.ErrParSym
 		&& T1.ErrParNum == T2.ErrParNum
 		&& T1.Stat == T2.Stat
+		&& T1.ErrStruct == T2.ErrStruct
 		&& T1.Weight == T2.Weight;
 }
 
-enum mcmc_error_structure
-{
-	MCMCError_Unknown = -1,
-	MCMCError_Normal_Heteroskedastic = 0,
-//	MCMCError_LogNormal_Hetereoscedastic,
-	MCMCError_Normal,
-//	MCMCError_LogNormal,
-};
-
-inline String SerializeErrorStructure(mcmc_error_structure ErrStruct)
-{
-	if(ErrStruct == MCMCError_Normal_Heteroskedastic) return "normal_hetereoskedastic";
-	else if(ErrStruct == MCMCError_Normal) return "normal";
-	return "unknown";
-}
-
-inline mcmc_error_structure DeserializeErrorStructure(String &ErrStructName)
-{
-	if(ErrStructName == "normal_hetereoskedastic") return MCMCError_Normal_Heteroskedastic;
-	else if(ErrStructName == "normal") return MCMCError_Normal;
-	return MCMCError_Unknown;
-}
 
 struct optimization_model;
 
@@ -361,7 +351,7 @@ private:
 	
 	bool RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
 		double *InitialValue, double *MinBound, double *MaxBound, int InitialType,
-		int CallbackInterval, int RunType, mcmc_error_structure ErrStruct);
+		int CallbackInterval, int RunType);
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
@@ -371,7 +361,6 @@ private:
 	Array<DropList>          TargetStatCtrls;
 	Array<EditDoubleNotNull> TargetWeightCtrls;
 	Array<EditField>         TargetErrCtrls;
-
 	
 	ToolBar Tool;
 	
@@ -410,6 +399,9 @@ public:
 	MCMCProjectionCtrl();
 };
 
+void AddRandomError(double* Series, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::mt19937_64 &Generator);
+void ComputeStandardizedResiduals(double *Obs, double *Sim, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::vector<double> &ResidualsOut);
+
 class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
 {
 public:
@@ -419,7 +411,7 @@ public:
 	
 	MobiView *ParentWindow;
 	
-	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType, mcmc_error_structure ErrStruct);
+	void BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType);
 	void ClearPlots();
 	void ResizeChainPlots();
 	void RefreshPlots(int CurStep = -1);
@@ -458,7 +450,6 @@ private:
 	Array<String> FreeSyms;
 	std::vector<double> MinBound;
 	std::vector<double> MaxBound;
-	mcmc_error_structure ErrStruct;
 	
 	AutoScroller ChainPlotScroller;
 	AutoScroller TrianglePlotScroller;

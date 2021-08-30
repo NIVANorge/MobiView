@@ -83,7 +83,7 @@ bool EditStatSettingsWindow::ParseDoubleList(String &ListStr, std::vector<double
 {
 	bool Success = true;
 	
-	Vector<String> SplitList = Split(ListStr, ",");
+	Vector<String> SplitList = Split(ListStr, ',');
 	for(String &Str : SplitList)
 	{
 		double Val = StrDbl(Str);

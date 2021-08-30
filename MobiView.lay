@@ -185,9 +185,7 @@ LAYOUT(MCMCSetupLayout, 672, 52)
 	ITEM(Upp::Label, WalkersLabel, SetLabel(t_("Walkers:")).LeftPosZ(52, 44).BottomPosZ(28, 20))
 	ITEM(Upp::EditIntSpin, EditSteps, NotNull(true).LeftPosZ(100, 108).BottomPosZ(4, 20))
 	ITEM(Upp::EditIntSpin, EditWalkers, NotNull(true).LeftPosZ(100, 108).BottomPosZ(28, 20))
-	ITEM(Upp::Switch, InitialTypeSwitch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(324, 96).TopPosZ(4, 44))
-	ITEM(Upp::DropList, SelectErrStruct, LeftPosZ(212, 108).BottomPosZ(5, 19))
-	ITEM(Upp::Label, LabelErrStruct, SetLabel(t_("Error structure:")).LeftPosZ(212, 80).TopPosZ(4, 19))
+	ITEM(Upp::Switch, InitialTypeSwitch, SetLabel(t_("Ball init.\nUniform init.")).LeftPosZ(212, 96).TopPosZ(4, 44))
 END_LAYOUT
 
 LAYOUT(MCMCResultLayout, 856, 432)

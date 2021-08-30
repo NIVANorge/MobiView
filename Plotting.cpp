@@ -89,7 +89,7 @@ void PlotCtrl::BuildTimeIntervalsCtrl()
 MyPlot::MyPlot()
 {
 	
-	//this->SetFastViewX(true);            //NOTE: Turned off because it is buggy!
+	this->SetFastViewX(true);
 	this->SetSequentialXAll(true);
 	
 	Size PlotReticleSize = GetTextSize("00000000", this->GetReticleFont());

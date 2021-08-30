@@ -8,7 +8,6 @@ file
 	MobiView.h,
 	PlotCtrl.h,
 	Plotting.h,
-	SetStatSettings.h,
 	MyRichView.h,
 	ParameterEditing.h,
 	main.cpp,
@@ -42,7 +41,9 @@ file
 	Emcee.h,
 	Emcee.cpp,
 	Acor.h,
-	Acor.cpp;
+	Acor.cpp,
+	SetStatSettings.h,
+	LLSettings.h;
 
 mainconfig
 	"" = "GUI";

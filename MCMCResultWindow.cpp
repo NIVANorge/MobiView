@@ -7,6 +7,8 @@
 
 #include <fstream>
 
+#include <thread>
+
 #include "Acor.h"
 
 /*
@@ -327,7 +329,7 @@ void MCMCResultWindow::ResizeChainPlots()
 	ChainPlotScroller.AddPane(ViewChainPlots.LeftPos(0, TriSize.cx).TopPos(0, TriSize.cy), TriSize);
 }
 
-void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType, mcmc_error_structure ErrStruct)
+void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *MaxBound, const Array<String> &FreeSyms, int RunType)
 {
 	//HaltWasPushed = false;
 	if(RunType == 1)  //NOTE: If we extend an earlier run, we keep the Burnin that was set.
@@ -336,8 +338,6 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 		BurninEdit.SetData(0);
 		Burnin[0] = 0; Burnin[1] = 0;
 	}
-	
-	this->ErrStruct = ErrStruct;
 	
 	this->FreeSyms.clear();
 	for(const String &Str : FreeSyms)
@@ -372,6 +372,8 @@ void MCMCResultWindow::BeginNewPlots(mcmc_data *Data, double *MinBound, double *
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
 		ScatterCtrl &Plot = ChainPlots[Par];
+		Plot.SetFastViewX(true);
+		Plot.SetSequentialXAll(true);
 		
 		Plot.SetMode(ScatterDraw::MD_ANTIALIASED);
 		Plot.SetPlotAreaLeftMargin(35).SetPlotAreaBottomMargin(15).SetPlotAreaTopMargin(4).SetTitle(FreeSyms[Par]); //NOTE: Seems like title height is auto added to top margin.
@@ -841,7 +843,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int CurStep = -1;
 	int NumValues = FlattenData(Data, CurStep, BurninVal, ParValues, false);
 	
-	std::vector<double> Pars(Data->NPars);
+	
 	
 	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
 	
@@ -867,13 +869,66 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	std::vector<plot_setup> PlotSetups;
 	ParentWindow->OptimizationWin.TargetsToPlotSetups(Targets, PlotSetups);
 	
-	std::mt19937_64 Generator;
-	std::uniform_int_distribution<int> Dist(0, NumValues);
+	/*
+	//TODO Parallellize this for loop properly
+	Array<AsyncWork<void>> Workers;
+	auto NThreads = std::thread::hardware_concurrency();
+	int NWorkers = std::max(8, (int)NThreads);
+	Workers.InsertN(0, NWorkers);
+	auto *DataBlockPtr = &DataBlock;
 	
-	//TODO Paralellize this for loop
+	std::vector<std::mt19937_64> Generators(NWorkers);
+	
+	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
+	{
+		for(int Worker = 0; Worker < NWorkers; ++Worker)
+		{
+			int Sample = SuperSample*NWorkers + Worker;
+			if(Sample >= NSamples) break;
+			
+			Workers[Worker].Do([=, &Generators, &PlotSetups, &ParValues]()
+			{
+				std::vector<double> Pars(Data->NPars);
+				
+				std::uniform_int_distribution<int> Dist(0, NumValues);
+				int Draw = Dist(Generators[Worker]);
+				for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
+				
+				ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
+			
+				ParentWindow->ModelDll.RunModel(DataSet);
+				
+				for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
+				{
+					double *ResultYValues = (*DataBlockPtr)[TargetIdx][Sample].data();
+					String Legend;
+					String Unit;
+					ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+					if(!ParametricOnly)
+					{
+						optimization_target &Target = Targets[TargetIdx];
+						std::vector<double> ErrParam(Target.ErrParNum.size());
+						for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
+						AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generators[Worker]);
+					}
+				}
+			});
+		}
+		for(auto &Worker : Workers) Worker.Get();
+		
+		ViewProjections.GenerateProgress.Set(std::min((SuperSample+1)*NWorkers-1, NSamples));
+		if(SuperSample % 4 == 0)
+			ParentWindow->ProcessEvents();
+	}
+	*/
+	
+	std::mt19937_64 Generator;
+	
 	for(int Sample = 0; Sample < NSamples; ++Sample)
 	{
-
+		std::vector<double> Pars(Data->NPars);
+		
+		std::uniform_int_distribution<int> Dist(0, NumValues);
 		int Draw = Dist(Generator);
 		for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
 		
@@ -889,25 +944,20 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
 			if(!ParametricOnly)
 			{
-				double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
-				double StdDev = 0.0;
-				for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
-				{
-					double Val = ResultYValues[Ts];
-					if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Val;
-					else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
-				
-					std::normal_distribution<double> Distr(Val, StdDev);
-					ResultYValues[Ts] = Distr(Generator);
-				}
+				optimization_target &Target = Targets[TargetIdx];
+				std::vector<double> ErrParam(Target.ErrParNum.size());
+				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
+				AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generator);
 			}
 		}
-		
-		ViewProjections.GenerateProgress.Set(Sample);
+			
+		ViewProjections.GenerateProgress.Set(Sample, NSamples);
 		if(Sample % 50 == 0)
 			ParentWindow->ProcessEvents();
 	}
 	
+	
+	std::vector<double> Pars(Data->NPars);
 	//Run once with the median parameter set too.
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
@@ -931,6 +981,8 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	std::vector<double> Buffer(NSamples);
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 	{
+		optimization_target &Target = Targets[TargetIdx];
+		
 		MyPlot &Plot = ProjectionPlots[TargetIdx];
 		if(TargetIdx != 0) Plot.LinkedWith(ProjectionPlots[0]);
 		Plot.PlotSetup = PlotSetups[TargetIdx];
@@ -988,7 +1040,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		Plot.AddPlot(Legend, Unit, ResultXValues, LowerYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
 		double CoveragePercent = 100.0*(double)Coverage/(double)NumObs;
-		Plot.SetTitle(Format("\"%s\"  Coverage: %.2f%%", Targets[TargetIdx].ResultName.data(), CoveragePercent));
+		Plot.SetTitle(Format("\"%s\"  Coverage: %.2f%%", Target.ResultName.data(), CoveragePercent));
 		
 		Plot.FormatAxes(MajorMode_Regular, 0, ResultStartTime, ParentWindow->TimestepSize);
 		Plot.SetLabelY(" ");
@@ -1007,27 +1059,21 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		double *YValuesOfMedian = DataBlock[TargetIdx][NSamples].data();
 		
 		// Compute standardized residuals
-		double ErrPar = Pars[Targets[TargetIdx].ErrParNum];
+		
+		//Ooops, it is important that Pars still hold the median parameter set here.. This is
+		//not clean code since somebody could inadvertently mess that up above.
+		std::vector<double> ErrPar(Target.ErrParNum.size());
+		for(int Idx = 0; Idx < ErrPar.size(); ++Idx) ErrPar[Idx] = Pars[Target.ErrParNum[Idx]];
+	
 		std::vector<double> ResidualYValues;
 		ResidualYValues.reserve(ResultTimesteps);
-		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
-		{
-			double Sim = YValuesOfMedian[Ts];
-			double Obs = InputYValues[Ts];
-			
-			if(!std::isfinite(Obs) || !std::isfinite(Sim)) continue;
-			
-			double StdDev;
-			if(ErrStruct == MCMCError_Normal_Heteroskedastic) StdDev = ErrPar*Sim;
-			else if(ErrStruct == MCMCError_Normal) StdDev = ErrPar;
-			
-			ResidualYValues.push_back((Obs - Sim)/StdDev);
-		}
+		ComputeStandardizedResiduals(InputYValues, YValuesOfMedian, ResultTimesteps, ErrPar, Target.ErrStruct, ResidualYValues);
+
 		std::vector<double> &Acor = AcorPlot.PlotData.Allocate(ResidualYValues.size());
 		NormalizedAutocorrelation1D(ResidualYValues, Acor);
 		
 		GraphColor = Color(0, 0, 0);
-		AcorPlot.AddSeries(Acor.data(), Acor.size(), 0.0, 1.0).NoMark().Stroke(1.5, GraphColor).Dash("").Legend("Autocorrelation of standardized residual");
+		AcorPlot.AddSeries(Acor.data()+1, Acor.size()-1, 0.0, 1.0).NoMark().Stroke(1.5, GraphColor).Dash("").Legend("Autocorrelation of standardized residual");
 		
 		double ConfP = Conf/100.0;
 		double Z = 0.5*std::erfc(0.5*(1.0 - ConfP)/(std::sqrt(2.0))); //NOTE: This is just the cumulative distribution function of the normal distribution
@@ -1047,7 +1093,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		//AcorPlot.WhenZoomScroll << [&](){ AcorPlot.SetBetterGridLinePositions(1); }; // This
 		//somehow screws up the center of the plot.
 		
-		AcorPlot.SetTitle(Format("\"%s\"", Targets[TargetIdx].ResultName.data()));
+		AcorPlot.SetTitle(Format("\"%s\"", Target.ResultName.data()));
 		AcorPlot.SetLabelY("Autocorrelation");
 		AcorPlot.SetLabelX("Lag");
 		
@@ -1237,10 +1283,8 @@ bool MCMCResultWindow::LoadResults()
 	
 	Parameters = ParentWindow->OptimizationWin.Parameters;
 	Targets    = ParentWindow->OptimizationWin.Targets;
-	
-	ErrStruct = (mcmc_error_structure)(int)ParentWindow->OptimizationWin.MCMCSetup.SelectErrStruct.GetData();
-	
-	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1, ErrStruct);
+
+	BeginNewPlots(Data, MinBound.data(), MaxBound.data(), FreeSyms, 1);
 	
 	BurninSlider.SetData(BurninVal);
 	BurninEdit.SetData(BurninVal);
