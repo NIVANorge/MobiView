@@ -893,12 +893,11 @@ double ComputeLLValue(double *Obs, double *Sim, size_t Timesteps, const std::vec
 			double StdDev = ErrParam[0] + ErrParam[1]*Sim[Idx];
 			double Eta = (Obs[Idx] - Sim[Idx]) / StdDev;
 			if(!std::isfinite(PrevEta))
-				Result += -std::log(StdDev) + LogPDFNormal(Eta, 0.0, 1.0);
+				Result += -std::log(StdDev) + LogPDFNormal(Eta, 0.0, 1.0 - ErrParam[2]*ErrParam[2]);
 			else
 			{
-				double X    = Eta - PrevEta*ErrParam[2];
-				double Std2 = 1.0 - ErrParam[2]*ErrParam[2];
-				Result += -std::log(StdDev) + LogPDFNormal(X, 0.0, Std2);
+				double Y    = Eta - PrevEta*ErrParam[2];
+				Result += -std::log(StdDev) + LogPDFNormal(Y, 0.0, 1.0);
 			}
 			PrevEta = Eta;
 		}
