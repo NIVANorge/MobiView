@@ -869,8 +869,11 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	std::vector<plot_setup> PlotSetups;
 	ParentWindow->OptimizationWin.TargetsToPlotSetups(Targets, PlotSetups);
 	
-	/*
-	//TODO Parallellize this for loop properly
+#define MCMC_SAMPLE_PARALELLIZE
+
+
+#ifdef MCMC_SAMPLE_PARALELLIZE
+	
 	Array<AsyncWork<void>> Workers;
 	auto NThreads = std::thread::hardware_concurrency();
 	int NWorkers = std::max(8, (int)NThreads);
@@ -878,6 +881,10 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	auto *DataBlockPtr = &DataBlock;
 	
 	std::vector<std::mt19937_64> Generators(NWorkers);
+	std::vector<void *> DataSets(NWorkers);
+	DataSets[0] = DataSet;
+	for(int Worker = 1; Worker < NWorkers; ++Worker)
+		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(DataSet, false);
 	
 	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
 	{
@@ -886,24 +893,25 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			int Sample = SuperSample*NWorkers + Worker;
 			if(Sample >= NSamples) break;
 			
+			int NPars = Data->NPars;
 			Workers[Worker].Do([=, &Generators, &PlotSetups, &ParValues]()
 			{
-				std::vector<double> Pars(Data->NPars);
+				std::vector<double> Pars(NPars);
 				
 				std::uniform_int_distribution<int> Dist(0, NumValues);
 				int Draw = Dist(Generators[Worker]);
-				for(int Par = 0; Par < Data->NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
+				for(int Par = 0; Par < NPars; ++Par) Pars[Par] = ParValues[Par][Draw];
 				
-				ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
+				ParentWindow->OptimizationWin.SetParameterValues(DataSets[Worker], Pars.data(), Pars.size(), Parameters);
 			
-				ParentWindow->ModelDll.RunModel(DataSet);
+				ParentWindow->ModelDll.RunModel(DataSets[Worker]);
 				
 				for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 				{
 					double *ResultYValues = (*DataBlockPtr)[TargetIdx][Sample].data();
 					String Legend;
 					String Unit;
-					ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+					ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSets[Worker], PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
 					if(!ParametricOnly)
 					{
 						optimization_target &Target = Targets[TargetIdx];
@@ -920,8 +928,11 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		if(SuperSample % 4 == 0)
 			ParentWindow->ProcessEvents();
 	}
-	*/
 	
+	for(int Worker = 1; Worker < NWorkers; ++Worker)
+		ParentWindow->ModelDll.DeleteDataSet(DataSets[Worker]);
+	
+#else
 	std::mt19937_64 Generator;
 	
 	for(int Sample = 0; Sample < NSamples; ++Sample)
@@ -955,8 +966,9 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		if(Sample % 50 == 0)
 			ParentWindow->ProcessEvents();
 	}
-	
-	
+#endif
+#undef MCMC_SAMPLE_PARALELLIZE
+
 	std::vector<double> Pars(Data->NPars);
 	//Run once with the median parameter set too.
 	for(int Par = 0; Par < Data->NPars; ++Par)

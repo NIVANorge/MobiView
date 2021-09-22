@@ -1607,8 +1607,8 @@ void SetBetterGridLinePositions(ScatterDraw &Scatter, int Dim)
 	
 	double Stride = OrderOfMagnitude * 0.1;
 	if(Stretch >= 2.0) Stride = OrderOfMagnitude * 0.2;
-	if(Stretch >= 2.5) Stride = OrderOfMagnitude * 0.25;
-	if(Stretch >= 5.0) Stride = OrderOfMagnitude * 0.5;
+	else if(Stretch >= 2.5) Stride = OrderOfMagnitude * 0.25;
+	else if(Stretch >= 5.0) Stride = OrderOfMagnitude * 0.5;
 	
 	double Min2 = std::floor(Min / Stride)*Stride;
 	//int Count = (int)std::ceil(Range / Stride);
