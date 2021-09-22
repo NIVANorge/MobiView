@@ -1087,8 +1087,8 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		
 		AcorPlot.ZoomToFit(true, false).SetMouseHandling(false, true);
 		AcorPlot.SetXYMin(Null, -1.0).SetRange(Null, 2.0);
-		AcorPlot.SetBetterGridLinePositions(0);
-		AcorPlot.SetBetterGridLinePositions(1);
+		SetBetterGridLinePositions(AcorPlot, 0);
+		SetBetterGridLinePositions(AcorPlot, 1);
 		
 		//AcorPlot.WhenZoomScroll << [&](){ AcorPlot.SetBetterGridLinePositions(1); }; // This
 		//somehow screws up the center of the plot.

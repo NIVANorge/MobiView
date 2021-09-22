@@ -228,8 +228,6 @@ SensitivityViewWindow::Run()
 		StatPlot.Plot.SetXYMin(Min);
 		StatPlot.Plot.SetRange(Max-Min);
 		StatPlot.Plot.SetMajorUnitsNum(std::min(NSteps-1, 9));     //TODO: This should be better!
-		
-		//StatPlot.Refresh();
 	}
 	else
 	{
@@ -345,6 +343,7 @@ SensitivityViewWindow::Run()
 			
 			StatPlot.Plot.ZoomToFit(true, true);
 			//StatPlot.Refresh();
+			SetBetterGridLinePositions(StatPlot.Plot, 1);
 			
 			this->ProcessEvents();
 		}
@@ -354,6 +353,7 @@ SensitivityViewWindow::Run()
 	RunProgress.Hide();
 	
 	StatPlot.Plot.ZoomToFit(true, true);
+	SetBetterGridLinePositions(StatPlot.Plot, 1);
 	
 	if(StatName != "(none)")
 	{

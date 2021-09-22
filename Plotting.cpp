@@ -304,7 +304,7 @@ void PlotCtrl::PlotModeChange()
 	else
 		Aggregation.Disable();
 	
-	uint64 Timesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
+	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
 	if(Timesteps != 0)
 	{
 		Time StartTime = Parent->CalibrationIntervalStart.GetData();
@@ -313,7 +313,7 @@ void PlotCtrl::PlotModeChange()
 		if(IsNull(StartTime))
 		{
 			char TimeVal[256];
-			Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeVal);
+			Parent->ModelDll.GetStartDate(Parent->DataSet, TimeVal);
 			StrToTime(StartTime, TimeVal);
 			Parent->CalibrationIntervalStart.SetData(StartTime);
 		}
@@ -639,8 +639,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					else
 						Parent->GetSingleInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Data.data(), ProfileIndexSet, Row);
 					
-					//NullifyNans(Data.data(), Data.size());
-					
 					if(IntervalType != Aggregation_None)
 					{
 						std::vector<double> XValues; //TODO: Ugh, it is stupid to have to declare this when it is not going to be used.
@@ -801,7 +799,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String BS;
 			String Unit;
 			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->BaselineDataSet, PlotSetup.SelectedResults[0], BS, Unit, Baseline.data());
-			//NullifyNans(Baseline.data(), Baseline.size());
 			BS << " baseline";
 			
 			double *BaselineXValues = PlotData.Allocate(BaselineTimesteps).data();
@@ -817,8 +814,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			std::vector<double> &Current = PlotData.Allocate(ResultTimesteps);
 			String CurrentLegend;
 			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], CurrentLegend, Unit, Current.data());
-			//NullifyNans(Current.data(), Current.size());
-			
+
 			double *ResultXValues = PlotData.Allocate(ResultTimesteps).data();
 			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
 			
@@ -1144,10 +1140,10 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 				};
 			}
 
-			if(PlotMajorMode != MajorMode_QQ) SetBetterGridLinePositions(1);
+			if(PlotMajorMode != MajorMode_QQ) SetBetterGridLinePositions(*this, 1);
 		}
 
-		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(0);
+		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(*this, 0);
 	}
 	
 	bool AllowScrollX = !(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram);
@@ -1586,20 +1582,20 @@ void MyPlot::AddTrendLine(String &Legend, double XYCovar, double XVar, double YM
 }
 
 
-void MyPlot::SetBetterGridLinePositions(int Dim)
+void SetBetterGridLinePositions(ScatterDraw &Scatter, int Dim)
 {
 	double Min;
 	double Range;
 	
 	if(Dim == 0)
 	{
-		Min = this->GetXMin();
-		Range = this->GetXRange();
+		Min = Scatter.GetXMin();
+		Range = Scatter.GetXRange();
 	}
 	else
 	{
-		Min = this->GetYMin();
-		Range = this->GetYRange();
+		Min = Scatter.GetYMin();
+		Range = Scatter.GetYRange();
 	}
 	
 	double LogRange = std::log10(Range);
@@ -1614,20 +1610,23 @@ void MyPlot::SetBetterGridLinePositions(int Dim)
 	if(Stretch >= 2.5) Stride = OrderOfMagnitude * 0.25;
 	if(Stretch >= 5.0) Stride = OrderOfMagnitude * 0.5;
 	
-	Min = std::floor(Min / Stride)*Stride;
-	int Count = (int)std::ceil(Range / Stride);
+	double Min2 = std::floor(Min / Stride)*Stride;
+	//int Count = (int)std::ceil(Range / Stride);
+	Range += Min-Min2;
 	
 	//MainPlot.SetMinUnits(Null, Min);  //We would prefer to do this, but for some reason it works
 	//poorly when there are negative values...
 	if(Dim == 0)
 	{
-		this->SetXYMin(Min, Null);
-		this->SetMajorUnits(Stride, Null);
+		Scatter.SetXYMin(Min2, Null);
+		Scatter.SetRange(Range, Null);
+		Scatter.SetMajorUnits(Stride, Null);
 	}
 	else
 	{
-		this->SetXYMin(Null, Min);
-		this->SetMajorUnits(Null, Stride);
+		Scatter.SetXYMin(Null, Min2);
+		Scatter.SetRange(Null, Range);
+		Scatter.SetMajorUnits(Null, Stride);
 	}
 }
 

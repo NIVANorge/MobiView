@@ -203,6 +203,9 @@ void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, d
 void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
 void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange);
 
+void SetBetterGridLinePositions(ScatterDraw &Scatter, int Dim);
+
+
 class PlotCtrl;
 
 class MyPlot : public ScatterCtrl
@@ -232,8 +235,6 @@ public:
 	
 	void ReplotProfile();
 	
-	
-	void SetBetterGridLinePositions(int Dim);
 	void UpdateDateGridLinesX(Vector<double> &LinesOut, Time InputStartTime, timestep_size TimestepSize);
 	
 	
