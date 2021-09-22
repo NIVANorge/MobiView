@@ -47,9 +47,9 @@ If you want to build MobiView yourself (for instance to be guaranteed to always 
 - Download [dlib](http://dlib.net/) . Extract the archive and copy the "dlib" subfolder (i.e. the folder that directly contains "global_optimization.h") into the MyApps/MobiView folder.
 - Run upp/theide.exe
 - In theide, select the MyApps folder and the MobiView project for loading and click ok.
-- Windows: Where it says MingW Debug in the top bar, change it to MingW Release. Then click 'MingW Release' to get the output mode dialog. Change build method to 'MingWx64' and click ok.
+- Windows: Make sure that your build mode is CLANGx64 Release (this is a list in the top bar).
 - Linux: Where it says gcc debug in the top bar, change it to gcc release.
 - Click the Execute button in the top bar (small icon with a green arrow on it). This will attempt to compile and run the project. The first time the compilation can take a few minutes since it has to build the entire Ultimate++ package.
 - If all went well, it will now run a compiled MobiView. On Windows, the compiled exe will be located in upp/out/MyApps/MINGWx64.Gui
 - Note that when MobiView is run from theide, the run directory is not the same as the location of the exe, and so it will not correctly read the settings.json file (so it will not remember what model you loaded the last time you ran it etc.). This is fixed by running the exe directly instead.
-- **NOTE**: Sometimes when you recompile after having compiled once previously and then pulling updates from the MobiView repository, Upp does not recompile everything correctly. If you experience crashes, try to run a full rebuild (the red lightning icon).
+- **NOTE**: Sometimes when you recompile after having compiled once previously and then pulling updates from the MobiView repository, Upp does not recompile everything correctly. If you experience crashes, try to right click the MobiView package in the package view and choose "Clean package MobiView", then rebuild.
