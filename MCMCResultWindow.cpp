@@ -817,7 +817,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	ProjectionPlotScroll.ClearPane();
 	AutoCorrPlotScroll.ClearPane();
 	
-	int HSize = ProjectionPlotScroll.GetRect().Width();
+	int HSize = ProjectionPlotScroll.GetRect().Width() - 30;  // -30 is to make space for scrollbar
 	
 	int PlotHeight = 400;
 	int AccumY = 0;
@@ -825,8 +825,8 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int TargetIdx = 0;
 	for(optimization_target &Target : Targets)
 	{
-		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize-50).TopPos(AccumY, PlotHeight));
-		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize-50).TopPos(AccumY, PlotHeight));
+		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
+		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
 		AccumY += PlotHeight;
 		++TargetIdx;
 	}
@@ -1171,6 +1171,8 @@ void MCMCResultWindow::SaveResults()
 	File << JsonData.ToStd();
 	
 	File.close();
+	
+	ParentWindow->Log(Format("MCMC data saved to %s", Filename.data()));
 }
 
 bool MCMCResultWindow::LoadResults()
@@ -1291,6 +1293,8 @@ bool MCMCResultWindow::LoadResults()
 	Burnin[0] = (double)BurninVal; Burnin[1] = (double)BurninVal;
 	
 	RefreshPlots();
+	
+	ParentWindow->Log(Format("MCMC data loaded from %s", Filename.data()));
 	
 	return true;
 }

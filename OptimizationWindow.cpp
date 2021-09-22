@@ -39,6 +39,12 @@ MCMCRunSetup::MCMCRunSetup()
 	CtrlLayout(*this);
 }
 
+SensitivityRunSetup::SensitivityRunSetup()
+{
+	CtrlLayout(*this);
+}
+
+
 OptimizationWindow::OptimizationWindow()
 {
 	SetRect(0, 0, 740, 740);
@@ -49,8 +55,8 @@ OptimizationWindow::OptimizationWindow()
 	ParSetup.ParameterView.AddColumn(Id("__min"), "Min");
 	ParSetup.ParameterView.AddColumn(Id("__max"), "Max");
 	ParSetup.ParameterView.AddColumn(Id("__unit"), "Unit");
-	ParSetup.ParameterView.AddColumn(Id("__sym"), "Sym.");
-	ParSetup.ParameterView.AddColumn(Id("__expr"), "Expr.");
+	ParSetup.ParameterView.AddColumn(Id("__sym"), "Symbol");
+	ParSetup.ParameterView.AddColumn(Id("__expr"), "Expression");
 	
 	ParSetup.OptionUseExpr.Set((int)false);
 	ParSetup.OptionUseExpr.WhenAction     = THISBACK(EnableExpressionsClicked);
@@ -61,7 +67,7 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.TargetView.AddColumn(Id("__resultindexes"), "Result idxs.");
 	TargetSetup.TargetView.AddColumn(Id("__inputname"), "Input name");
 	TargetSetup.TargetView.AddColumn(Id("__inputindexes"), "Input idxs.");
-	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Error structure");
+	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Statistic");
 	TargetSetup.TargetView.AddColumn(Id("__errparam"), "Error param(s).");
 	TargetSetup.TargetView.AddColumn(Id("__weight"), "Weight");
 	
@@ -101,7 +107,7 @@ OptimizationWindow::OptimizationWindow()
 	
 	MCMCSetup.PushRun.WhenPush         = [&](){ RunClicked(1); };
 	MCMCSetup.PushRun.SetImage(IconImg4::Run());
-	MCMCSetup.PushViewChains.WhenPush << [&]() { ParentWindow->MCMCResultWin.Open(); };
+	MCMCSetup.PushViewChains.WhenPush << [&]() { if(!ParentWindow->MCMCResultWin.IsOpen()) ParentWindow->MCMCResultWin.Open(); };
 	MCMCSetup.PushViewChains.SetImage(IconImg4::ViewMorePlots());
 	MCMCSetup.PushExtendRun.WhenPush   = [&](){ RunClicked(2); };
 	MCMCSetup.PushExtendRun.Disable();
@@ -113,11 +119,19 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.EditWalkers.SetData(25);
 	MCMCSetup.InitialTypeSwitch.SetData(0);
 	
+	SensitivitySetup.EditSampleSize.Min(10);
+	SensitivitySetup.EditSampleSize.SetData(1000);
+	SensitivitySetup.PushRun.WhenPush  = [&](){ RunClicked(3); };
+	SensitivitySetup.PushViewResults.WhenPush = [&]() {	if(!ParentWindow->VarSensitivityWin.IsOpen()) ParentWindow->VarSensitivityWin.Open(); };
+	SensitivitySetup.PushRun.SetImage(IconImg4::Run());
+	SensitivitySetup.PushViewResults.SetImage(IconImg4::ViewMorePlots());
+	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
-	TargetSetup.OptimizerTypeTab.Add(RunSetup, "Optimiser");
+	TargetSetup.OptimizerTypeTab.Add(RunSetup, "Optimizer");
 	TargetSetup.OptimizerTypeTab.Add(MCMCSetup, "MCMC");
+	TargetSetup.OptimizerTypeTab.Add(SensitivitySetup, "Variance based sensitivity");
 	
 	TargetSetup.OptimizerTypeTab.WhenSet << THISBACK(TabChange);
 	
@@ -317,8 +331,9 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	
 	int TabNum = TargetSetup.OptimizerTypeTab.Get();
 	int TargetStat;
-	if(TabNum == 0) TargetStat      = (int)Target.Stat;
+	if(TabNum == 0) TargetStat      = (int)Target.ResidualStat;
 	else if(TabNum == 1) TargetStat = (int)Target.ErrStruct;
+	else if(TabNum == 2) TargetStat = (int)Target.Stat;
 	else assert(0);
 	
 	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight);
@@ -365,9 +380,11 @@ void OptimizationWindow::StatEdited(int Row)
 {
 	int TabNum = TargetSetup.OptimizerTypeTab.Get();
 	if(TabNum == 0)
-		Targets[Row].Stat      = (residual_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+		Targets[Row].ResidualStat      = (residual_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
 	else if(TabNum == 1)
-		Targets[Row].ErrStruct = (mcmc_error_structure)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+		Targets[Row].ErrStruct         = (mcmc_error_structure)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+	else if(TabNum == 2)
+		Targets[Row].Stat              = (stat_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
 }
 
 void OptimizationWindow::ErrSymEdited(int Row)
@@ -386,9 +403,9 @@ void OptimizationWindow::AddTargetClicked()
 	plot_setup PlotSetup;
 	ParentWindow->Plotter.GatherCurrentPlotSetup(PlotSetup);
 	
-	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() != 1)
+	if(PlotSetup.SelectedResults.size() != 1 || PlotSetup.SelectedInputs.size() > 1)
 	{
-		SetError("This only works with a single selected result series and input series.");
+		SetError("This only works with a single selected result series and at most one input series.");
 		return;
 	}
 	
@@ -403,24 +420,26 @@ void OptimizationWindow::AddTargetClicked()
 	
 	optimization_target Target = {};
 	Target.ResultName = PlotSetup.SelectedResults[0];
-	Target.InputName  = PlotSetup.SelectedInputs[0];
-	
-	std::vector<char *> InputIndexes;
 	std::vector<char *> ResultIndexes;
-	
-	bool Success = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.InputName, 1, InputIndexes);
+	bool Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.ResultName, 0, ResultIndexes);
 	if(!Success) return;
-	Success      = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.ResultName, 0, ResultIndexes);
-	if(!Success) return;
-	
 	//Ugh, super annoying to have to convert back and forth between char* and string to ensure
 	//storage...
-	for(const char *Idx : InputIndexes)
-		Target.InputIndexes.push_back(std::string(Idx));
 	for(const char *Idx : ResultIndexes)
-		Target.ResultIndexes.push_back(std::string(Idx));
+			Target.ResultIndexes.push_back(std::string(Idx));
 	
-	Target.Stat = ResidualType_MAE;
+	if(PlotSetup.SelectedInputs.size() == 1)
+	{
+		Target.InputName  = PlotSetup.SelectedInputs[0];
+		std::vector<char *> InputIndexes;
+		bool Success = ParentWindow->GetSelectedIndexesForSeries(PlotSetup, ParentWindow->DataSet, Target.InputName, 1, InputIndexes);
+		if(!Success) return;
+		for(const char *Idx : InputIndexes)
+			Target.InputIndexes.push_back(std::string(Idx));
+	}
+	
+	Target.Stat = StatType_Mean;
+	Target.ResidualStat = ResidualType_MAE;
 	Target.ErrStruct = MCMCError_NormalHet1; //This is the easiest one to start with maybe. Or should we just do Normal?
 	Target.Weight = 1.0;
 	
@@ -485,7 +504,7 @@ void OptimizationWindow::DisplayClicked()
 	if(Targets.empty())
 	{
 		SetError("There are no targets to display the plots of");
-	 	return;
+		return;
 	}
 	
 	SetError("");
@@ -659,15 +678,17 @@ struct optimization_model
 			for(int Obj = 0; Obj < Targets->size(); ++Obj)
 			{
 				optimization_target &Target = (*Targets)[Obj];
-				InputData[Obj].resize(Timesteps);
-				std::vector<const char *> InputIndexes(Target.InputIndexes.size());
-				for(int Idx = 0; Idx < InputIndexes.size(); ++Idx)
-					InputIndexes[Idx] = Target.InputIndexes[Idx].data();
-				
-				//NOTE: The final 'true' signifies that we align with the result series, so that it
-				//is in fact safe to use the result timesteps for the size here.
-				ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData[Obj].data(), true);
-			
+				InputData[Obj].resize(Timesteps);   //TODO: This is sometimes unnecessary, but the size is used below.
+				if(Target.InputName != "")
+				{
+					std::vector<const char *> InputIndexes(Target.InputIndexes.size());
+					for(int Idx = 0; Idx < InputIndexes.size(); ++Idx)
+						InputIndexes[Idx] = Target.InputIndexes[Idx].data();
+					
+					//NOTE: The final 'true' signifies that we align with the result series, so that it
+					//is in fact safe to use the result timesteps for the size here.
+					ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData[Obj].data(), true);
+				}
 				char TimeStr[256];
 				uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
 				ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
@@ -711,10 +732,8 @@ struct optimization_model
 				if(false){}
 				#define SET_SETTING(Handle, Name, Type)
 				#define SET_RES_SETTING(Handle, Name, Type) \
-					else if(Target.Stat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
-		
+					else if(Target.ResidualStat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
 				#include "SetStatSettings.h"
-				
 				#undef SET_SETTING
 				#undef SET_RES_SETTING
 			}
@@ -723,6 +742,19 @@ struct optimization_model
 				std::vector<double> ErrParam(Target.ErrParNum.size());
 				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Par(Target.ErrParNum[Idx]);
 				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, Target.ErrStruct);
+			}
+			else if(RunType == 3)
+			{
+				timeseries_stats Stats;
+				ComputeTimeseriesStats(Stats, ResultData.data() + GofOffset, GofTimesteps, ParentWindow->StatSettings, false);
+				
+				if(false){}
+				#define SET_SETTING(Handle, Name, Type) \
+					else if(Target.Stat == StatType_##Handle) Value = Stats.Handle;
+				#define SET_RES_SETTING(Handle, Name, Type)
+				#include "SetStatSettings.h"
+				#undef SET_SETTING
+				#undef SET_RES_SETTING
 			}
 			
 			Aggregate += Value*Target.Weight;
@@ -766,6 +798,8 @@ struct optimization_model
 		
 		if(ProgressLabel && (NumEvals%UpdateStep==0))
 		{
+			GuiLock Lock;
+			
 			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
 			
 			if(View->IsOpen())
@@ -823,6 +857,8 @@ bool MCMCCallbackFun(void *CallbackData, int CurStep)
 	if(CBD->ParentWindow->MCMCResultWin.HaltWasPushed)
 		return false;
 	*/
+	
+	GuiLock Lock;
 	
 	CBD->ParentWindow->MCMCResultWin.RefreshPlots(CurStep);
 	CBD->ParentWindow->ProcessEvents();
@@ -1000,95 +1036,97 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	
 	size_t NPars = OptimModel->FreeParCount;
 	
-	MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
-	ResultWin->ClearPlots();
-	
 	int InitialStep = 0;
-	
-	if(RunType == 2) // NOTE RunType==2 means extend the previous run.
 	{
-		if(Data.NSteps == 0)
-		{
-			SetError("Can't extend a run before the model has been run once");
-			return false;
-		}
-		if(Data.NSteps >= NSteps)
-		{
-			SetError(Format("To extend the run, you must set a higher number of timesteps than previously. Previous was %d.", (int)Data.NSteps));
-			return false;
-		}
-		if(Data.NWalkers != NWalkers)
-		{
-			SetError("To extend the run, you must have the same amount of walkers as before.");
-			return false;
-		}
-		if(ResultWin->Parameters != Parameters || ResultWin->Targets != Targets)
-		{
-			//TODO: Could alternatively let you continue with the old parameter set.
-			SetError("You can't extend the run since the parameters or targets have changed.");
-			return false;
-		}
-		InitialStep = Data.NSteps-1;
+		GuiLock Lock;
 		
-		Data.ExtendSteps(NSteps);
-	}
-	else
-	{
-		Data.Free();
-		Data.Allocate(NWalkers, NPars, NSteps);
-	}
-	
-	Array<String> FreeSyms;
-	for(indexed_parameter &Parameter : Parameters)
-		if(Parameter.Expr == "") FreeSyms.push_back(String(Parameter.Symbol.data()));
-	
-	
-	//NOTE: These have to be cached so that we don't have to rely on the optimization window
-	//not being edited (and going out of sync with the data)
-	ResultWin->Parameters = Parameters;
-	ResultWin->Targets    = Targets;
-	
-	ResultWin->ChoosePlotsTab.Set(0);
-	ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
-	
-	if(!ResultWin->IsOpen())
-		ResultWin->Open();
-	
-	ParentWindow->ProcessEvents();
-	
-	if(RunType==1)
-	{
-		std::mt19937_64 Generator;
-		for(int Walker = 0; Walker < NWalkers; ++Walker)
+		MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
+		ResultWin->ClearPlots();
+		
+		if(RunType == 2) // NOTE RunType==2 means extend the previous run.
 		{
-			for(int Par = 0; Par < NPars; ++Par)
+			if(Data.NSteps == 0)
 			{
-				double Initial = InitialValue[Par];
-				double Draw = Initial;
-				if(InitialType == 0)
-				{
-					//Initializing walkers to a gaussian ball around the initial parameter values.
-					double StdDev = (MaxBound[Par] - MinBound[Par])/400.0;   //TODO: How to choose scaling coefficient?
-					
-					std::normal_distribution<double> Distribution(Initial, StdDev);
-					
-					Draw = Distribution(Generator);
-					Draw = std::max(MinBound[Par], Draw);
-					Draw = std::min(MaxBound[Par], Draw);
+				SetError("Can't extend a run before the model has been run once");
+				return false;
+			}
+			if(Data.NSteps >= NSteps)
+			{
+				SetError(Format("To extend the run, you must set a higher number of timesteps than previously. Previous was %d.", (int)Data.NSteps));
+				return false;
+			}
+			if(Data.NWalkers != NWalkers)
+			{
+				SetError("To extend the run, you must have the same amount of walkers as before.");
+				return false;
+			}
+			if(ResultWin->Parameters != Parameters || ResultWin->Targets != Targets)
+			{
+				//TODO: Could alternatively let you continue with the old parameter set.
+				SetError("You can't extend the run since the parameters or targets have changed.");
+				return false;
+			}
+			InitialStep = Data.NSteps-1;
+			
+			Data.ExtendSteps(NSteps);
+		}
+		else
+		{
+			Data.Free();
+			Data.Allocate(NWalkers, NPars, NSteps);
+		}
 		
-				}
-				else if(InitialType == 1)
+		Array<String> FreeSyms;
+		for(indexed_parameter &Parameter : Parameters)
+			if(Parameter.Expr == "") FreeSyms.push_back(String(Parameter.Symbol.data()));
+		
+		
+		//NOTE: These have to be cached so that we don't have to rely on the optimization window
+		//not being edited (and going out of sync with the data)
+		ResultWin->Parameters = Parameters;
+		ResultWin->Targets    = Targets;
+		
+		ResultWin->ChoosePlotsTab.Set(0);
+		ResultWin->BeginNewPlots(&Data, MinBound, MaxBound, FreeSyms, RunType);
+		
+		ParentWindow->ProcessEvents();
+		
+		if(RunType==1)
+		{
+			std::mt19937_64 Generator;
+			for(int Walker = 0; Walker < NWalkers; ++Walker)
+			{
+				for(int Par = 0; Par < NPars; ++Par)
 				{
-					std::uniform_real_distribution<double> Distribution(MinBound[Par], MaxBound[Par]);
-					Draw = Distribution(Generator);
+					double Initial = InitialValue[Par];
+					double Draw = Initial;
+					if(InitialType == 0)
+					{
+						//Initializing walkers to a gaussian ball around the initial parameter values.
+						double StdDev = (MaxBound[Par] - MinBound[Par])/400.0;   //TODO: How to choose scaling coefficient?
+						
+						std::normal_distribution<double> Distribution(Initial, StdDev);
+						
+						Draw = Distribution(Generator);
+						Draw = std::max(MinBound[Par], Draw);
+						Draw = std::min(MaxBound[Par], Draw);
+			
+					}
+					else if(InitialType == 1)
+					{
+						std::uniform_real_distribution<double> Distribution(MinBound[Par], MaxBound[Par]);
+						Draw = Distribution(Generator);
+					}
+					else
+						PromptOK("Internal error, wrong intial type");
+					
+					Data(Walker, Par, 0) = Draw;
 				}
-				else
-					PromptOK("Internal error, wrong intial type");
-				
-				Data(Walker, Par, 0) = Draw;
 			}
 		}
 	}
+	
+	ParentWindow->ProcessEvents();
 	
 	mcmc_run_data RunData;
 	RunData.Model = OptimModel;
@@ -1113,11 +1151,142 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	return Finished;
 }
 
+
+
+
+
+bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_model *Optim, double *MinBound, double *MaxBound)
+{
+	
+	int ProgressInterval = 50; //TODO: Make the caller set this.
+	
+	VarianceSensitivityWindow &SensWin = ParentWindow->VarSensitivityWin;
+	if(!SensWin.IsOpen()) SensWin.Open();
+	
+	SensWin.ShowProgress.Show();
+	SensWin.ResultData.Clear();
+	
+	for(indexed_parameter &Par : *Optim->Parameters)
+	{
+		if(Par.Expr == "") SensWin.ResultData.Add(Par.Symbol.data(), Null, Null);
+	}
+	ParentWindow->ProcessEvents();
+	
+	int NPars = Optim->FreeParCount;
+	
+	std::vector<double> matA(NSamples*NPars);
+	std::vector<double> matB(NSamples*NPars);
+	
+	std::mt19937_64 Generator;
+	
+	for(int J = 0; J < NSamples; ++J)
+	{
+		for(int I = 0; I < NPars; ++I)
+		{
+			std::uniform_real_distribution<double> Distr(MinBound[I], MaxBound[I]);
+			matA[J*NPars + I] = Distr(Generator);
+			matB[J*NPars + I] = Distr(Generator);
+		}
+	}
+	
+	std::vector<double> fA(NSamples);
+	std::vector<double> fB(NSamples);
+	
+	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	
+	int TotalEvals = NSamples*(NPars + 2);
+	int Evals = 0;
+	
+	#define DO_PROGRESS() if(((++Evals) % ProgressInterval) == 0) {SensWin.ShowProgress.Set(Evals, TotalEvals); ParentWindow->ProcessEvents();}
+	
+	//TODO: Paralellize
+	for(int J = 0; J < NSamples; ++J)
+	{
+		column_vector Pars(NPars);
+		for(int I = 0; I < NPars; ++I)
+			Pars(I) = matA[J*NPars + I];
+		
+		fA[J] = Optim->EvaluateObjectives(DataSet, Pars);
+		DO_PROGRESS();
+		
+		for(int I = 0; I < NPars; ++I)
+			Pars(I) = matB[J*NPars + I];
+		
+		fB[J] = Optim->EvaluateObjectives(DataSet, Pars);
+		DO_PROGRESS();
+	}
+	
+	//TODO: What should we use to compute overall variance?
+	double mA = 0.0;
+	double vA = 0.0;
+	for(int J = 0; J < NSamples; ++J) mA += fA[J];
+	mA /= (double)NSamples;
+	for(int J = 0; J < NSamples; ++J) vA += (fA[J]-mA)*(fA[J]-mA);
+	vA /= (double)NSamples;
+	
+	//TODO: Finish the below!!
+	
+	for(int I = 0; I < NPars; ++I)
+	{
+		double Main  = 0;
+		double Total = 0;
+		
+		for(int J = 0; J < NSamples; ++J)
+		{
+			column_vector Pars(NPars);
+			for(int II = 0; II < NPars; ++II)
+			{
+				if(II == I) Pars(II) = matB[J*NPars + II];
+				else        Pars(II) = matA[J*NPars + II];
+			}
+			double fABij = Optim->EvaluateObjectives(DataSet, Pars);
+			DO_PROGRESS();
+			
+			Main  += fB[J]*(fABij - fA[J]);
+			Total += (fA[J] - fABij)*(fA[J] - fABij);
+		}
+		
+		Main /= (vA * (double)NSamples);
+		Total /= (vA * 2.0 * (double)NSamples);
+		
+		SensWin.ResultData.Set(I, "__main", Main);
+		SensWin.ResultData.Set(I, "__total", Total);
+		
+		ParentWindow->ProcessEvents();
+	}
+	
+	SensWin.ShowProgress.Hide();
+	
+	ParentWindow->ModelDll.DeleteDataSet(DataSet);
+	
+	return true;
+	
+	#undef DO_PROGRESS
+}
+
+VarianceSensitivityWindow::VarianceSensitivityWindow()
+{
+	SetRect(0, 0, 740, 740);
+	Title("MobiView variance based sensitivity results").MinimizeBox().Sizeable().Zoomable();
+	
+	Add(ResultData.HSizePos().VSizePos(0, 30));
+	Add(ShowProgress.HSizePos().BottomPos(0, 30));
+	ShowProgress.Set(0, 1);
+	ShowProgress.Hide();
+	
+	ResultData.AddColumn("__par", "Parameter");
+	ResultData.AddColumn("__main", "First-order sensitivity coefficient");
+	ResultData.AddColumn("__total", "Total effect index");
+}
+
+
+
+
 bool OptimizationWindow::ErrSymFixup(int RunType)
 {
 	std::unordered_map<std::string, std::pair<int,int>> SymRow;
 	
-	if((bool)ParSetup.OptionUseExpr.Get() || RunType==1||RunType==2)    //TODO: Non-ideal. Instead we should maybe force use exprs for MCMC RunTypes
+	if((bool)ParSetup.OptionUseExpr.Get() || RunType==1 || RunType==2 || RunType==3)    //TODO: Non-ideal. Instead we should maybe force use exprs for MCMC RunTypes
 	{
 		int ActiveIdx = 0;
 		int Row = 0;
@@ -1196,6 +1365,7 @@ void OptimizationWindow::RunClicked(int RunType)
 	//	0 = Optimizer
 	//  1 = New MCMC
 	//  2 = Extend MCMC
+	//  3 = Variance based sensitivity
 	
 	SetError("");
 	
@@ -1235,10 +1405,8 @@ void OptimizationWindow::RunClicked(int RunType)
 			if(false){}
 			#define SET_SETTING(Handle, Name, Type)
 			#define SET_RES_SETTING(Handle, Name, Type) \
-				else if(Targets[Row].Stat == ResidualType_##Handle) PositiveGoodLocal = (Type==1);
-			
+				else if(Targets[Row].ResidualStat == ResidualType_##Handle) PositiveGoodLocal = (Type==1);
 			#include "SetStatSettings.h"
-			
 			#undef SET_SETTING
 			#undef SET_RES_SETTING
 			
@@ -1258,6 +1426,12 @@ void OptimizationWindow::RunClicked(int RunType)
 		if(Targets[Row].Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
 		{
 			SetError("Negative weights are not allowed.");
+			return;
+		}
+		
+		if(RunType != 3 && Targets[Row].InputName == "")
+		{
+			SetError("When computing error statistics, all targets need to have an input observed series.");
 			return;
 		}
 	}
@@ -1325,9 +1499,9 @@ void OptimizationWindow::RunClicked(int RunType)
 				return;
 			}
 			
-			if((RunType==1 || RunType==2) && Par.Symbol == "")
+			if((RunType==1 || RunType==2 || RunType==3) && Par.Symbol == "")
 			{
-				SetError("In an MCMC run you should provide a symbol for all the parameters that don't have an expression.");
+				SetError("You should provide a symbol for all the parameters that don't have an expression.");
 				return;
 			}
 			
@@ -1389,50 +1563,56 @@ void OptimizationWindow::RunClicked(int RunType)
 
 		double ExpectedDuration = Ms*1e-3*(double)MaxFunctionCalls;
 			
-		ParentWindow->Log(Format("Running optimization. Expected duration around %g seconds. The window will be frozen and unresponsive until the optimization is finished.", ExpectedDuration));
+		ParentWindow->Log(Format("Running optimization. Expected duration around %g seconds.", ExpectedDuration));
 	
 		SetError("Running optimization. This may take a few minutes or more.");
 		
 		ParentWindow->ProcessEvents();
 		
-		
-		dlib::function_evaluation Result;
-		
-		auto BeginTime = std::chrono::high_resolution_clock::now();
-		
-		//Note to self: For some reason, using threads crashes the application. The debugger is not
-		//able to catch it. Is there an incompatibility with upp here?
-		
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
 		MCMCSetup.PushExtendRun.Disable();
+		SensitivitySetup.PushRun.Disable();
 		
-		if(PositiveGood)
-			Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
-		else
-			Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+		auto BeginTime = std::chrono::high_resolution_clock::now();
 		
-		auto EndTime = std::chrono::high_resolution_clock::now();
-		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
-		
-		double NewScore = Result.y;
-		
-		//if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)) || !std::isfinite(NewScore))
-		if(NewScore < InitialScore || !std::isfinite(NewScore))
-		{
-			ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
-		}
-		else
-		{
-			SetParameters(ParentWindow->DataSet, &Parameters, Result.x, ExprCount > 0, ParentWindow->ModelDll);
-			ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
-				Duration, NewScore, InitialScore));
-			ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
-		}
-		
-		RunSetup.PushRun.Enable();
-		MCMCSetup.PushRun.Enable();
-		if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
+		//TODO: We need to disable some interactions with the main dataset when this is running
+		//(such as running the model or editing parameters!)
+		Thread().Run([=, & InitialEvals, & OptimizationModel](){
+			
+			dlib::function_evaluation Result;
+			if(PositiveGood)
+				Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+			else
+				Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+			
+			auto EndTime = std::chrono::high_resolution_clock::now();
+			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
+			
+			double NewScore = Result.y;
+			
+			GuiLock Lock;
+			//if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)) || !std::isfinite(NewScore))
+			if(NewScore < InitialScore || !std::isfinite(NewScore))
+			{
+				ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
+			}
+			else
+			{
+				SetParameters(ParentWindow->DataSet, &Parameters, Result.x, ExprCount > 0, ParentWindow->ModelDll);
+				ParentWindow->Log(Format("Optimization finished after %g seconds, with new best aggregate score: %g (old: %g). Remember to save these parameters to a different file if you don't want to overwrite your old parameter set.",
+					Duration, NewScore, InitialScore));
+				ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
+			}
+			
+			RunSetup.PushRun.Enable();
+			MCMCSetup.PushRun.Enable();
+			if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
+			SensitivitySetup.PushRun.Enable();
+			
+			SetError("");
+			RunSetup.ProgressLabel.SetText("");
+		});
 	}
 	else if(RunType == 1 || RunType == 2)
 	{
@@ -1461,7 +1641,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		double ExpectedDuration1 = Ms*1e-3*(double)NWalkers*(double)NActualSteps/(double)NCores;
 		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
 		
-		ParentWindow->Log(Format("%s Expected duration around %.1f to %.1f seconds. Number of concurrent threads: %d. The window will be frozen and unresponsive until the run is finished.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
+		ParentWindow->Log(Format("%s Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.", Prefix, ExpectedDuration1, ExpectedDuration2, (int)NCores));
 		ParentWindow->ProcessEvents();
 		
 		
@@ -1469,48 +1649,77 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		RunSetup.PushRun.Disable();
 		MCMCSetup.PushRun.Disable();
+		MCMCSetup.PushExtendRun.Disable();
+		SensitivitySetup.PushRun.Disable();
 		
-		auto BeginTime = std::chrono::high_resolution_clock::now();
+		if(!ParentWindow->MCMCResultWin.IsOpen())
+			ParentWindow->MCMCResultWin.Open();
 		
-		bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
-										InitialType, CallbackInterval, RunType);
+		//NOTE: If we launch this from a separate thread, it can't launch its own threads, and
+		//the GUI doesn't update properly :(
 		
-		auto EndTime = std::chrono::high_resolution_clock::now();
-		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
+		//Thread().Run([=, & OptimizationModel, & InitialVals, & MinVals, & MaxVals](){
+			
+			auto BeginTime = std::chrono::system_clock::now();
+			
+			bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
+											InitialType, CallbackInterval, RunType);
+			
+			auto EndTime = std::chrono::system_clock::now();
+			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
+			
+			GuiLock Lock;
+			
+			if(Finished)
+				ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
+			else
+				ParentWindow->Log("MCMC run unsuccessful.");
+			
+			RunSetup.PushRun.Enable();
+			MCMCSetup.PushRun.Enable();
+			MCMCSetup.PushExtendRun.Enable();
+			SensitivitySetup.PushRun.Enable();
+			
+			RunSetup.ProgressLabel.SetText("");
+			SetError("");
+		//});
+	}
+	else if(RunType == 3)
+	{
+		int NSamples = SensitivitySetup.EditSampleSize.GetData();
 		
-		if(Finished)
-			ParentWindow->Log(Format("MCMC run finished after %g seconds.", Duration));
-		else
-			ParentWindow->Log("MCMC run unsuccessful.");
+		RunSetup.PushRun.Disable();
+		MCMCSetup.PushRun.Disable();
+		MCMCSetup.PushExtendRun.Disable();
+		SensitivitySetup.PushRun.Disable();
+		
+		int NPars = OptimizationModel.FreeParCount;
+		std::vector<double> MinVals(NPars);
+		std::vector<double> MaxVals(NPars);
+		
+		for(int Idx = 0; Idx < NPars; ++Idx)
+		{
+			MinVals[Idx]     = MinBound(Idx);
+			MaxVals[Idx]     = MaxBound(Idx);
+		}
+		
+		RunVarianceBasedSensitivity(NSamples, &OptimizationModel, MinVals.data(), MaxVals.data());
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();
 		MCMCSetup.PushExtendRun.Enable();
+		SensitivitySetup.PushRun.Enable();
 	}
-	
-	
-	RunSetup.ProgressLabel.SetText("");
-	SetError("");
-	
-	//Close(); //If we don't do this, some times the window is lost behind the main one and difficult to find...
-	//TODO: This is not ideal either since it makes it stay on top of other unrelated windows...
-	//TopMost(true, false);
 }
 
 void OptimizationWindow::TabChange()
 {
 	int TabNum = TargetSetup.OptimizerTypeTab.Get();
 	
-	if (TabNum == 0)             // Regular optimizer  -- Show target stat
-	{
-		//TargetSetup.TargetView.HeaderObject().ShowTab(4);
+	if (TabNum == 0 || TabNum == 2) // Regular optimizer, variance based  -- hide err params
 		TargetSetup.TargetView.HeaderObject().HideTab(5);
-	}
-	else if (TabNum == 1)        // MCMC               -- Target stat is differently determined
-	{
-		//TargetSetup.TargetView.HeaderObject().HideTab(4);
+	else if (TabNum == 1)        // MCMC                             -- show err params
 		TargetSetup.TargetView.HeaderObject().ShowTab(5);
-	}
 	
 	//TODO: Alternatively we could just switch out the column...
 	
@@ -1526,7 +1735,7 @@ void OptimizationWindow::TabChange()
 			#undef SET_SETTING
 			#undef SET_RES_SETTING
 			
-			List.SetData((int)Targets[TargetIdx].Stat);
+			List.SetData((int)Targets[TargetIdx].ResidualStat);
 		}
 		else if(TabNum == 1)
 		{
@@ -1535,6 +1744,16 @@ void OptimizationWindow::TabChange()
 			#undef SET_LL_SETTING
 			
 			List.SetData((int)Targets[TargetIdx].ErrStruct);
+		}
+		else if(TabNum == 2)
+		{
+			#define SET_SETTING(Handle, Name, Type) List.Add((int)StatType_##Handle, Name);
+			#define SET_RES_SETTING(Handle, Name, Type)
+			#include "SetStatSettings.h"
+			#undef SET_SETTING
+			#undef SET_RES_SETTING
+			
+			List.SetData((int)Targets[TargetIdx].Stat);
 		}
 	}
 }
@@ -1641,6 +1860,10 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	if(!IsNull(InitType))
 		MCMCSetup.InitialTypeSwitch.SetData(InitType);
 	
+	Value NSamples = SetupJson["Samples"];
+	if(!IsNull(NSamples))
+		SensitivitySetup.EditSampleSize.SetData(NSamples);
+	
 	Value RunType  = SetupJson["RunType"];
 	if(!IsNull(RunType))
 		TargetSetup.OptimizerTypeTab.Set(RunType);
@@ -1663,14 +1886,26 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 			if(!IsNull(InputName))
 				Target.InputName  = InputName.ToStd();
 			
-			Target.Stat = ResidualType_MAE;
+			Target.Stat         = StatType_Mean;
+			Target.ResidualStat = ResidualType_MAE;
+			Target.ErrStruct    = MCMCError_NormalHet1;
 			
+			String ResStatName = TargetJson["ResidualStat"];
+			if(!IsNull(ResStatName))
+			{
+				if(false){}
+				#define SET_SETTING(Handle, Name, Type)
+				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == ResStatName) Target.ResidualStat = ResidualType_##Handle;
+				#include "SetStatSettings.h"
+				#undef SET_SETTING
+				#undef SET_RES_SETTING
+			}
 			String StatName = TargetJson["Stat"];
 			if(!IsNull(StatName))
 			{
 				if(false){}
-				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == StatName) Target.Stat = ResidualType_##Handle;
+				#define SET_SETTING(Handle, Name, Type) else if(Name == StatName) Target.Stat = StatType_##Handle;
+				#define SET_RES_SETTING(Handle, Name, Type)
 				#include "SetStatSettings.h"
 				#undef SET_SETTING
 				#undef SET_RES_SETTING
@@ -1804,6 +2039,9 @@ String OptimizationWindow::SaveToJsonString()
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);
 	
+	int NSamples = SensitivitySetup.EditSampleSize.GetData();
+	MainFile("Samples", NSamples);
+	
 	JsonArray TargetArr;
 	
 	Row = 0;
@@ -1823,9 +2061,17 @@ String OptimizationWindow::SaveToJsonString()
 			InputIndexArr << Index.data();
 		TargetJson("InputIndexes", InputIndexArr);
 		
-		String StatName;
+		String ResStatName;
 		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.Stat == ResidualType_##Handle) StatName = Name;
+		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.ResidualStat == ResidualType_##Handle) ResStatName = Name;
+		if(false){}
+		#include "SetStatSettings.h"
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+		
+		String StatName;
+		#define SET_SETTING(Handle, Name, Type) else if(Target.Stat == StatType_##Handle) StatName = Name;
+		#define SET_RES_SETTING(Handle, Name, Type)
 		if(false){}
 		#include "SetStatSettings.h"
 		#undef SET_SETTING
@@ -1841,6 +2087,7 @@ String OptimizationWindow::SaveToJsonString()
 		String ErrName  = TargetSetup.TargetView.Get(Row, Id("__errparam"));
 		
 		TargetJson("Stat", StatName);
+		TargetJson("ResidualStat", ResStatName);
 		TargetJson("ErrStruct", ErrStructName);
 		TargetJson("Weight", Target.Weight);
 		TargetJson("ErrPar", ErrName);

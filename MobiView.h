@@ -253,6 +253,13 @@ public:
 	MCMCRunSetup();
 };
 
+class SensitivityRunSetup : public WithSensitivitySetupLayout<ParentCtrl>
+{
+public:
+	typedef SensitivityRunSetup CLASSNAME;
+	
+	SensitivityRunSetup();
+};
 
 
 #define SET_LL_SETTING(Handle, Name, NumErr) MCMCError_##Handle,
@@ -271,7 +278,8 @@ struct optimization_target
 	std::vector<std::string> InputIndexes;
 	std::string ErrParSym;
 	std::vector<int> ErrParNum;
-	residual_type Stat;
+	residual_type        ResidualStat;
+	stat_type            Stat;
 	mcmc_error_structure ErrStruct;
 	double Weight;
 };
@@ -285,6 +293,7 @@ inline bool operator==(const optimization_target &T1, const optimization_target 
 		&& T1.InputIndexes == T2.InputIndexes
 		&& T1.ErrParSym == T2.ErrParSym
 		&& T1.ErrParNum == T2.ErrParNum
+		&& T1.ResidualStat == T2.ResidualStat
 		&& T1.Stat == T2.Stat
 		&& T1.ErrStruct == T2.ErrStruct
 		&& T1.Weight == T2.Weight;
@@ -352,6 +361,10 @@ private:
 	bool RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
 		double *InitialValue, double *MinBound, double *MaxBound, int InitialType,
 		int CallbackInterval, int RunType);
+		
+		
+	bool RunVarianceBasedSensitivity(int NSamples, optimization_model *Optim, double *MinBound, double *MaxBound);
+	
 	
 	Array<EditDoubleNotNull> EditMinCtrls;
 	Array<EditDoubleNotNull> EditMaxCtrls;
@@ -371,6 +384,7 @@ private:
 public:
 	OptimizationRunSetup       RunSetup;
 	MCMCRunSetup               MCMCSetup;
+	SensitivityRunSetup        SensitivitySetup;
 	
 	mcmc_data                  Data;
 	
@@ -490,6 +504,20 @@ public:
 };
 
 
+class VarianceSensitivityWindow : public TopWindow
+{
+public :
+	typedef VarianceSensitivityWindow CLASSNAME;
+	
+	VarianceSensitivityWindow();
+	
+	ArrayCtrl ResultData;
+	ProgressIndicator ShowProgress;
+};
+
+
+
+
 
 
 class MobiView : public TopWindow
@@ -576,6 +604,8 @@ public:
 	OptimizationWindow OptimizationWin;
 	
 	MCMCResultWindow MCMCResultWin;
+	
+	VarianceSensitivityWindow VarSensitivityWin;
 	
 	
 	void AddParameterGroupsRecursive(int ParentId, const char *ParentName, int ChildCount);

@@ -110,7 +110,7 @@ MobiView::MobiView() : Plotter(this)
 	Title("MobiView").MinimizeBox().Sizeable().Zoomable().Icon(MainIconImg::i4());
 	
 	PlotInfoRect.Add(PlotInfo.HSizePos().VSizePos(0, 25));
-	CalibrationIntervalLabel.SetText("GOF interval:");
+	CalibrationIntervalLabel.SetText("Stat interval:");
 	GOFOnOption.SetLabel("Show GOF");
 	GOFOnOption.SetData(1); //TODO: Should this be in config?
 	PlotInfoRect.Add(CalibrationIntervalLabel.LeftPos(0).BottomPos(5));

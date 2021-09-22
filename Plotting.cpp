@@ -89,7 +89,7 @@ void PlotCtrl::BuildTimeIntervalsCtrl()
 MyPlot::MyPlot()
 {
 	
-	this->SetFastViewX(true);
+	//this->SetFastViewX(true); Can't be used with scatter plot data since it combines points.
 	this->SetSequentialXAll(true);
 	
 	Size PlotReticleSize = GetTextSize("00000000", this->GetReticleFont());
@@ -100,8 +100,6 @@ MyPlot::MyPlot()
 	this->SetGridDash("");
 	Color Grey(180, 180, 180);
 	this->SetGridColor(Grey);
-
-	//this->Responsive(true, 1.2); //NOTE: This seems like it looks better, but has to be tested on more machines.
 	
 	this->RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
 	this->AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
@@ -306,7 +304,7 @@ void PlotCtrl::PlotModeChange()
 	else
 		Aggregation.Disable();
 	
-	uint64 Timesteps = Parent->ModelDll.GetTimesteps(Parent->DataSet);
+	uint64 Timesteps = Parent->ModelDll.GetInputTimesteps(Parent->DataSet);
 	if(Timesteps != 0)
 	{
 		Time StartTime = Parent->CalibrationIntervalStart.GetData();
@@ -315,14 +313,13 @@ void PlotCtrl::PlotModeChange()
 		if(IsNull(StartTime))
 		{
 			char TimeVal[256];
-			Parent->ModelDll.GetStartDate(Parent->DataSet, TimeVal);
+			Parent->ModelDll.GetInputStartDate(Parent->DataSet, TimeVal);
 			StrToTime(StartTime, TimeVal);
 			Parent->CalibrationIntervalStart.SetData(StartTime);
 		}
 		if(IsNull(EndTime))
 		{
 			EndTime = StartTime;
-			//Parent->ModelDll.GetParameterUInt(Parent->DataSet, "Timesteps", nullptr, 0);
 			if(Timesteps != 0)
 				AdvanceTimesteps(EndTime, Timesteps - 1, Parent->TimestepSize);
 			Parent->CalibrationIntervalEnd.SetData(EndTime);
@@ -446,10 +443,37 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	String ModeledLegend;
 	String ObservedLegend;
 	String ModUnit, ObsUnit;
-	Parent->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+	
+	Time ReferenceTime = InputStartTime;
+	{
+		int64 ReferenceTimesteps = InputTimesteps;
+		if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
+		{
+			ReferenceTime = ResultStartTime;
+			ReferenceTimesteps = ResultTimesteps;
+		}
+		Parent->GetGofOffsets(ReferenceTime, ReferenceTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+	}
+	
+	int64 ResultGofOffset = GofOffset;
+	int64 ResultGofTimesteps = GofTimesteps;
+	if(ReferenceTime != ResultStartTime)
+	{
+		int64 Diff = TimestepsBetween(InputStartTime, ResultStartTime, Parent->TimestepSize);
+		ResultGofOffset = GofOffset - Diff;
+		ResultGofTimesteps = GofTimesteps - Diff;
+		if(ResultGofOffset < 0) { ResultGofTimesteps += ResultGofOffset; ResultGofOffset = 0; }
+		if(ResultGofTimesteps+ResultGofOffset > ResultTimesteps) ResultGofTimesteps = ResultTimesteps-ResultGofOffset;
+		if(ResultGofTimesteps < 0) ResultGofTimesteps = 0;
+	}
+	
+	//PromptOK(Format("resultgofoffset %d, resultgoftimesteps %d, gofoffset %d, goftimesteps %d", ResultGofOffset, ResultGofTimesteps, GofOffset, GofTimesteps));
+	
 	double *ModeledSeries = nullptr;
 	double *ObservedSeries = nullptr;
 	residual_stats ResidualStats = {};
+		
+	PlotInfo.Append(Format("Showing statistics for interval %s to %s&&", GofStartTime, GofEndTime));
 	
 	if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ || GOFStatsDesired)
 	{
@@ -465,7 +489,9 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], ModeledLegend, ModUnit, ModeledSeries);
 			Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], ObservedLegend, ObsUnit, ObservedSeries, true);
 			
-			ComputeResidualStats(ResidualStats, ObservedSeries+GofOffset, ModeledSeries+GofOffset, GofTimesteps);
+			//NOTE: Use ResultGofOffset for obs series here since it is aligned with results in
+			//this case.
+			ComputeResidualStats(ResidualStats, ObservedSeries+ResultGofOffset, ModeledSeries+ResultGofOffset, ResultGofTimesteps);
 		}
 	}
 	
@@ -484,7 +510,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues, PlotMajorMode);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues, PlotMajorMode, GofOffset, GofTimesteps);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -500,7 +526,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, false, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues, PlotMajorMode);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, false, ResultTimesteps, InputStartTime, ResultStartTime, ResultXValues, PlotMajorMode, ResultGofOffset, ResultGofTimesteps);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -519,23 +545,27 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			std::vector<double> &Data = PlotData.Allocate(0);
 			String Legend;
 			String Unit;
-		
+			
+			int64 Offset = GofOffset;
+			int64 StatTimesteps = GofTimesteps;
 			if(PlotSetup.SelectedResults.size() == 1)
 			{
 				Data.resize(ResultTimesteps);
-				
 				Parent->GetSingleSelectedResultSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedResults[0], Legend, Unit, Data.data());
+				Offset = ResultGofOffset;
+				StatTimesteps = ResultGofTimesteps;
 			}
 			else if(PlotSetup.SelectedInputs.size() == 1)
 			{
 				Data.resize(InputTimesteps);
 				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Legend, Unit, Data.data(), false);
+			
 			}
 			
 			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Data.data(), Data.size(), Parent->StatSettings, false);
+			ComputeTimeseriesStats(Stats, Data.data()+Offset, StatTimesteps, Parent->StatSettings, false);
 			DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo);
 		}
 	}
@@ -760,7 +790,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 				
 				timeseries_stats Stats3 = {};
-				ComputeTimeseriesStats(Stats3, Obs.data(), Obs.size(), Parent->StatSettings, false);
+				ComputeTimeseriesStats(Stats3, Obs.data()+GofOffset, GofTimesteps, Parent->StatSettings, false);
 				
 				Color Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
 				
@@ -778,7 +808,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			ComputeXValues(InputStartTime, BaselineStartTime, BaselineTimesteps, Parent->TimestepSize, BaselineXValues);
 			
 			timeseries_stats Stats = {};
-			ComputeTimeseriesStats(Stats, Baseline.data(), Baseline.size(), Parent->StatSettings, false);
+			ComputeTimeseriesStats(Stats, Baseline.data()+ResultGofOffset, ResultGofTimesteps, Parent->StatSettings, false);
 			
 			Color Col = AddPlot(BS, Unit, BaselineXValues, Baseline.data(), Baseline.size(), false, InputStartTime, BaselineStartTime, Parent->TimestepSize, Stats.Min, Stats.Max);
 			DisplayTimeseriesStats(Stats, BS, Unit, Parent->StatSettings, PlotInfo, Col);
@@ -793,7 +823,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResultXValues);
 			
 			timeseries_stats Stats2 = {};
-			ComputeTimeseriesStats(Stats2, Current.data(), Current.size(), Parent->StatSettings, false);
+			ComputeTimeseriesStats(Stats2, Current.data()+ResultGofOffset, ResultGofTimesteps, Parent->StatSettings, false);
 		
 			Col = AddPlot(CurrentLegend, Unit, ResultXValues, Current.data(), Current.size(), false, InputStartTime, ResultStartTime, Parent->TimestepSize, Stats2.Min, Stats2.Max);
 
@@ -1426,7 +1456,7 @@ Color MyPlot::AddPlot(String &Legend, String &Unit, double *XIn, double *Data, s
 
 void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
 	std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps,
-	Time &ReferenceDate, Time &StartDate, double *XIn, plot_major_mode MajorMode)
+	Time &ReferenceDate, Time &StartDate, double *XIn, plot_major_mode MajorMode, int64 GofOffset, int64 GofTimesteps)
 {
 	//TODO: We would ideally decouple this from having a MobiView * pointer, but there is so
 	//much that depends on that right now.
@@ -1479,7 +1509,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		Legend << Provided;
 		
 		timeseries_stats Stats = {};
-		ComputeTimeseriesStats(Stats, Dat, Len, Parent->StatSettings, false);
+		ComputeTimeseriesStats(Stats, Dat+GofOffset, GofTimesteps, Parent->StatSettings, false);
 		
 		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max, Null, MajorMode);
 		
@@ -1493,7 +1523,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		for(const std::string &IndexName : PlotSetup.SelectedIndexes[Id])
 		{
 			CurrentIndexes[Level] = IndexName;
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, Level + 1, IsInput, Timesteps, ReferenceDate, StartDate, XIn, MajorMode);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, Level + 1, IsInput, Timesteps, ReferenceDate, StartDate, XIn, MajorMode, GofOffset, GofTimesteps);
 		}
 	}
 }

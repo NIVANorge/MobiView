@@ -89,6 +89,15 @@ enum residual_type
 #undef SET_SETTING
 #undef SET_RES_SETTING
 
+#define SET_SETTING(Handle, Name, Type) StatType_##Handle,
+#define SET_RES_SETTING(Handle, Name, Type)
+enum stat_type
+{
+	#include "SetStatSettings.h"
+};
+#undef SET_SETTING
+#undef SET_RES_SETTING
+
 
 #define SET_SETTING(Handle, Name, Type) bool Display##Handle = true;
 #define SET_RES_SETTING(Handle, Name, Type) SET_SETTING(Handle, Name, Type)
@@ -216,7 +225,9 @@ public:
 	
 	void ClearAll(bool FullClear = true);
 	
-	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets, std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime, Time &StartTime, double *XIn, plot_major_mode MajorMode);
+	void AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::string &Name, std::vector<char *> &IndexSets,
+		std::vector<std::string> &CurrentIndexes, int Level, bool IsInput, uint64 Timesteps, Time &ReferenceTime,
+		Time &StartTime, double *XIn, plot_major_mode MajorMode, int64 GofOffset, int64 GofTimesteps);
 	
 	
 	void ReplotProfile();

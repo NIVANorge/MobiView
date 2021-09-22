@@ -195,6 +195,13 @@ LAYOUT(MCMCResultLayout, 856, 432)
 	ITEM(Upp::Label, LabelSetBurnin, SetLabel(t_("Set burnin:")).HSizePosZ(4, 796).BottomPosZ(0, 24))
 END_LAYOUT
 
+LAYOUT(SensitivitySetupLayout, 672, 52)
+	ITEM(Upp::Button, PushViewResults, SetLabel(t_("View results")).RightPosZ(116, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).RightPosZ(4, 108).BottomPosZ(28, 20))
+	ITEM(Upp::Label, SampleSizeLabel, SetLabel(t_("Sample size:")).LeftPosZ(36, 60).BottomPosZ(28, 20))
+	ITEM(Upp::EditIntSpin, EditSampleSize, NotNull(true).LeftPosZ(100, 108).BottomPosZ(28, 20))
+END_LAYOUT
+
 LAYOUT(MCMCProjectionLayout, 680, 588)
 	ITEM(Upp::TabCtrl, PlotSelectTab, HSizePosZ(4, 4).VSizePosZ(4, 48))
 	ITEM(Upp::EditIntSpin, EditSamples, LeftPosZ(56, 104).BottomPosZ(25, 19))

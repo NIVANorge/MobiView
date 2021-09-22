@@ -304,7 +304,7 @@ SensitivityViewWindow::Run()
 			#define SET_SETTING(Handle, Name, Type) \
 				else if(Name == StatName)           \
 				{                                   \
-					ComputeTimeseriesStats(TimeseriesStats, ResultYValues, ResultTimesteps, ParentWindow->StatSettings, false); \
+					ComputeTimeseriesStats(TimeseriesStats, ResultYValues+GofOffset, GofTimesteps, ParentWindow->StatSettings, false); \
 					StatData[NStep] = TimeseriesStats.Handle;                                                            \
 				}
 			//TODO: Use the GOF interval!
@@ -355,7 +355,7 @@ SensitivityViewWindow::Run()
 	
 	StatPlot.Plot.ZoomToFit(true, true);
 	
-	if(HasResidual)
+	if(StatName != "(none)")
 	{
 		double StartX = (double)(GofStartTime - InputStartTime);
 		double EndX   = (double)(GofEndTime   - InputStartTime);
