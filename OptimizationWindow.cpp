@@ -358,6 +358,14 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 		#include "LLSettings.h"
 		#undef SET_LL_SETTING
 	}
+	else if(TabNum == 2)
+	{
+		#define SET_SETTING(Handle, Name, Type) SelectStat.Add((int)StatType_##Handle, Name);
+		#define SET_RES_SETTING(Handle, Name, Type)
+		#include "SetStatSettings.h"
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+	}
 	
 	int Row = TargetSetup.TargetView.GetCount() - 1;
 	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
@@ -1180,14 +1188,18 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	std::mt19937_64 Generator;
 	
 	for(int J = 0; J < NSamples; ++J)
-	{
 		for(int I = 0; I < NPars; ++I)
 		{
 			std::uniform_real_distribution<double> Distr(MinBound[I], MaxBound[I]);
 			matA[J*NPars + I] = Distr(Generator);
+		}
+	
+	for(int J = 0; J < NSamples; ++J)
+		for(int I = 0; I < NPars; ++I)
+		{
+			std::uniform_real_distribution<double> Distr(MinBound[I], MaxBound[I]);
 			matB[J*NPars + I] = Distr(Generator);
 		}
-	}
 	
 	std::vector<double> fA(NSamples);
 	std::vector<double> fB(NSamples);
@@ -1239,10 +1251,10 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	//TODO: What should we use to compute overall variance?
 	double mA = 0.0;
 	double vA = 0.0;
-	for(int J = 0; J < NSamples; ++J) mA += fA[J];
-	mA /= (double)NSamples;
-	for(int J = 0; J < NSamples; ++J) vA += (fA[J]-mA)*(fA[J]-mA);
-	vA /= (double)NSamples;
+	for(int J = 0; J < NSamples; ++J) mA += fA[J] + fB[J];
+	mA /= 2.0*(double)NSamples;
+	for(int J = 0; J < NSamples; ++J) vA += (fA[J]-mA)*(fA[J]-mA) + (fB[J]-mA)*(fB[J]-mA);
+	vA /= 2.0*(double)NSamples;
 	
 	for(int I = 0; I < NPars; ++I)
 	{
@@ -1287,8 +1299,8 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 		Main /= (vA * (double)NSamples);
 		Total /= (vA * 2.0 * (double)NSamples);
 		
-		SensWin.ResultData.Set(I, "__main", Main);
-		SensWin.ResultData.Set(I, "__total", Total);
+		SensWin.ResultData.Set(I, "__main", FormatDouble(Main, ParentWindow->StatSettings.Precision));
+		SensWin.ResultData.Set(I, "__total", FormatDouble(Total, ParentWindow->StatSettings.Precision));
 		
 		ParentWindow->ProcessEvents();
 	}
@@ -1308,7 +1320,8 @@ VarianceSensitivityWindow::VarianceSensitivityWindow()
 	SetRect(0, 0, 740, 740);
 	Title("MobiView variance based sensitivity results").MinimizeBox().Sizeable().Zoomable();
 	
-	Add(ResultData.HSizePos().VSizePos(0, 30));
+	Add(ResultData.HSizePos().VSizePos(0, 90));
+	Add(NoteLabel.HSizePos().BottomPos(30, 60));
 	Add(ShowProgress.HSizePos().BottomPos(0, 30));
 	ShowProgress.Set(0, 1);
 	ShowProgress.Hide();
@@ -1316,6 +1329,7 @@ VarianceSensitivityWindow::VarianceSensitivityWindow()
 	ResultData.AddColumn("__par", "Parameter");
 	ResultData.AddColumn("__main", "First-order sensitivity coefficient");
 	ResultData.AddColumn("__total", "Total effect index");
+	NoteLabel.SetText("Note: Very small numbers are often unreliable unless the sample size is very high.\nNumbers should be positive, and the total effect index should be larger than the first-order coefficient.\nIf not, the sample size may be too low");
 }
 
 

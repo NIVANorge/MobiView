@@ -511,8 +511,9 @@ public :
 	
 	VarianceSensitivityWindow();
 	
-	ArrayCtrl ResultData;
+	ArrayCtrl         ResultData;
 	ProgressIndicator ShowProgress;
+	Label             NoteLabel;
 };
 
 
