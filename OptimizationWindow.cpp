@@ -1192,28 +1192,48 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	std::vector<double> fA(NSamples);
 	std::vector<double> fB(NSamples);
 	
-	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
-	
 	int TotalEvals = NSamples*(NPars + 2);
 	int Evals = 0;
 	
-	#define DO_PROGRESS() if(((++Evals) % ProgressInterval) == 0) {SensWin.ShowProgress.Set(Evals, TotalEvals); ParentWindow->ProcessEvents();}
+	Array<AsyncWork<double>> Workers;
+	auto NThreads = std::thread::hardware_concurrency();
+	int NWorkers = std::max(32, (int)NThreads);
+	Workers.InsertN(0, NWorkers);
 	
-	//TODO: Paralellize
-	for(int J = 0; J < NSamples; ++J)
+	std::vector<void *> DataSets(NWorkers);
+	for(int Worker = 0; Worker < NWorkers; ++Worker)
+		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	
+	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
 	{
-		column_vector Pars(NPars);
-		for(int I = 0; I < NPars; ++I)
-			Pars(I) = matA[J*NPars + I];
+		for(int Worker = 0; Worker < NWorkers; ++Worker)
+		{
+			int J = SuperSample*NWorkers + Worker;
+			if(J >= NSamples) break;
+			Workers[Worker].Do([=, & matA, & matB, & fA, & fB, &DataSets] () -> double {
+				column_vector Pars(NPars);
+				for(int I = 0; I < NPars; ++I)
+					Pars(I) = matA[J*NPars + I];
+				
+				fA[J] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
 		
-		fA[J] = Optim->EvaluateObjectives(DataSet, Pars);
-		DO_PROGRESS();
+				
+				for(int I = 0; I < NPars; ++I)
+					Pars(I) = matB[J*NPars + I];
+				
+				fB[J] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
+				return 0.0; //NOTE: Just to be able to reuse the same workers. we have them returning double
+			});
+		}
+		for(auto &Worker : Workers) Worker.Get();
 		
-		for(int I = 0; I < NPars; ++I)
-			Pars(I) = matB[J*NPars + I];
-		
-		fB[J] = Optim->EvaluateObjectives(DataSet, Pars);
-		DO_PROGRESS();
+		Evals += NWorkers*2;
+		if(Evals > NSamples*2) Evals = NSamples*2;
+		if(SuperSample % 8 == 0)
+		{
+			SensWin.ShowProgress.Set(Evals, TotalEvals);
+			ParentWindow->ProcessEvents();
+		}
 	}
 	
 	//TODO: What should we use to compute overall variance?
@@ -1224,26 +1244,44 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	for(int J = 0; J < NSamples; ++J) vA += (fA[J]-mA)*(fA[J]-mA);
 	vA /= (double)NSamples;
 	
-	//TODO: Finish the below!!
-	
 	for(int I = 0; I < NPars; ++I)
 	{
 		double Main  = 0;
 		double Total = 0;
 		
-		for(int J = 0; J < NSamples; ++J)
+		for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
 		{
-			column_vector Pars(NPars);
-			for(int II = 0; II < NPars; ++II)
+			for(int Worker = 0; Worker < NWorkers; ++Worker)
 			{
-				if(II == I) Pars(II) = matB[J*NPars + II];
-				else        Pars(II) = matA[J*NPars + II];
+				int J = SuperSample*NWorkers + Worker;
+				if(J >= NSamples) break;
+				
+				Workers[Worker].Do([=, & matA, & matB, & DataSets] () -> double {
+					column_vector Pars(NPars);
+					for(int II = 0; II < NPars; ++II)
+					{
+						if(II == I) Pars(II) = matB[J*NPars + II];
+						else        Pars(II) = matA[J*NPars + II];
+					}
+					return Optim->EvaluateObjectives(DataSets[Worker], Pars);
+				});
 			}
-			double fABij = Optim->EvaluateObjectives(DataSet, Pars);
-			DO_PROGRESS();
-			
-			Main  += fB[J]*(fABij - fA[J]);
-			Total += (fA[J] - fABij)*(fA[J] - fABij);
+			for(int Worker = 0; Worker < NWorkers; ++Worker)
+			{
+				int J = SuperSample*NWorkers + Worker;
+				if(J >= NSamples) break;
+				double fABij = Workers[Worker].Get();
+				
+				Main  += fB[J]*(fABij - fA[J]);
+				Total += (fA[J] - fABij)*(fA[J] - fABij);
+				
+				Evals++;
+			}
+			if(SuperSample % 8 == 0)
+			{
+				SensWin.ShowProgress.Set(Evals, TotalEvals);
+				ParentWindow->ProcessEvents();
+			}
 		}
 		
 		Main /= (vA * (double)NSamples);
@@ -1257,7 +1295,8 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	
 	SensWin.ShowProgress.Hide();
 	
-	ParentWindow->ModelDll.DeleteDataSet(DataSet);
+	for(int Worker = 0; Worker < NWorkers; ++Worker)
+		ParentWindow->ModelDll.DeleteDataSet(DataSets[Worker]);
 	
 	return true;
 	

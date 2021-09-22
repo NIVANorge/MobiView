@@ -876,7 +876,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	
 	Array<AsyncWork<void>> Workers;
 	auto NThreads = std::thread::hardware_concurrency();
-	int NWorkers = std::max(8, (int)NThreads);
+	int NWorkers = std::max(32, (int)NThreads);
 	Workers.InsertN(0, NWorkers);
 	auto *DataBlockPtr = &DataBlock;
 	
@@ -894,7 +894,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			if(Sample >= NSamples) break;
 			
 			int NPars = Data->NPars;
-			Workers[Worker].Do([=, &Generators, &PlotSetups, &ParValues]()
+			Workers[Worker].Do([=, &Generators, &PlotSetups, &ParValues, &DataSets]()
 			{
 				std::vector<double> Pars(NPars);
 				
@@ -925,7 +925,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		for(auto &Worker : Workers) Worker.Get();
 		
 		ViewProjections.GenerateProgress.Set(std::min((SuperSample+1)*NWorkers-1, NSamples));
-		if(SuperSample % 4 == 0)
+		if(SuperSample % 8 == 0)
 			ParentWindow->ProcessEvents();
 	}
 	
