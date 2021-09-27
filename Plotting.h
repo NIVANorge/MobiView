@@ -219,7 +219,7 @@ public:
 	void FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time InputStartTime, timestep_size TimestepSize);
 	
 	Color AddPlot(String &Legend, String &Unit, double *XIn, double *Data, size_t Len, bool IsInput, Time &ReferenceTime, Time &StartTime, timestep_size TimestepSize, double MinY = 0.0, double MaxY = 0.0, Color OverrideColor=Null, plot_major_mode MajorMode=MajorMode_Regular);
-	int  AddHistogram(String &Legend, String &Unit, double *Data, size_t Len);
+	int  AddHistogram(const String &Legend, const String &Unit, double *Data, size_t Len);
 	void AddQQPlot(String &ModUnit, String &ObsUnit, String &ModName, String &ObsName, timeseries_stats &ModeledStats, timeseries_stats &ObservedStats, StatisticsSettings &StatSettings);
 	void AddLine(const String &Legend, double X0, double X1, double Y0, double Y1, Color GraphColor = Null);
 	void AddTrendLine(String &Legend, double XYCovar, double XVar, double YMean, double XMean, double StartX, double EndX);

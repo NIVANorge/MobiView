@@ -213,3 +213,10 @@ LAYOUT(MCMCProjectionLayout, 680, 588)
 	ITEM(Upp::Label, LabelConfidence, SetLabel(t_("Confidence interval (%)")).LeftPosZ(324, 116).BottomPosZ(24, 20))
 END_LAYOUT
 
+LAYOUT(VarSensitivityResultLayout, 528, 612)
+	ITEM(Upp::ArrayCtrl, ResultData, HSizePosZ(4, 4).VSizePosZ(4, 388))
+	ITEM(Upp::ProgressIndicator, ShowProgress, HSizePosZ(0, 0).BottomPosZ(0, 24))
+	ITEM(Upp::Label, NoteLabel, SetLabel(t_("Note: Very small numbers are often unreliable unless the sample size is very high.\nNumbers should be positive, and the total effect index should be larger than the first-order coefficient.\nIf not, the sample size may be too low")).HSizePosZ(4, 4).BottomPosZ(344, 40))
+	ITEM(MyPlot, Plot, HSizePosZ(4, 4).BottomPosZ(24, 316))
+END_LAYOUT
+

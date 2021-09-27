@@ -504,16 +504,12 @@ public:
 };
 
 
-class VarianceSensitivityWindow : public TopWindow
+class VarianceSensitivityWindow : public WithVarSensitivityResultLayout<TopWindow>
 {
 public :
 	typedef VarianceSensitivityWindow CLASSNAME;
 	
 	VarianceSensitivityWindow();
-	
-	ArrayCtrl         ResultData;
-	ProgressIndicator ShowProgress;
-	Label             NoteLabel;
 };
 
 

@@ -201,7 +201,7 @@ bool OptimizationWindow::AddSingleParameter(indexed_parameter &Parameter, int So
 	
 	if(OverrideRow < 0)
 	{
-		//TODO: Maybe these should be put on the indexed_parameter, but that is pretty superfluous
+		//TODO: Maybe min and max should be put on the indexed_parameter, but that is pretty superfluous
 		//for the other purposes this struct is used for.
 		double Min = Null;
 		double Max = Null;
@@ -470,23 +470,27 @@ void OptimizationWindow::TargetsToPlotSetups(std::vector<optimization_target> &T
 		PlotSetup.AggregationPeriod = Aggregation_None;
 		PlotSetup.ScatterInputs = true;
 		
-		PlotSetup.SelectedResults.push_back(Target.ResultName);
-		PlotSetup.SelectedInputs.push_back(Target.InputName);
-		
 		std::vector<char *> IndexSets;
-		bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.InputName, 1, IndexSets);
 		
-		if(!Success) return;
-		
-		for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
+		if(Target.InputName != "")
 		{
-			size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
-			PlotSetup.IndexSetIsActive[Id] = true;
-			PlotSetup.SelectedIndexes[Id].push_back(Target.InputIndexes[IdxIdx]);
+			PlotSetup.SelectedInputs.push_back(Target.InputName);
+		
+			bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.InputName, 1, IndexSets);
+			if(!Success) return;
+			
+			for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
+			{
+				size_t Id = ParentWindow->IndexSetNameToId[IndexSets[IdxIdx]];
+				PlotSetup.IndexSetIsActive[Id] = true;
+				PlotSetup.SelectedIndexes[Id].push_back(Target.InputIndexes[IdxIdx]);
+			}
 		}
 
+		PlotSetup.SelectedResults.push_back(Target.ResultName);
+
 		IndexSets.clear();
-		Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.ResultName, 0, IndexSets);
+		bool Success = ParentWindow->GetIndexSetsForSeries(ParentWindow->DataSet, Target.ResultName, 0, IndexSets);
 		if(!Success) return;
 		
 		for(int IdxIdx = 0; IdxIdx < IndexSets.size(); ++IdxIdx)
@@ -1171,6 +1175,8 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	VarianceSensitivityWindow &SensWin = ParentWindow->VarSensitivityWin;
 	if(!SensWin.IsOpen()) SensWin.Open();
 	
+	SensWin.Plot.ClearAll(true);
+	
 	SensWin.ShowProgress.Show();
 	SensWin.ResultData.Clear();
 	
@@ -1201,8 +1207,9 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 			matB[J*NPars + I] = Distr(Generator);
 		}
 	
-	std::vector<double> fA(NSamples);
-	std::vector<double> fB(NSamples);
+	std::vector<double> f0(NSamples*2);
+	double *fA = f0.data();
+	double *fB = fA + NSamples;
 	
 	int TotalEvals = NSamples*(NPars + 2);
 	int Evals = 0;
@@ -1248,12 +1255,17 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 		}
 	}
 	
+	int NBinsHistogram = SensWin.Plot.AddHistogram(Null, Null, f0.data(), 2*NSamples);
+	Time Dummy;
+	SensWin.Plot.FormatAxes(MajorMode_Histogram, NBinsHistogram, Dummy, ParentWindow->TimestepSize);
+	SensWin.Plot.ShowLegend(false);
+	
 	//TODO: What should we use to compute overall variance?
 	double mA = 0.0;
 	double vA = 0.0;
-	for(int J = 0; J < NSamples; ++J) mA += fA[J] + fB[J];
+	for(int J = 0; J < 2*NSamples; ++J) mA += f0[J];
 	mA /= 2.0*(double)NSamples;
-	for(int J = 0; J < NSamples; ++J) vA += (fA[J]-mA)*(fA[J]-mA) + (fB[J]-mA)*(fB[J]-mA);
+	for(int J = 0; J < 2*NSamples; ++J) vA += (f0[J]-mA)*(f0[J]-mA);
 	vA /= 2.0*(double)NSamples;
 	
 	for(int I = 0; I < NPars; ++I)
@@ -1317,19 +1329,15 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 
 VarianceSensitivityWindow::VarianceSensitivityWindow()
 {
-	SetRect(0, 0, 740, 740);
-	Title("MobiView variance based sensitivity results").MinimizeBox().Sizeable().Zoomable();
-	
-	Add(ResultData.HSizePos().VSizePos(0, 90));
-	Add(NoteLabel.HSizePos().BottomPos(30, 60));
-	Add(ShowProgress.HSizePos().BottomPos(0, 30));
+	CtrlLayout(*this, "MobiView variance based sensitivity results");
+	MinimizeBox().Sizeable().Zoomable();
+
 	ShowProgress.Set(0, 1);
 	ShowProgress.Hide();
 	
 	ResultData.AddColumn("__par", "Parameter");
 	ResultData.AddColumn("__main", "First-order sensitivity coefficient");
 	ResultData.AddColumn("__total", "Total effect index");
-	NoteLabel.SetText("Note: Very small numbers are often unreliable unless the sample size is very high.\nNumbers should be positive, and the total effect index should be larger than the first-order coefficient.\nIf not, the sample size may be too low");
 }
 
 
@@ -1756,7 +1764,20 @@ void OptimizationWindow::RunClicked(int RunType)
 			MaxVals[Idx]     = MaxBound(Idx);
 		}
 		
+		auto NCores = std::thread::hardware_concurrency();
+		double ExpectedDuration1 = Ms*1e-3*(double)NSamples*(2.0 + (double)NPars) / (double)NCores;
+		double ExpectedDuration2 = 2.0*ExpectedDuration1;   //TODO: This is just because we are not able to get the number of physical cores..
+		
+		ParentWindow->Log(Format("Running variance based sensitiviy sampling. Expected duration around %.1f to %.1f seconds. Number of logical cores: %d.", ExpectedDuration1, ExpectedDuration2, (int)NCores));
+		
+		auto BeginTime = std::chrono::system_clock::now();
+		
 		RunVarianceBasedSensitivity(NSamples, &OptimizationModel, MinVals.data(), MaxVals.data());
+		
+		auto EndTime = std::chrono::system_clock::now();
+		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
+		ParentWindow->Log(Format("Variance based sensitivity sampling finished after %g seconds.", Duration));
+		
 		
 		RunSetup.PushRun.Enable();
 		MCMCSetup.PushRun.Enable();

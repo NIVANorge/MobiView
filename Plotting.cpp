@@ -1150,7 +1150,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 	this->SetMouseHandling(AllowScrollX, false);
 }
 
-int MyPlot::AddHistogram(String &Legend, String &Unit, double *Data, size_t Len)
+int MyPlot::AddHistogram(const String &Legend, const String &Unit, double *Data, size_t Len)
 {
 	std::vector<double> &XValues = PlotData.Allocate(0);
 	std::vector<double> &YValues = PlotData.Allocate(0);
