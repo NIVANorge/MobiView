@@ -129,9 +129,9 @@ OptimizationWindow::OptimizationWindow()
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
 	
-	TargetSetup.OptimizerTypeTab.Add(RunSetup, "Optimizer");
-	TargetSetup.OptimizerTypeTab.Add(MCMCSetup, "MCMC");
-	TargetSetup.OptimizerTypeTab.Add(SensitivitySetup, "Variance based sensitivity");
+	TargetSetup.OptimizerTypeTab.Add(RunSetup.SizePos(), "Optimizer");
+	TargetSetup.OptimizerTypeTab.Add(MCMCSetup.SizePos(), "MCMC");
+	TargetSetup.OptimizerTypeTab.Add(SensitivitySetup.SizePos(), "Variance based sensitivity");
 	
 	TargetSetup.OptimizerTypeTab.WhenSet << THISBACK(TabChange);
 	
@@ -648,7 +648,7 @@ struct optimization_model
 	
 	int64 NumEvals = 0;
 	double InitialScore, BestScore;
-	bool  IsMaximizing;
+	bool  IsMaximizing = true;
 	int   UpdateStep = 100;
 	
 	int RunType = 0;
@@ -823,7 +823,7 @@ struct optimization_model
 		//NOTE: See note about threading above
 		//ParentWindow->ModelDll.DeleteDataSet(DataSetCopy);
 		
-		return Value;
+		return IsMaximizing ? Value : -Value;
 	}
 	
 };
@@ -1641,23 +1641,22 @@ void OptimizationWindow::RunClicked(int RunType)
 		//TODO: Something goes wrong when we capture the OptimizationModel by reference. It somehow loses the cached
 		//input data inside the run... This should not happen, as the input data should be
 		//cached in the first initialization run above, and not changed after that!
+		
+		//TODO: Threading here sometimes crashes on some machines, but not all!
 		Thread().Run([=, & InitialEvals](){
 			
-			dlib::function_evaluation Result;
-			if(PositiveGood)
-				Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
-			else
-				Result = dlib::find_min_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
-			
+			dlib::function_evaluation Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
 			auto EndTime = std::chrono::high_resolution_clock::now();
 			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 			
 			double NewScore = Result.y;
+			if(!PositiveGood) NewScore = -NewScore;
+			
 			
 			GuiLock Lock;
-			//if((PositiveGood && (NewScore < InitialScore)) || (!PositiveGood && (NewScore > InitialScore)) || !std::isfinite(NewScore))
-			if(NewScore < InitialScore || !std::isfinite(NewScore))
+			if((PositiveGood && (NewScore <= InitialScore)) || (!PositiveGood && (NewScore >= InitialScore)) || !std::isfinite(NewScore))
 			{
+				ParentWindow->Log(Format("Initial %g new %g", InitialScore, NewScore));
 				ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
 			}
 			else
