@@ -717,9 +717,7 @@ struct optimization_model
 		
 		double Aggregate = 0.0;
 		
-		//NOTE: We have to allocate this for each call, for thread safety. There is no other
-		//way unless Dlib could tell us what thread Id we are in, which it doesn't.
-		//NOTE: Although, right now we haven't got threading to work any way...
+		//NOTE: We have to allocate this for each call, for thread safety.
 		std::vector<double> ResultData(InputData[0].size());
 		
 		for(int Obj = 0; Obj < Targets->size(); ++Obj)
@@ -1639,7 +1637,11 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		//TODO: We need to disable some interactions with the main dataset when this is running
 		//(such as running the model or editing parameters!)
-		Thread().Run([=, & InitialEvals, & OptimizationModel](){
+		
+		//TODO: Something goes wrong when we capture the OptimizationModel by reference. It somehow loses the cached
+		//input data inside the run... This should not happen, as the input data should be
+		//cached in the first initialization run above, and not changed after that!
+		Thread().Run([=, & InitialEvals](){
 			
 			dlib::function_evaluation Result;
 			if(PositiveGood)
