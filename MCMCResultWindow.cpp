@@ -55,6 +55,7 @@ MCMCResultWindow::MCMCResultWindow()
 	//ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
 	ViewProjections.Confidence.MinMax(0.0, 100.0).SetData(95.0);
 	ViewProjections.PlotSelectTab.Add(ProjectionPlotScroll.SizePos(), "Confidence interval");
+	ViewProjections.PlotSelectTab.Add(ResidPlotScroll.SizePos(), "Meadian residuals");
 	ViewProjections.PlotSelectTab.Add(AutoCorrPlotScroll.SizePos(), "Median residual autocorr.");
 	
 
@@ -805,6 +806,14 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	ProjectionPlots.Clear();
 	ProjectionPlots.InsertN(0, Targets.size());
 	
+	for(MyPlot &Plot : ResidPlots)
+	{
+		Plot.ClearAll(false);
+		Plot.Remove();
+	}
+	ResidPlots.Clear();
+	ResidPlots.InsertN(0, Targets.size());
+	
 	for(MyPlot &Plot : AutoCorrPlots)
 	{
 		Plot.ClearAll(false);
@@ -815,6 +824,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	
 	
 	ProjectionPlotScroll.ClearPane();
+	ResidPlotScroll.ClearPane();
 	AutoCorrPlotScroll.ClearPane();
 	
 	int HSize = ProjectionPlotScroll.GetRect().Width() - 30;  // -30 is to make space for scrollbar
@@ -826,12 +836,14 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	for(optimization_target &Target : Targets)
 	{
 		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
+		ResidPlotPane.Add     (ResidPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
 		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
 		AccumY += PlotHeight;
 		++TargetIdx;
 	}
 	Size PaneSz(HSize, AccumY);
 	ProjectionPlotScroll.AddPane(ProjectionPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
+	ResidPlotScroll.AddPane(ResidPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
 	AutoCorrPlotScroll.AddPane(AutoCorrPlotPane.LeftPos(0, HSize).TopPos(0, AccumY), PaneSz);
 	
 	ViewProjections.GenerateProgress.Show();
@@ -998,7 +1010,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		MyPlot &Plot = ProjectionPlots[TargetIdx];
 		if(TargetIdx != 0) Plot.LinkedWith(ProjectionPlots[0]);
 		Plot.PlotSetup = PlotSetups[TargetIdx];
-		Plot.PlotSetup.ScatterInputs = true;    //TODO: Make configurable!
+		Plot.PlotSetup.ScatterInputs = true;
 		
 		double *ResultXValues = Plot.PlotData.Allocate(ResultTimesteps).data();
 		ComputeXValues(ResultStartTime, ResultStartTime, ResultTimesteps, ParentWindow->TimestepSize, ResultXValues);
@@ -1037,19 +1049,19 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			}
 		}
 		
-		Unit = Null;
+		String Unit2 = Null;
 		
 		Legend = Format("%.2f percentile", MaxConf);
 		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit, ResultXValues, UpperYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		Plot.AddPlot(Legend, Unit2, ResultXValues, UpperYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
 		Legend = "Median";
 		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit, ResultXValues, MedianYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		Plot.AddPlot(Legend, Unit2, ResultXValues, MedianYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
 		Legend = Format("%.2f percentile", MinConf);
 		GraphColor = Plot.PlotColors.Next();
-		Plot.AddPlot(Legend, Unit, ResultXValues, LowerYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
+		Plot.AddPlot(Legend, Unit2, ResultXValues, LowerYValues, ResultTimesteps, false, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
 		double CoveragePercent = 100.0*(double)Coverage/(double)NumObs;
 		Plot.SetTitle(Format("\"%s\"  Coverage: %.2f%%", Target.ResultName.data(), CoveragePercent));
@@ -1059,12 +1071,9 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		Plot.Refresh();
 		
 		
-		
-		
-		MyPlot &AcorPlot = AutoCorrPlots[TargetIdx];
-		
-		//TODO: It is debatable how much the auto-correlation makes sense when there is hole in
-		//the data
+
+
+		MyPlot &ResidPlot = ResidPlots[TargetIdx];
 		
 		//NOTE: This is the Y values of the median parameter set, not to be confused with the
 		//median of the Y values over all the parameter sets.
@@ -1077,9 +1086,37 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		std::vector<double> ErrPar(Target.ErrParNum.size());
 		for(int Idx = 0; Idx < ErrPar.size(); ++Idx) ErrPar[Idx] = Pars[Target.ErrParNum[Idx]];
 	
-		std::vector<double> ResidualYValues;
+		std::vector<double> &YValuesStored   = ResidPlot.PlotData.Allocate(0);
+		YValuesStored.reserve(ResultTimesteps);
+		
+		//NOTE: if there is no input value, the residual value for this timestep will not be recorded below
+		for(int Ts = 0; Ts < ResultTimesteps; ++Ts)
+			if(std::isfinite(InputYValues[Ts])) YValuesStored.push_back(YValuesOfMedian[Ts]);
+		
+		std::vector<double> &ResidualYValues = ResidPlot.PlotData.Allocate(0);
 		ResidualYValues.reserve(ResultTimesteps);
 		ComputeStandardizedResiduals(InputYValues, YValuesOfMedian, ResultTimesteps, ErrPar, Target.ErrStruct, ResidualYValues);
+		
+		assert(YValuesStored.size() == ResidualYValues.size());
+		
+		//ResidPlot.PlotSetup = PlotSetups[TargetIdx];
+		//ResidPlot.PlotSetup.ScatterInputs = true;
+		GraphColor = ResidPlot.PlotColors.Next();
+		ResidPlot.SetSequentialXAll(false);
+		ResidPlot.SetTitle(Target.ResultName.data());
+		ResidPlot.AddSeries(YValuesStored.data(), ResidualYValues.data(), YValuesStored.size()).Stroke(0.0, GraphColor).MarkColor(GraphColor).MarkStyle<CircleMarkPlot>();
+		ResidPlot.SetLabelX("Simulated").SetLabelY("Standard residual");
+		ResidPlot.ZoomToFit(true, true);
+		//PromptOK(Format("%f %f %f %f", ResidualYValues[0], ResidualYValues[1], ResidualYValues[2], ResidualYValues[3]));
+		SetBetterGridLinePositions(ResidPlot, 0);
+		SetBetterGridLinePositions(ResidPlot, 1);
+		
+		
+		
+		MyPlot &AcorPlot = AutoCorrPlots[TargetIdx];
+		
+		//TODO: It is debatable how much the auto-correlation makes sense when there is hole in
+		//the data. Can be fixed with more sophisticated error structures
 
 		std::vector<double> &Acor = AcorPlot.PlotData.Allocate(ResidualYValues.size());
 		NormalizedAutocorrelation1D(ResidualYValues, Acor);

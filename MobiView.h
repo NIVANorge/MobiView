@@ -261,14 +261,7 @@ public:
 	SensitivityRunSetup();
 };
 
-
-#define SET_LL_SETTING(Handle, Name, NumErr) MCMCError_##Handle,
-enum mcmc_error_structure
-{
-	MCMCError_Unknown = -1,
-	#include "LLSettings.h"
-};
-#undef SET_LL_SETTING
+#include "MCMCErrStruct.h"
 
 struct optimization_target
 {
@@ -413,8 +406,6 @@ public:
 	MCMCProjectionCtrl();
 };
 
-void AddRandomError(double* Series, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::mt19937_64 &Generator);
-void ComputeStandardizedResiduals(double *Obs, double *Sim, size_t Timesteps, const std::vector<double> &ErrParam, mcmc_error_structure ErrStruct, std::vector<double> &ResidualsOut);
 
 class MCMCResultWindow : public WithMCMCResultLayout<TopWindow>
 {
@@ -493,6 +484,10 @@ private:
 	AutoScroller        ProjectionPlotScroll;
 	ParentCtrl          ProjectionPlotPane;
 	Array<MyPlot>       ProjectionPlots;
+	
+	AutoScroller        ResidPlotScroll;
+	ParentCtrl          ResidPlotPane;
+	Array<MyPlot>       ResidPlots;
 	
 	AutoScroller        AutoCorrPlotScroll;
 	ParentCtrl          AutoCorrPlotPane;

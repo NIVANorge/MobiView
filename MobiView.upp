@@ -44,7 +44,9 @@ file
 	Acor.h,
 	Acor.cpp,
 	SetStatSettings.h,
-	LLSettings.h;
+	LLSettings.h,
+	MCMCErrStruct.h,
+	MCMCErrStruct.cpp;
 
 mainconfig
 	"" = "GUI";
