@@ -44,6 +44,21 @@ SensitivityRunSetup::SensitivityRunSetup()
 	CtrlLayout(*this);
 }
 
+target_stat_class
+GetStatClass(optimization_target &Target)
+{
+	target_stat_class Result = StatClass_Unknown;
+	int Stat = (int)Target.Stat;
+	if(Stat > (int)StatType_Offset && Stat < (int)StatType_End)
+		Result = StatClass_Stat;
+	else if(Stat > (int)ResidualType_Offset && Stat < (int)ResidualType_End)
+		Result = StatClass_Residual;
+	else if(Stat > (int)MCMCError_Offset && Stat < (int)MCMCError_End)
+		Result = StatClass_LogLikelihood;
+	
+	return Result;
+}
+
 
 OptimizationWindow::OptimizationWindow()
 {
@@ -71,7 +86,7 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.TargetView.AddColumn(Id("__errparam"), "Error param(s).");
 	TargetSetup.TargetView.AddColumn(Id("__weight"), "Weight");
 	
-	TargetSetup.TargetView.HeaderObject().HideTab(5);
+	//TargetSetup.TargetView.HeaderObject().HideTab(5);
 	
 	ParSetup.PushAddParameter.WhenPush    = THISBACK(AddParameterClicked);
 	ParSetup.PushAddGroup.WhenPush        = THISBACK(AddGroupClicked);
@@ -329,12 +344,7 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	String InputIndexStr = MakeIndexString(Target.InputIndexes);
 	String ResultIndexStr = MakeIndexString(Target.ResultIndexes);
 	
-	int TabNum = TargetSetup.OptimizerTypeTab.Get();
-	int TargetStat;
-	if(TabNum == 0) TargetStat      = (int)Target.ResidualStat;
-	else if(TabNum == 1) TargetStat = (int)Target.ErrStruct;
-	else if(TabNum == 2) TargetStat = (int)Target.Stat;
-	else assert(0);
+	int TargetStat = (int)Target.Stat;;
 	
 	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight);
 	
@@ -344,21 +354,9 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	TargetErrCtrls.Create<EditField>();
 	EditField &ErrCtrl = TargetErrCtrls.Top();
 	
-	if(TabNum == 0)
-	{
-		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
-		#include "SetStatSettings.h"
-		#undef SET_SETTING
-		#undef SET_RES_SETTING
-	}
-	else if(TabNum == 1)
-	{
-		#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
-		#include "LLSettings.h"
-		#undef SET_LL_SETTING
-	}
-	else if(TabNum == 2)
+	int TabNum = TargetSetup.OptimizerTypeTab.Get(); 
+	
+	if(TabNum == 2)
 	{
 		#define SET_SETTING(Handle, Name, Type) SelectStat.Add((int)StatType_##Handle, Name);
 		#define SET_RES_SETTING(Handle, Name, Type)
@@ -366,6 +364,21 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 		#undef SET_SETTING
 		#undef SET_RES_SETTING
 	}
+	if(TabNum == 0 || TabNum == 2)
+	{
+		#define SET_SETTING(Handle, Name, Type)
+		#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
+		#include "SetStatSettings.h"
+		#undef SET_SETTING
+		#undef SET_RES_SETTING
+	}
+	if(TabNum == 0 || TabNum == 1)
+	{
+		#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
+		#include "LLSettings.h"
+		#undef SET_LL_SETTING
+	}
+	
 	
 	int Row = TargetSetup.TargetView.GetCount() - 1;
 	int Col = TargetSetup.TargetView.GetPos(Id("__targetstat"));
@@ -386,13 +399,14 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 
 void OptimizationWindow::StatEdited(int Row)
 {
-	int TabNum = TargetSetup.OptimizerTypeTab.Get();
-	if(TabNum == 0)
-		Targets[Row].ResidualStat      = (residual_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
-	else if(TabNum == 1)
-		Targets[Row].ErrStruct         = (mcmc_error_structure)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
-	else if(TabNum == 2)
-		Targets[Row].Stat              = (stat_type)(int)TargetSetup.TargetView.Get(Row, "__targetstat");
+	int IntValue = (int)TargetSetup.TargetView.Get(Row, "__targetstat");
+	
+	if(IntValue > (int)StatType_Offset && IntValue < (int)StatType_End)
+		Targets[Row].Stat              = (stat_type)IntValue;
+	else if(IntValue > (int)ResidualType_Offset && IntValue < (int)ResidualType_End)
+		Targets[Row].ResidualStat      = (residual_type)IntValue;
+	else if(IntValue > (int)MCMCError_Offset && IntValue < (int)MCMCError_End)
+		Targets[Row].ErrStruct         = (mcmc_error_structure)IntValue;
 }
 
 void OptimizationWindow::ErrSymEdited(int Row)
@@ -446,9 +460,12 @@ void OptimizationWindow::AddTargetClicked()
 			Target.InputIndexes.push_back(std::string(Idx));
 	}
 	
-	Target.Stat = StatType_Mean;
-	Target.ResidualStat = ResidualType_MAE;
-	Target.ErrStruct = MCMCError_NormalHet1; //This is the easiest one to start with maybe. Or should we just do Normal?
+	int TabNum = TargetSetup.OptimizerTypeTab.Get(); 
+	//NOTE: Defaults.
+	if(TabNum == 0) Target.ResidualStat = ResidualType_MAE;
+	else if(TabNum == 1) Target.ErrStruct = MCMCError_NormalHet1; //This is the easiest one to start with maybe. Or should we just do Normal?
+	else if(TabNum == 2) Target.Stat = StatType_Mean;
+
 	Target.Weight = 1.0;
 	
 	AddOptimizationTarget(Target);
@@ -651,19 +668,16 @@ struct optimization_model
 	bool  IsMaximizing = true;
 	int   UpdateStep = 100;
 	
-	int RunType = 0;
-	
 	void *DataSetBase = nullptr;
 	
 	
 	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets,
-		Label *ProgressLabel, int RunType, void *DataSetBase)
+		Label *ProgressLabel, void *DataSetBase)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
 		this->Targets      = Targets;
 		this->ProgressLabel = ProgressLabel;
-		this->RunType      = RunType;
 		
 		ExprCount = 0;
 		for(indexed_parameter &Parameter : *Parameters)
@@ -732,39 +746,48 @@ struct optimization_model
 			
 			double Value;
 			
-			if(RunType == 0)
+			
+			switch(GetStatClass(Target))
 			{
-				//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
-				//untangle their computations.
-				residual_stats ResidualStats;
-				ComputeResidualStats(ResidualStats, InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps);
+				case StatClass_Stat:
+				{
+					timeseries_stats Stats;
+					ComputeTimeseriesStats(Stats, ResultData.data() + GofOffset, GofTimesteps, ParentWindow->StatSettings, false);
+					
+					if(false){}
+					#define SET_SETTING(Handle, Name, Type) \
+						else if(Target.Stat == StatType_##Handle) Value = Stats.Handle;
+					#define SET_RES_SETTING(Handle, Name, Type)
+					#include "SetStatSettings.h"
+					#undef SET_SETTING
+					#undef SET_RES_SETTING
+				} break;
 				
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) \
-					else if(Target.ResidualStat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
-			}
-			else if(RunType == 1 || RunType == 2)
-			{
-				std::vector<double> ErrParam(Target.ErrParNum.size());
-				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Par(Target.ErrParNum[Idx]);
-				Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, Target.ErrStruct);
-			}
-			else if(RunType == 3)
-			{
-				timeseries_stats Stats;
-				ComputeTimeseriesStats(Stats, ResultData.data() + GofOffset, GofTimesteps, ParentWindow->StatSettings, false);
+				case StatClass_Residual:
+				{
+					//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
+					//untangle their computations.
+					residual_stats ResidualStats;
+					ComputeResidualStats(ResidualStats, InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps);
+					
+					if(false){}
+					#define SET_SETTING(Handle, Name, Type)
+					#define SET_RES_SETTING(Handle, Name, Type) \
+						else if(Target.ResidualStat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
+					#include "SetStatSettings.h"
+					#undef SET_SETTING
+					#undef SET_RES_SETTING
+				} break;
 				
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type) \
-					else if(Target.Stat == StatType_##Handle) Value = Stats.Handle;
-				#define SET_RES_SETTING(Handle, Name, Type)
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
+				case StatClass_LogLikelihood:
+				{
+					std::vector<double> ErrParam(Target.ErrParNum.size());
+					for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Par(Target.ErrParNum[Idx]);
+					Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, Target.ErrStruct);
+				} break;
+				
+				default :
+					assert(!"Unknown stat class!");
 			}
 			
 			Aggregate += Value*Target.Weight;
@@ -1010,7 +1033,7 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
 	
-	bool Finished = RunEmcee(MCMCLogLikelyhoodEval, (void *)&RunData, &Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	bool Finished = RunMCMC(MCMCLogLikelyhoodEval, (void *)&RunData, &Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
 	
 	for(int Walker = 0; Walker < NWalkers; ++Walker)
 		ParentWindow->ModelDll.DeleteDataSet(RunData.DataSets[Walker]);
@@ -1198,40 +1221,43 @@ VarianceSensitivityWindow::VarianceSensitivityWindow()
 
 
 
-bool OptimizationWindow::ErrSymFixup(int RunType)
+bool OptimizationWindow::ErrSymFixup()
 {
 	std::unordered_map<std::string, std::pair<int,int>> SymRow;
 	
-	if((bool)ParSetup.OptionUseExpr.Get() || RunType==1 || RunType==2 || RunType==3)    //TODO: Non-ideal. Instead we should maybe force use exprs for MCMC RunTypes
+	//if((bool)ParSetup.OptionUseExpr.Get() || RunType==1 || RunType==2 || RunType==3)    //TODO: Non-ideal. Instead we should maybe force use exprs for MCMC RunTypes
+	//{
+	int ActiveIdx = 0;
+	int Row = 0;
+	for(indexed_parameter &Parameter : Parameters)
 	{
-		int ActiveIdx = 0;
-		int Row = 0;
-		for(indexed_parameter &Parameter : Parameters)
+		if(Parameter.Symbol != "")
 		{
-			if(Parameter.Symbol != "")
+			if(SymRow.find(Parameter.Symbol) != SymRow.end())
 			{
-				if(SymRow.find(Parameter.Symbol) != SymRow.end())
-				{
-					SetError(Format("The parameter symbol %s appears twice", Parameter.Symbol.data()));
-					return false;
-				}
-				SymRow[Parameter.Symbol] = {Row, ActiveIdx};
+				SetError(Format("The parameter symbol %s appears twice", Parameter.Symbol.data()));
+				return false;
 			}
-			
-			if(Parameter.Expr == "")
-				++ActiveIdx;
-			
-			++Row;
+			SymRow[Parameter.Symbol] = {Row, ActiveIdx};
 		}
+		
+		if(Parameter.Expr == "")
+			++ActiveIdx;
+		
+		++Row;
 	}
+	//}
 	
-	if(RunType == 1 || RunType == 2)
+	//if(RunType == 1 || RunType == 2)
+	//{
+	for(optimization_target &Target : Targets)
 	{
-		for(optimization_target &Target : Targets)
-		{
-			Target.ErrParNum.clear();
+		Target.ErrParNum.clear();
 			
-			Vector<String> Symbols = Split(Target.ErrParSym.data(), ',', true);
+		Vector<String> Symbols = Split(Target.ErrParSym.data(), ',', true);
+		
+		if(GetStatClass(Target) == StatClass_LogLikelihood)
+		{
 			for(String &Symbol : Symbols) { Symbol = TrimLeft(TrimRight(Symbol)); }
 			
 			#define SET_LL_SETTING(Handle, Name, NumErr) \
@@ -1269,7 +1295,13 @@ bool OptimizationWindow::ErrSymFixup(int RunType)
 				Target.ErrParNum.push_back(SymRow[Sym].second);
 			}
 		}
+		else if(GetStatClass(Target) == StatClass_Residual && !Symbols.empty())
+		{
+			SetError("An error symbol was provided for a stat does not use one");
+			return false;
+		}
 	}
+	//}
 	
 	return true;
 }
@@ -1304,50 +1336,66 @@ void OptimizationWindow::RunClicked(int RunType)
 	if(!Cl)
 		return;
 	
-	bool Success = ErrSymFixup(RunType);
+	bool Success = ErrSymFixup();
 	if(!Success) return;
 	
 	//NOTE: Since we haven't wired all of the background data to the edit fields, we have to
 	//gather some of it here.
-	int RowCount = TargetSetup.TargetView.GetCount();
 	bool PositiveGood;
-	for(int Row = 0; Row < RowCount; ++Row)
+	int Row = 0;
+	for(optimization_target &Target : Targets)
 	{
-		//residual_type Stat = (residual_type)(int)TargetSetup.TargetView.Get(Row, Id("__targetstat"));
+		target_stat_class StatClass = GetStatClass(Target);
+		
+		if(
+			(StatClass == StatClass_Stat && (RunType==0||RunType==1||RunType==2))
+		  ||(StatClass == StatClass_LogLikelihood && (RunType==3))
+		  ||(StatClass == StatClass_Residual && (RunType==1||RunType==2))
+		  )
+		{
+			SetError("The selected stat for one of the targets is not valid for this type of run.");
+			return;
+		}
 		
 		if(RunType == 0)
 		{
-			bool PositiveGoodLocal;
-			if(false){}
-			#define SET_SETTING(Handle, Name, Type)
-			#define SET_RES_SETTING(Handle, Name, Type) \
-				else if(Targets[Row].ResidualStat == ResidualType_##Handle) PositiveGoodLocal = (Type==1);
-			#include "SetStatSettings.h"
-			#undef SET_SETTING
-			#undef SET_RES_SETTING
+			bool PositiveGoodThis;
+			if(StatClass == StatClass_Residual)
+			{
+				if(false){}
+				#define SET_SETTING(Handle, Name, Type)
+				#define SET_RES_SETTING(Handle, Name, Type) \
+					else if(Target.ResidualStat == ResidualType_##Handle) PositiveGoodThis = (Type==1);
+				#include "SetStatSettings.h"
+				#undef SET_SETTING
+				#undef SET_RES_SETTING
+			}
+			else if(StatClass == StatClass_LogLikelihood)
+				PositiveGoodThis = true;
+			else
+				assert(!"Unsupported stat type for optimization");
 			
 			//NOTE: We could allow people to set negative weights in order to mix different types
 			//of target, but I don't see a good use case for it currently.
 			
-			if(Row != 0 && (PositiveGoodLocal != PositiveGood))
+			if(Row != 0 && (PositiveGoodThis != PositiveGood))
 			{
 				SetError("All optimization targets have to be either minimized or maximized, no mixing is allowed.");
 				return;
 			}
-			PositiveGood = PositiveGoodLocal;
-			
-			//Targets[Row].Stat   = Stat;
+			PositiveGood = PositiveGoodThis;
 		}
+		++Row;
 		
-		if(Targets[Row].Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
+		if(Target.Weight < 0.0) //NOTE: The interface should already have prevented this, but let's be safe.
 		{
 			SetError("Negative weights are not allowed.");
 			return;
 		}
 		
-		if(RunType != 3 && Targets[Row].InputName == "")
+		if(StatClass != StatClass_Stat && Target.InputName == "")
 		{
-			SetError("When computing error statistics, all targets need to have an input observed series.");
+			SetError(Format("Targets that compute an error need an input observed series. No comparison series were provided for result \"%s\"", Target.ResultName.data()));
 			return;
 		}
 	}
@@ -1358,7 +1406,7 @@ void OptimizationWindow::RunClicked(int RunType)
 	
 	void *DataSetBase = nullptr;
 	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, RunType, DataSetBase);
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, DataSetBase);
 	
 	// Initial evaluation on the parameters given in the main dataset.
 	column_vector InitialPars(OptimizationModel.FreeParCount);
@@ -1513,7 +1561,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			GuiLock Lock;
 			if((PositiveGood && (NewScore <= InitialScore)) || (!PositiveGood && (NewScore >= InitialScore)) || !std::isfinite(NewScore))
 			{
-				ParentWindow->Log(Format("Initial %g new %g", InitialScore, NewScore));
+				//ParentWindow->Log(Format("Initial %g new %g", InitialScore, NewScore));
 				ParentWindow->Log("The optimizer was unable to find a better result using the given number of function evaluations");
 			}
 			else
@@ -1648,45 +1696,46 @@ void OptimizationWindow::TabChange()
 {
 	int TabNum = TargetSetup.OptimizerTypeTab.Get();
 	
-	if (TabNum == 0 || TabNum == 2) // Regular optimizer, variance based  -- hide err params
+	if (TabNum == 2)             // variance based    -- hide err params
 		TargetSetup.TargetView.HeaderObject().HideTab(5);
-	else if (TabNum == 1)        // MCMC                             -- show err params
+	else                         // MCMC or optimizer -- show err params
 		TargetSetup.TargetView.HeaderObject().ShowTab(5);
 	
 	//TODO: Alternatively we could just switch out the column...
 	
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 	{
-		DropList &List = TargetStatCtrls[TargetIdx];
-		List.Clear();
-		if(TabNum == 0)
+		DropList &SelectStat = TargetStatCtrls[TargetIdx];
+		SelectStat.Clear();
+
+		if(TabNum == 2)
 		{
-			#define SET_SETTING(Handle, Name, Type)
-			#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) List.Add((int)ResidualType_##Handle, Name);
-			#include "SetStatSettings.h"
-			#undef SET_SETTING
-			#undef SET_RES_SETTING
-			
-			List.SetData((int)Targets[TargetIdx].ResidualStat);
-		}
-		else if(TabNum == 1)
-		{
-			#define SET_LL_SETTING(Handle, Name, NumErr) List.Add((int)MCMCError_##Handle, Name);
-			#include "LLSettings.h"
-			#undef SET_LL_SETTING
-			
-			List.SetData((int)Targets[TargetIdx].ErrStruct);
-		}
-		else if(TabNum == 2)
-		{
-			#define SET_SETTING(Handle, Name, Type) List.Add((int)StatType_##Handle, Name);
+			#define SET_SETTING(Handle, Name, Type) SelectStat.Add((int)StatType_##Handle, Name);
 			#define SET_RES_SETTING(Handle, Name, Type)
 			#include "SetStatSettings.h"
 			#undef SET_SETTING
 			#undef SET_RES_SETTING
-			
-			List.SetData((int)Targets[TargetIdx].Stat);
 		}
+		if(TabNum == 0 || TabNum == 2)
+		{
+			#define SET_SETTING(Handle, Name, Type)
+			#define SET_RES_SETTING(Handle, Name, Type) if(Type != -1) SelectStat.Add((int)ResidualType_##Handle, Name);
+			#include "SetStatSettings.h"
+			#undef SET_SETTING
+			#undef SET_RES_SETTING
+		}
+		if(TabNum == 0 || TabNum == 1)
+		{
+			#define SET_LL_SETTING(Handle, Name, NumErr) SelectStat.Add((int)MCMCError_##Handle, Name);
+			#include "LLSettings.h"
+			#undef SET_LL_SETTING
+		}
+		
+		
+		optimization_target &Target = Targets[TargetIdx];
+		SelectStat.SetValue((int)Target.Stat);
+		TargetSetup.TargetView.Set(TargetIdx, "__targetstat", (int)Target.Stat);
+		//PromptOK(Format("Target stat is %d", (int)Target.Stat));
 	}
 }
 
@@ -1822,30 +1871,24 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 			Target.ResidualStat = ResidualType_MAE;
 			Target.ErrStruct    = MCMCError_NormalHet1;
 			
-			String ResStatName = TargetJson["ResidualStat"];
-			if(!IsNull(ResStatName))
-			{
-				if(false){}
-				#define SET_SETTING(Handle, Name, Type)
-				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == ResStatName) Target.ResidualStat = ResidualType_##Handle;
-				#include "SetStatSettings.h"
-				#undef SET_SETTING
-				#undef SET_RES_SETTING
-			}
 			String StatName = TargetJson["Stat"];
 			if(!IsNull(StatName))
 			{
+				if(false){}
+				#define SET_SETTING(Handle, Name, Type)
+				#define SET_RES_SETTING(Handle, Name, Type) else if(Name == StatName) Target.ResidualStat = ResidualType_##Handle;
+				#include "SetStatSettings.h"
+				#undef SET_SETTING
+				#undef SET_RES_SETTING
+
 				if(false){}
 				#define SET_SETTING(Handle, Name, Type) else if(Name == StatName) Target.Stat = StatType_##Handle;
 				#define SET_RES_SETTING(Handle, Name, Type)
 				#include "SetStatSettings.h"
 				#undef SET_SETTING
 				#undef SET_RES_SETTING
-			}
-			String ErrStructName = TargetJson["ErrStruct"];
-			if(!IsNull(ErrStructName))
-			{
-				#define SET_LL_SETTING(Handle, Name, NumErr) else if(Name == ErrStructName) Target.ErrStruct = MCMCError_##Handle;
+
+				#define SET_LL_SETTING(Handle, Name, NumErr) else if(Name == StatName) Target.ErrStruct = MCMCError_##Handle;
 				if(false){}
 				#include "LLSettings.h"
 				#undef SET_LL_SETTING
@@ -1993,15 +2036,14 @@ String OptimizationWindow::SaveToJsonString()
 			InputIndexArr << Index.data();
 		TargetJson("InputIndexes", InputIndexArr);
 		
-		String ResStatName;
+		String StatName = Null;
 		#define SET_SETTING(Handle, Name, Type)
-		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.ResidualStat == ResidualType_##Handle) ResStatName = Name;
+		#define SET_RES_SETTING(Handle, Name, Type) else if(Target.ResidualStat == ResidualType_##Handle) StatName = Name;
 		if(false){}
 		#include "SetStatSettings.h"
 		#undef SET_SETTING
 		#undef SET_RES_SETTING
 		
-		String StatName;
 		#define SET_SETTING(Handle, Name, Type) else if(Target.Stat == StatType_##Handle) StatName = Name;
 		#define SET_RES_SETTING(Handle, Name, Type)
 		if(false){}
@@ -2009,8 +2051,7 @@ String OptimizationWindow::SaveToJsonString()
 		#undef SET_SETTING
 		#undef SET_RES_SETTING
 		
-		String ErrStructName;
-		#define SET_LL_SETTING(Handle, Name, NumErr) else if(Target.ErrStruct == MCMCError_##Handle) ErrStructName = Name;
+		#define SET_LL_SETTING(Handle, Name, NumErr) else if(Target.ErrStruct == MCMCError_##Handle) StatName = Name;
 		if(false){}
 		#include "LLSettings.h"
 		#undef SET_LL_SETTING
@@ -2019,8 +2060,6 @@ String OptimizationWindow::SaveToJsonString()
 		String ErrName  = TargetSetup.TargetView.Get(Row, Id("__errparam"));
 		
 		TargetJson("Stat", StatName);
-		TargetJson("ResidualStat", ResStatName);
-		TargetJson("ErrStruct", ErrStructName);
 		TargetJson("Weight", Target.Weight);
 		TargetJson("ErrPar", ErrName);
 		

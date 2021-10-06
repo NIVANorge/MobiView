@@ -596,7 +596,7 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	Data->GetMAPIndex(BurninVal, CurStep, BestW, BestS);
 	
 	
-	int Precision = 2;//ParentWindow->StatSettings.Precision;
+	int Precision = 3;//ParentWindow->StatSettings.Precision;
 	
 	std::vector<double> Means(Data->NPars);
 	std::vector<double> StdDevs(Data->NPars);
@@ -652,17 +652,17 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 		if(BelowTolerance) AnyBelowTolerance = true;
 		
 		
-		String AcorStr = FormatDouble(Acor, Precision);
+		String AcorStr = FormatDouble(Acor, Precision, FD_REL);
 		if(BelowTolerance) AcorStr = Format("[@R `*%s]", AcorStr);
 		
 		Table
 			<< ":: " << Sym
 			<< ":: " << AcorStr
-			<< ":: " << FormatDouble(Stats.Mean, Precision)
-			<< ":: " << FormatDouble(Stats.Median, Precision)
-			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision) : "N/A")
-			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
-		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
+			<< ":: " << FormatDouble(Stats.Mean, Precision, FD_REL)
+			<< ":: " << FormatDouble(Stats.Median, Precision, FD_REL)
+			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision, FD_REL) : "N/A")
+			<< ":: " << FormatDouble(Stats.StandardDev, Precision, FD_REL);
+		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision, FD_REL);
 	}
 	Table << "}}&";
 	if(AnyBelowTolerance) Table << Format("[@R `*The chain is shorter than %d times the integrated autocorrelation time for this parameter. Consider running for more steps.]&", Tol);
@@ -1070,6 +1070,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		Plot.SetLabelY(" ");
 		Plot.Refresh();
 		
+		SetBetterGridLinePositions(Plot, 1);
 		
 
 
@@ -1330,7 +1331,7 @@ bool MCMCResultWindow::LoadResults()
 	String JsonData2(JsonData.data());
 	ParentWindow->OptimizationWin.LoadFromJsonString(JsonData2);
 	ParentWindow->OptimizationWin.MCMCSetup.PushExtendRun.Enable();
-	ParentWindow->OptimizationWin.ErrSymFixup(1);
+	ParentWindow->OptimizationWin.ErrSymFixup();
 	
 	Parameters = ParentWindow->OptimizationWin.Parameters;
 	Targets    = ParentWindow->OptimizationWin.Targets;

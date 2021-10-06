@@ -2,7 +2,7 @@
 #include <vector>
 #include <complex>
 #include <plugin/eigen/unsupported/Eigen/FFT>
-#include "Emcee.h"
+#include "MCMC.h"
 #include "Acor.h"
 
 

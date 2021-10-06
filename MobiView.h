@@ -31,7 +31,7 @@ using namespace Upp;
 
 #include "PlotCtrl.h"
 #include "ParameterEditing.h"
-#include "Emcee.h"
+#include "MCMC.h"
 
 
 class MobiView;
@@ -263,6 +263,14 @@ public:
 
 #include "MCMCErrStruct.h"
 
+enum target_stat_class
+{
+	StatClass_Unknown,
+	StatClass_Stat,
+	StatClass_Residual,
+	StatClass_LogLikelihood,
+};
+
 struct optimization_target
 {
 	std::string ResultName;
@@ -271,11 +279,17 @@ struct optimization_target
 	std::vector<std::string> InputIndexes;
 	std::string ErrParSym;
 	std::vector<int> ErrParNum;
-	residual_type        ResidualStat;
-	stat_type            Stat;
-	mcmc_error_structure ErrStruct;
+	union
+	{
+		stat_type            Stat;
+		residual_type        ResidualStat;
+		mcmc_error_structure ErrStruct;
+	};
 	double Weight;
 };
+
+target_stat_class
+GetStatClass(optimization_target &Target);
 
 inline bool operator==(const optimization_target &T1, const optimization_target &T2)
 {
@@ -335,7 +349,7 @@ public:
 	void WeightEdited(int Row);
 	void StatEdited(int Row);
 	
-	bool ErrSymFixup(int RunType);
+	bool ErrSymFixup();
 	
 	//TODO: This should be a general function, not a member of this class...
 	void TargetsToPlotSetups(std::vector<optimization_target> &Targets, std::vector<plot_setup> &PlotSetups);

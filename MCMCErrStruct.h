@@ -8,7 +8,9 @@
 enum mcmc_error_structure
 {
 	MCMCError_Unknown = -1,
+	MCMCError_Offset  = 200,
 	#include "LLSettings.h"
+	MCMCError_End     = 299,
 };
 #undef SET_LL_SETTING
 

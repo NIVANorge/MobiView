@@ -3,7 +3,6 @@
 #include <assert.h>
 
 
-//TODO: Move the following functions to their own file?
 
 inline double LogPDFNormal(double X, double Mu, double SigmaSquared)
 {

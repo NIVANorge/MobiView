@@ -84,7 +84,9 @@ struct residual_stats
 #define SET_RES_SETTING(Handle, Name, Type)   ResidualType_##Handle,
 enum residual_type
 {
+	ResidualType_Offset = 100,
 	#include "SetStatSettings.h"
+	ResidualType_End    = 199,
 };
 #undef SET_SETTING
 #undef SET_RES_SETTING
@@ -93,7 +95,9 @@ enum residual_type
 #define SET_RES_SETTING(Handle, Name, Type)
 enum stat_type
 {
+	StatType_Offset = 0,
 	#include "SetStatSettings.h"
+	StatType_End    = 99,
 };
 #undef SET_SETTING
 #undef SET_RES_SETTING
