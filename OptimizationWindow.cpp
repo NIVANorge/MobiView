@@ -136,6 +136,19 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.EditWalkers.SetData(25);
 	MCMCSetup.InitialTypeSwitch.SetData(0);
 	
+	MCMCSetup.SamplerParamView.AddColumn("Name");
+	MCMCSetup.SamplerParamView.AddColumn("Value");
+	MCMCSetup.SamplerParamView.AddColumn("Description");
+	MCMCSetup.SamplerParamView.ColumnWidths("3 2 5");
+	
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineStretch, "Affine stretch (recommended)");
+	//MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineWalk, "Affine walk");     //NOTE: This
+	//seems to be broken, at least it works very poorly.
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_DifferentialEvolution, "Differential evolution");
+	MCMCSetup.SelectSampler.GoBegin();
+	MCMCSetup.SelectSampler.WhenAction << THISBACK(SamplerMethodSelected);
+	SamplerMethodSelected(); //To set the sampler parameters for the initial selection
+	
 	SensitivitySetup.EditSampleSize.Min(10);
 	SensitivitySetup.EditSampleSize.SetData(1000);
 	SensitivitySetup.PushRun.WhenPush  = [&](){ RunClicked(3); };
@@ -629,6 +642,39 @@ void OptimizationWindow::ClearAll()
 	ClearTargetsClicked();
 }
 
+void OptimizationWindow::SamplerMethodSelected()
+{
+	mcmc_sampler_method Method = (mcmc_sampler_method)(int)MCMCSetup.SelectSampler.GetData();
+	
+	MCMCSetup.SamplerParamView.Clear();
+	MCMCSamplerParamCtrls.Clear();
+	
+	switch(Method)
+	{
+		case MCMCMethod_AffineStretch :
+		{
+			MCMCSetup.SamplerParamView.Add("a", 2.0, "Max. stretch factor");
+		} break;
+		
+		case MCMCMethod_AffineWalk :
+		{
+			MCMCSetup.SamplerParamView.Add("|S|", 10.0, "Size of sub-ensemble. Has to be between 2 and NParams/2.");
+		} break;
+		
+		case MCMCMethod_DifferentialEvolution :
+		{
+			MCMCSetup.SamplerParamView.Add("\u03B3", 0.1, "Stretch factor. Should be about 2.38/sqrt(2*dim)");
+			MCMCSetup.SamplerParamView.Add("b", 1e-4, "Max. random walk step");
+			//TODO: Crossover probability
+		} break;
+	}
+	
+	int Rows = MCMCSetup.SamplerParamView.GetCount();
+	MCMCSamplerParamCtrls.InsertN(0, Rows);
+	for(int Row = 0; Row < Rows; ++Row)
+		MCMCSetup.SamplerParamView.SetCtrl(Row, 1, MCMCSamplerParamCtrls[Row]);
+}
+
 
 
 typedef dlib::matrix<double,0,1> column_vector;
@@ -968,11 +1014,9 @@ double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 	return RunData0->Model->EvaluateObjectives(RunData0->DataSets[Walker], Pars);
 }
 
-bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
+bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
 	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType)
 {
-	constexpr double A = 2.0; //NOTE: Could eventually make this configurable, but according to the Emcee guys, this is a good value
-	
 	size_t NPars = OptimModel->FreeParCount;
 	
 	int InitialStep = 0;
@@ -1082,7 +1126,9 @@ bool OptimizationWindow::RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimiz
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
 	
-	bool Finished = RunMCMC(MCMCLogLikelyhoodEval, (void *)&RunData, &Data, A, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	//TODO: We have to check the SamplerParams for correctness somehow!
+	
+	bool Finished = RunMCMC(Method, SamplerParams, MCMCLogLikelyhoodEval, (void *)&RunData, &Data, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
 	
 	for(int Walker = 0; Walker < NWalkers; ++Walker)
 		ParentWindow->ModelDll.DeleteDataSet(RunData.DataSets[Walker]);
@@ -1388,7 +1434,8 @@ void OptimizationWindow::RunClicked(int RunType)
 	bool Success = ErrSymFixup();
 	if(!Success) return;
 	
-	
+	//TODO: This does not work unless the model has been run!! Should use GetNextTimesteps and
+	//GetNextStartDate!!
 	char TimeStr[256];
 	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet);
 	ParentWindow->ModelDll.GetStartDate(ParentWindow->DataSet, TimeStr);
@@ -1657,6 +1704,12 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		int NPars = OptimizationModel.FreeParCount;
 		
+		mcmc_sampler_method Method = (mcmc_sampler_method)(int)MCMCSetup.SelectSampler.GetData();
+		double SamplerParams[20]; //NOTE: We should not encounter a sampler with more parameters than this...
+		for(int Par = 0; Par < MCMCSetup.SamplerParamView.GetCount(); ++Par)
+			SamplerParams[Par] = MCMCSetup.SamplerParamView.Get(Par, 1);
+		
+		
 		std::vector<double> InitialVals(NPars);
 		std::vector<double> MinVals(NPars);
 		std::vector<double> MaxVals(NPars);
@@ -1667,7 +1720,6 @@ void OptimizationWindow::RunClicked(int RunType)
 			MinVals[Idx]     = MinBound(Idx);
 			MaxVals[Idx]     = MaxBound(Idx);
 		}
-		
 		
 		auto NCores = std::thread::hardware_concurrency();
 		int NActualSteps = (RunType==1) ? (NSteps) : (NSteps - Data.NSteps);
@@ -1697,7 +1749,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			
 			auto BeginTime = std::chrono::system_clock::now();
 			
-			bool Finished = RunMobiviewMCMC(NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
+			bool Finished = RunMobiviewMCMC(Method, &SamplerParams[0], NWalkers, NSteps, &OptimizationModel, InitialVals.data(), MinVals.data(), MaxVals.data(),
 											InitialType, CallbackInterval, RunType);
 			
 			auto EndTime = std::chrono::system_clock::now();
@@ -1909,6 +1961,21 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	if(!IsNull(InitType))
 		MCMCSetup.InitialTypeSwitch.SetData(InitType);
 	
+	Value Method = SetupJson["Sampler"];
+	if(!IsNull(Method))
+	{
+		int Key = MCMCSetup.SelectSampler.FindValue(Method);
+		MCMCSetup.SelectSampler.SetData(Key);
+	}
+	SamplerMethodSelected();
+	ValueArray SamplerPars = SetupJson["SamplerPars"];
+	if(!IsNull(SamplerPars) && SamplerPars.GetCount() == MCMCSetup.SamplerParamView.GetCount())
+	{
+		for(int Par = 0; Par < SamplerPars.GetCount(); ++Par)
+			MCMCSetup.SamplerParamView.Set(Par, 1, (double)SamplerPars[Par]);
+	}
+	
+	
 	Value NSamples = SetupJson["Samples"];
 	if(!IsNull(NSamples))
 		SensitivitySetup.EditSampleSize.SetData(NSamples);
@@ -2084,6 +2151,13 @@ String OptimizationWindow::SaveToJsonString()
 	
 	int InitType = MCMCSetup.InitialTypeSwitch.GetData();
 	MainFile("InitType", InitType);
+	
+	String Method = MCMCSetup.SelectSampler.GetValue();
+	MainFile("Sampler", Method);
+	JsonArray SamplerPars;
+	for(int Row = 0; Row < MCMCSetup.SamplerParamView.GetCount(); ++Row)
+		SamplerPars << MCMCSetup.SamplerParamView.Get(Row, 1);
+	MainFile("SamplerPars", SamplerPars);
 	
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);

@@ -4,6 +4,14 @@
 #include <limits>
 #include <stdlib.h>
 
+enum mcmc_sampler_method
+{
+	MCMCMethod_AffineStretch,
+	MCMCMethod_AffineWalk,
+	MCMCMethod_DifferentialEvolution,
+};
+
+
 struct mcmc_data
 {
 	double *ParData = nullptr;
@@ -108,7 +116,7 @@ struct mcmc_data
 	}
 };
 
-bool RunMCMC(double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, double A, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
+bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
 
 
 #endif

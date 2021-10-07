@@ -355,6 +355,8 @@ public:
 	void BeginEdited(int Row);
 	void EndEdited(int Row);
 	
+	void SamplerMethodSelected();
+	
 	bool ErrSymFixup();
 	
 	//TODO: This should be a general function, not a member of this class...
@@ -371,7 +373,7 @@ private:
 	
 	void TabChange();
 	
-	bool RunMobiviewMCMC(size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
+	bool RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
 		double *InitialValue, double *MinBound, double *MaxBound, int InitialType,
 		int CallbackInterval, int RunType);
 		
@@ -389,6 +391,8 @@ private:
 	Array<EditField>         TargetErrCtrls;
 	Array<EditTimeNotNull>   TargetBeginCtrls;
 	Array<EditTimeNotNull>   TargetEndCtrls;
+	
+	Array<EditDoubleNotNull> MCMCSamplerParamCtrls;
 	
 	ToolBar Tool;
 	
