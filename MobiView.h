@@ -286,6 +286,8 @@ struct optimization_target
 		mcmc_error_structure ErrStruct;
 	};
 	double Weight;
+	std::string Begin;
+	std::string End;
 };
 
 target_stat_class
@@ -294,16 +296,18 @@ GetStatClass(optimization_target &Target);
 inline bool operator==(const optimization_target &T1, const optimization_target &T2)
 {
 	return
-		   T1.ResultName == T2.ResultName
+		   T1.ResultName    == T2.ResultName
 		&& T1.ResultIndexes == T2.ResultIndexes
-		&& T1.InputName == T2.InputName
-		&& T1.InputIndexes == T2.InputIndexes
-		&& T1.ErrParSym == T2.ErrParSym
-		&& T1.ErrParNum == T2.ErrParNum
-		&& T1.ResidualStat == T2.ResidualStat
-		&& T1.Stat == T2.Stat
-		&& T1.ErrStruct == T2.ErrStruct
-		&& T1.Weight == T2.Weight;
+		&& T1.InputName     == T2.InputName
+		&& T1.InputIndexes  == T2.InputIndexes
+		&& T1.ErrParSym     == T2.ErrParSym
+		&& T1.ErrParNum     == T2.ErrParNum
+		&& T1.ResidualStat  == T2.ResidualStat
+		&& T1.Stat          == T2.Stat
+		&& T1.ErrStruct     == T2.ErrStruct
+		&& T1.Weight        == T2.Weight
+		&& T1.Begin         == T2.Begin
+		&& T1.End           == T2.End;
 }
 
 
@@ -348,6 +352,8 @@ public:
 	void ErrSymEdited(int Row);
 	void WeightEdited(int Row);
 	void StatEdited(int Row);
+	void BeginEdited(int Row);
+	void EndEdited(int Row);
 	
 	bool ErrSymFixup();
 	
@@ -381,6 +387,8 @@ private:
 	Array<DropList>          TargetStatCtrls;
 	Array<EditDoubleNotNull> TargetWeightCtrls;
 	Array<EditField>         TargetErrCtrls;
+	Array<EditTimeNotNull>   TargetBeginCtrls;
+	Array<EditTimeNotNull>   TargetEndCtrls;
 	
 	ToolBar Tool;
 	
@@ -655,7 +663,7 @@ public:
 	void SaveToCsv();
 	
 	void GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut);
-	
+	void GetGofOffsetsBase(const Time &AttemptBegin, const Time &AttemptEnd, const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut);
 	
 
 	ToolBar Tool;

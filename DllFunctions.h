@@ -16,7 +16,9 @@ DLL_FUNCTION(void,         CopyData,                         void *SourceDataSet
 
 
 DLL_FUNCTION(uint64_t,     GetTimesteps,                     void *DataSetPtr)
+//DLL_FUNCTION(uint64_t,     GetNextTimesteps,                 void *DataSetPtr)
 DLL_FUNCTION(void,         GetStartDate,                     void *DataSetPtr, char *DateOut)
+//DLL_FUNCTION(void,         GetNextStartDate,                 void *DataSetPtr, char *DateOut)
 DLL_FUNCTION(uint64_t,     GetInputTimesteps,                void *DataSetPtr)
 DLL_FUNCTION(void,         GetInputStartDate,                void *DataSetPtr, char *DateOut)
 DLL_FUNCTION(void,         GetResultSeries,                  void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double *WriteTo)

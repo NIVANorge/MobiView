@@ -2039,14 +2039,14 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 	}
 }
 
-void MobiView::GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut)
+
+void MobiView::GetGofOffsetsBase(const Time &AttemptBegin, const Time &AttemptEnd, const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut)
 {
+	BeginOut = AttemptBegin;
+	EndOut   = AttemptEnd;
+	
 	Time ReferenceEndTime = ReferenceTime;
 	AdvanceTimesteps(ReferenceEndTime, ReferenceTimesteps-1, TimestepSize);
-	
-	BeginOut = CalibrationIntervalStart.GetData();
-	EndOut   = CalibrationIntervalEnd.GetData();
-	
 	
 	if(IsNull(BeginOut) || !BeginOut.IsValid()  || BeginOut < ReferenceTime   || BeginOut > ReferenceEndTime)
 		BeginOut = ReferenceTime;
@@ -2057,6 +2057,14 @@ void MobiView::GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimestep
 	
 	GofTimestepsOut = TimestepsBetween(BeginOut, EndOut, TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
 	GofOffsetOut    = TimestepsBetween(ReferenceTime, BeginOut, TimestepSize);
+}
+
+void MobiView::GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimesteps, Time &BeginOut, Time &EndOut, int64 &GofOffsetOut, int64 &GofTimestepsOut)
+{
+	Time AttemptBegin = CalibrationIntervalStart.GetData();
+	Time AttemptEnd   = CalibrationIntervalEnd.GetData();
+	
+	GetGofOffsetsBase(AttemptBegin, AttemptEnd, ReferenceTime, ReferenceTimesteps, BeginOut, EndOut, GofOffsetOut, GofTimestepsOut);	
 }
 
 

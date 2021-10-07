@@ -85,6 +85,8 @@ OptimizationWindow::OptimizationWindow()
 	TargetSetup.TargetView.AddColumn(Id("__targetstat"), "Statistic");
 	TargetSetup.TargetView.AddColumn(Id("__errparam"), "Error param(s).");
 	TargetSetup.TargetView.AddColumn(Id("__weight"), "Weight");
+	TargetSetup.TargetView.AddColumn(Id("__begin"), "Begin");
+	TargetSetup.TargetView.AddColumn(Id("__end"), "End");
 	
 	//TargetSetup.TargetView.HeaderObject().HideTab(5);
 	
@@ -346,7 +348,7 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	
 	int TargetStat = (int)Target.Stat;;
 	
-	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight);
+	TargetSetup.TargetView.Add(Target.ResultName.data(), ResultIndexStr, Target.InputName.data(), InputIndexStr, TargetStat, Target.ErrParSym.data(), Target.Weight, Target.Begin.data(), Target.End.data());
 	
 	TargetStatCtrls.Create<DropList>();
 	DropList &SelectStat = TargetStatCtrls.Top();
@@ -395,6 +397,18 @@ void OptimizationWindow::AddOptimizationTarget(optimization_target &Target)
 	Col     = TargetSetup.TargetView.GetPos(Id("__weight"));
 	TargetSetup.TargetView.SetCtrl(Row, Col, EditWt);
 	EditWt.WhenAction << [this, Row](){ WeightEdited(Row); };
+	
+	TargetBeginCtrls.Create<EditTimeNotNull>();
+	EditTimeNotNull &EditBegin = TargetBeginCtrls.Top();
+	Col = TargetSetup.TargetView.GetPos(Id("__begin"));
+	TargetSetup.TargetView.SetCtrl(Row, Col, EditBegin);
+	EditBegin.WhenAction << [this, Row](){ BeginEdited(Row); };
+	
+	TargetEndCtrls.Create<EditTimeNotNull>();
+	EditTimeNotNull &EditEnd = TargetEndCtrls.Top();
+	Col = TargetSetup.TargetView.GetPos(Id("__end"));
+	TargetSetup.TargetView.SetCtrl(Row, Col, EditEnd);
+	EditEnd.WhenAction << [this, Row](){ EndEdited(Row); };
 }
 
 void OptimizationWindow::StatEdited(int Row)
@@ -417,6 +431,16 @@ void OptimizationWindow::ErrSymEdited(int Row)
 void OptimizationWindow::WeightEdited(int Row)
 {
 	Targets[Row].Weight = (double)TargetSetup.TargetView.Get(Row, "__weight");
+}
+
+void OptimizationWindow::BeginEdited(int Row)
+{
+	Targets[Row].Begin = TargetSetup.TargetView.Get(Row, "__begin").ToString().ToStd();
+}
+
+void OptimizationWindow::EndEdited(int Row)
+{
+	Targets[Row].End   = TargetSetup.TargetView.Get(Row, "__end").ToString().ToStd();
 }
 
 
@@ -467,6 +491,20 @@ void OptimizationWindow::AddTargetClicked()
 	else if(TabNum == 2) Target.Stat = StatType_Mean;
 
 	Target.Weight = 1.0;
+	
+	//NOTE for you to be able to add a target, the model has to have been run once any way, so
+	//there is no problem using these time stamps for that.
+	char TimeStr[256];
+	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet);
+	ParentWindow->ModelDll.GetStartDate(ParentWindow->DataSet, TimeStr);
+	Time ResultStartTime;
+	StrToTime(ResultStartTime, TimeStr);
+
+	Time GofStartTime, GofEndTime;
+	int64 GofOffset, GofTimesteps;
+	ParentWindow->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+	Target.Begin = Format(GofStartTime).ToStd();
+	Target.End   = Format(GofEndTime).ToStd();
 	
 	AddOptimizationTarget(Target);
 }
@@ -570,6 +608,8 @@ void OptimizationWindow::RemoveTargetClicked()
 	TargetWeightCtrls.Remove(SelectedRow);
 	TargetStatCtrls.Remove(SelectedRow);
 	TargetErrCtrls.Remove(SelectedRow);
+	TargetBeginCtrls.Remove(SelectedRow);
+	TargetEndCtrls.Remove(SelectedRow);
 }
 
 void OptimizationWindow::ClearTargetsClicked()
@@ -579,6 +619,8 @@ void OptimizationWindow::ClearTargetsClicked()
 	TargetWeightCtrls.Clear();
 	TargetStatCtrls.Clear();
 	TargetErrCtrls.Clear();
+	TargetBeginCtrls.Clear();
+	TargetEndCtrls.Clear();
 }
 	
 void OptimizationWindow::ClearAll()
@@ -657,8 +699,8 @@ struct optimization_model
 	bool                             ValuesLoadedOnce = false;
 	std::vector<std::vector<double>> InputData;
 	
-	int64 GofOffset;
-	int64 GofTimesteps;
+	std::vector<int64> GofOffsets;
+	std::vector<int64> GofTimesteps;
 	
 	int ExprCount;
 	int FreeParCount;
@@ -701,6 +743,14 @@ struct optimization_model
 			uint64 Timesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
 			InputData.resize(Targets->size());
 			
+			GofOffsets.resize(Targets->size());
+			GofTimesteps.resize(Targets->size());
+			
+			char TimeStr[256];
+			ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
+			Time ResultStartTime;
+			StrToTime(ResultStartTime, TimeStr);
+			
 			for(int Obj = 0; Obj < Targets->size(); ++Obj)
 			{
 				optimization_target &Target = (*Targets)[Obj];
@@ -715,15 +765,14 @@ struct optimization_model
 					//is in fact safe to use the result timesteps for the size here.
 					ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputData[Obj].data(), true);
 				}
-				char TimeStr[256];
-				uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
-				ParentWindow->ModelDll.GetStartDate(DataSet, TimeStr);
-				Time ResultStartTime;
-				StrToTime(ResultStartTime, TimeStr);
-			
-				Time GofStartTime;
-				Time GofEndTime;
-				ParentWindow->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, this->GofOffset, this->GofTimesteps);
+				
+				Time Begin;
+				Time End;
+				StrToTime(Begin, Target.Begin.data());
+				StrToTime(End, Target.End.data());
+				
+				GofOffsets[Obj]   = TimestepsBetween(ResultStartTime, Begin, ParentWindow->TimestepSize);
+				GofTimesteps[Obj] = TimestepsBetween(Begin, End, ParentWindow->TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
 			}
 			
 			ValuesLoadedOnce = true;
@@ -752,7 +801,7 @@ struct optimization_model
 				case StatClass_Stat:
 				{
 					timeseries_stats Stats;
-					ComputeTimeseriesStats(Stats, ResultData.data() + GofOffset, GofTimesteps, ParentWindow->StatSettings, false);
+					ComputeTimeseriesStats(Stats, ResultData.data() + GofOffsets[Obj], GofTimesteps[Obj], ParentWindow->StatSettings, false);
 					
 					if(false){}
 					#define SET_SETTING(Handle, Name, Type) \
@@ -768,7 +817,7 @@ struct optimization_model
 					//NOTE: It may seem a little wasteful to compute all of them, but it is a bit messy to
 					//untangle their computations.
 					residual_stats ResidualStats;
-					ComputeResidualStats(ResidualStats, InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps);
+					ComputeResidualStats(ResidualStats, InputData[Obj].data() + GofOffsets[Obj], ResultData.data() + GofOffsets[Obj], GofTimesteps[Obj]);
 					
 					if(false){}
 					#define SET_SETTING(Handle, Name, Type)
@@ -783,7 +832,7 @@ struct optimization_model
 				{
 					std::vector<double> ErrParam(Target.ErrParNum.size());
 					for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Par(Target.ErrParNum[Idx]);
-					Value = ComputeLLValue(InputData[Obj].data() + GofOffset, ResultData.data() + GofOffset, GofTimesteps, ErrParam, Target.ErrStruct);
+					Value = ComputeLLValue(InputData[Obj].data() + GofOffsets[Obj], ResultData.data() + GofOffsets[Obj], GofTimesteps[Obj], ErrParam, Target.ErrStruct);
 				} break;
 				
 				default :
@@ -1339,6 +1388,15 @@ void OptimizationWindow::RunClicked(int RunType)
 	bool Success = ErrSymFixup();
 	if(!Success) return;
 	
+	
+	char TimeStr[256];
+	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet);
+	ParentWindow->ModelDll.GetStartDate(ParentWindow->DataSet, TimeStr);
+	Time ResultStartTime;
+	StrToTime(ResultStartTime, TimeStr);
+	Time ResultEndTime = ResultStartTime;
+	AdvanceTimesteps(ResultEndTime, ResultTimesteps-1, ParentWindow->TimestepSize);
+	
 	//NOTE: Since we haven't wired all of the background data to the edit fields, we have to
 	//gather some of it here.
 	bool PositiveGood;
@@ -1396,6 +1454,16 @@ void OptimizationWindow::RunClicked(int RunType)
 		if(StatClass != StatClass_Stat && Target.InputName == "")
 		{
 			SetError(Format("Targets that compute an error need an input observed series. No comparison series were provided for result \"%s\"", Target.ResultName.data()));
+			return;
+		}
+		
+		Time Begin, End;
+		StrToTime(Begin, Target.Begin.data());
+		StrToTime(End, Target.End.data());
+		if(    !Begin.IsValid() || IsNull(Begin) || Begin < ResultStartTime || Begin > ResultEndTime || Begin > End
+			|| !End.IsValid()   || IsNull(End)   || End   < ResultStartTime || End   > ResultEndTime)
+		{
+			SetError("One of the targets has a begin-end interval that is not valid or does not lie within the model run interval");
 			return;
 		}
 	}
@@ -1922,6 +1990,12 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 			Value ErrPar = TargetJson["ErrPar"];
 			if(!IsNull(ErrPar)) Target.ErrParSym = ErrPar.ToString().ToStd();
 			
+			Value BeginVal = TargetJson["Begin"];
+			if(!IsNull(BeginVal)) Target.Begin = BeginVal.ToString().ToStd();
+			
+			Value EndVal   = TargetJson["End"];
+			if(!IsNull(EndVal)) Target.End = EndVal.ToString().ToStd();
+			
 			AddOptimizationTarget(Target);
 		}
 	}
@@ -2062,6 +2136,8 @@ String OptimizationWindow::SaveToJsonString()
 		TargetJson("Stat", StatName);
 		TargetJson("Weight", Target.Weight);
 		TargetJson("ErrPar", ErrName);
+		TargetJson("Begin", Target.Begin.data());
+		TargetJson("End", Target.End.data());
 		
 		TargetArr << TargetJson;
 		
