@@ -890,11 +890,12 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			{
 				AddQQPlot(ModUnit, ObsUnit, ModeledLegend, ObservedLegend, ModeledStats, ObservedStats, Parent->StatSettings);
 				
-				size_t NumPercentiles = Parent->StatSettings.Percentiles.size();
+				int Last = ModeledStats.Percentiles.size()-1;
+				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
+				double Max = std::max(ModeledStats.Percentiles[Last], ObservedStats.Percentiles[Last]);
 				
-				double Min = std::min(ModeledStats.Min, ObservedStats.Min);
-				double Max = std::max(ModeledStats.Max, ObservedStats.Max);
-				
+				//double Min = std::min(ModeledStats.Min, ObservedStats.Min);
+				//double Max = std::max(ModeledStats.Max, ObservedStats.Max);
 				String Dum = "";
 				AddLine(Dum, Min, Max, Min, Max);
 			}
@@ -1140,14 +1141,16 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 				};
 			}
 
-			if(PlotMajorMode != MajorMode_QQ) SetBetterGridLinePositions(*this, 1);
+			//if(PlotMajorMode != MajorMode_QQ) 
+			SetBetterGridLinePositions(*this, 1);
 		}
 
 		if(PlotMajorMode == MajorMode_QQ) SetBetterGridLinePositions(*this, 0);
 	}
 	
 	bool AllowScrollX = !(PlotMajorMode == MajorMode_Profile || PlotMajorMode == MajorMode_Histogram || PlotMajorMode == MajorMode_ResidualHistogram);
-	this->SetMouseHandling(AllowScrollX, false);
+	bool AllowScrollY = PlotMajorMode == MajorMode_QQ;
+	this->SetMouseHandling(AllowScrollX, AllowScrollY);
 }
 
 int MyPlot::AddHistogram(const String &Legend, const String &Unit, double *Data, size_t Len)
@@ -1605,10 +1608,17 @@ void SetBetterGridLinePositions(ScatterDraw &Scatter, int Dim)
 	double OrderOfMagnitude = std::pow(10.0, IntPart);
 	double Stretch = Range / OrderOfMagnitude;
 	
-	double Stride = OrderOfMagnitude * 0.1;
-	if(Stretch >= 2.0) Stride = OrderOfMagnitude * 0.2;
-	else if(Stretch >= 2.5) Stride = OrderOfMagnitude * 0.25;
-	else if(Stretch >= 5.0) Stride = OrderOfMagnitude * 0.5;
+	int MaxTicks = 10; //TODO: Should depend on plot size.
+	
+	double StrideFactors[8] = {0.1, 0.2, 0.25, 0.5, 1.0, 2.0, 2.5, 5.0};
+	double Stride = OrderOfMagnitude * StrideFactors[0];
+	
+	for(int Idx = 1; Idx < 8; ++Idx)
+	{
+		double NTicks = std::floor(Range / Stride);
+		if((int)NTicks <= MaxTicks) break;
+		Stride = OrderOfMagnitude * StrideFactors[Idx];
+	}
 	
 	double Min2 = std::floor(Min / Stride)*Stride;
 	//int Count = (int)std::ceil(Range / Stride);

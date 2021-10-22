@@ -1434,11 +1434,9 @@ void OptimizationWindow::RunClicked(int RunType)
 	bool Success = ErrSymFixup();
 	if(!Success) return;
 	
-	//TODO: This does not work unless the model has been run!! Should use GetNextTimesteps and
-	//GetNextStartDate!!
 	char TimeStr[256];
-	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(ParentWindow->DataSet);
-	ParentWindow->ModelDll.GetStartDate(ParentWindow->DataSet, TimeStr);
+	uint64 ResultTimesteps = ParentWindow->ModelDll.GetNextTimesteps(ParentWindow->DataSet);
+	ParentWindow->ModelDll.GetNextStartDate(ParentWindow->DataSet, TimeStr);
 	Time ResultStartTime;
 	StrToTime(ResultStartTime, TimeStr);
 	Time ResultEndTime = ResultStartTime;
@@ -1627,6 +1625,12 @@ void OptimizationWindow::RunClicked(int RunType)
 	OptimizationModel.UpdateStep = UpdateStep;
 		
 	bool PushExtendEnabled = MCMCSetup.PushExtendRun.IsEnabled();
+	
+	RunSetup.PushRun.Disable();
+	MCMCSetup.PushRun.Disable();
+	MCMCSetup.PushExtendRun.Disable();
+	SensitivitySetup.PushRun.Disable();
+	
 	if(RunType == 0)
 	{
 		dlib::function_evaluation InitialEval;
@@ -1647,11 +1651,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		SetError("Running optimization. This may take a few minutes or more.");
 		
 		ParentWindow->ProcessEvents();
-		
-		RunSetup.PushRun.Disable();
-		MCMCSetup.PushRun.Disable();
-		MCMCSetup.PushExtendRun.Disable();
-		SensitivitySetup.PushRun.Disable();
 		
 		auto BeginTime = std::chrono::high_resolution_clock::now();
 		
@@ -1686,14 +1685,6 @@ void OptimizationWindow::RunClicked(int RunType)
 					Duration, NewScore, InitialScore));
 				ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 			}
-			
-			RunSetup.PushRun.Enable();
-			MCMCSetup.PushRun.Enable();
-			if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
-			SensitivitySetup.PushRun.Enable();
-			
-			SetError("");
-			RunSetup.ProgressLabel.SetText("");
 		});
 	}
 	else if(RunType == 1 || RunType == 2)
@@ -1708,7 +1699,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		double SamplerParams[20]; //NOTE: We should not encounter a sampler with more parameters than this...
 		for(int Par = 0; Par < MCMCSetup.SamplerParamView.GetCount(); ++Par)
 			SamplerParams[Par] = MCMCSetup.SamplerParamView.Get(Par, 1);
-		
 		
 		std::vector<double> InitialVals(NPars);
 		std::vector<double> MinVals(NPars);
@@ -1732,12 +1722,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		ParentWindow->ProcessEvents();
 		
 		
-		int CallbackInterval = 50; //TODO: Make this configurable?
-		
-		RunSetup.PushRun.Disable();
-		MCMCSetup.PushRun.Disable();
-		MCMCSetup.PushExtendRun.Disable();
-		SensitivitySetup.PushRun.Disable();
+		int CallbackInterval = 50; //TODO: Make this configurable or dynamic?
 		
 		if(!ParentWindow->MCMCResultWin.IsOpen())
 			ParentWindow->MCMCResultWin.Open();
@@ -1762,23 +1747,14 @@ void OptimizationWindow::RunClicked(int RunType)
 			else
 				ParentWindow->Log("MCMC run unsuccessful.");
 			
-			RunSetup.PushRun.Enable();
-			MCMCSetup.PushRun.Enable();
 			MCMCSetup.PushExtendRun.Enable();
-			SensitivitySetup.PushRun.Enable();
 			
-			RunSetup.ProgressLabel.SetText("");
-			SetError("");
+			
 		//});
 	}
 	else if(RunType == 3)
 	{
 		int NSamples = SensitivitySetup.EditSampleSize.GetData();
-		
-		RunSetup.PushRun.Disable();
-		MCMCSetup.PushRun.Disable();
-		MCMCSetup.PushExtendRun.Disable();
-		SensitivitySetup.PushRun.Disable();
 		
 		int NPars = OptimizationModel.FreeParCount;
 		std::vector<double> MinVals(NPars);
@@ -1803,13 +1779,15 @@ void OptimizationWindow::RunClicked(int RunType)
 		auto EndTime = std::chrono::system_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 		ParentWindow->Log(Format("Variance based sensitivity sampling finished after %g seconds.", Duration));
-		
-		
-		RunSetup.PushRun.Enable();
-		MCMCSetup.PushRun.Enable();
-		MCMCSetup.PushExtendRun.Enable();
-		SensitivitySetup.PushRun.Enable();
 	}
+	
+	RunSetup.PushRun.Enable();
+	MCMCSetup.PushRun.Enable();
+	if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
+	SensitivitySetup.PushRun.Enable();
+	
+	RunSetup.ProgressLabel.SetText("");
+	SetError("");
 }
 
 void OptimizationWindow::TabChange()
@@ -1820,8 +1798,6 @@ void OptimizationWindow::TabChange()
 		TargetSetup.TargetView.HeaderObject().HideTab(5);
 	else                         // MCMC or optimizer -- show err params
 		TargetSetup.TargetView.HeaderObject().ShowTab(5);
-	
-	//TODO: Alternatively we could just switch out the column...
 	
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 	{
@@ -1850,7 +1826,6 @@ void OptimizationWindow::TabChange()
 			#include "LLSettings.h"
 			#undef SET_LL_SETTING
 		}
-		
 		
 		optimization_target &Target = Targets[TargetIdx];
 		SelectStat.SetValue((int)Target.Stat);
