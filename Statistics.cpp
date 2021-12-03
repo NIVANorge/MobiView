@@ -6,6 +6,8 @@
 #include "MyRichView.h"
 #include <numeric>
 
+
+
 void DisplayStat(String ValName, int PositiveGood, double ValOld, double ValNow, bool DisplayChange, String &Display, bool &TrackedFirst, int Precision)
 {
 	if(!TrackedFirst) Display << "::@W ";
@@ -164,16 +166,10 @@ void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len
 	for(size_t PercentileIdx = 0; PercentileIdx < StatSettings.Percentiles.size(); ++PercentileIdx)
 	{
 		if(FiniteCount > 0)
-		{
-			size_t Idx = (size_t)std::ceil(StatSettings.Percentiles[PercentileIdx] * 0.01 * (double)(FiniteCount-1)); // Should not lose precision since we don't usually have millions of timesteps
-			StatsOut.Percentiles[PercentileIdx] = SortedData[Idx];
-		}
+			StatsOut.Percentiles[PercentileIdx] = QuantileOfSorted(SortedData.data(), SortedData.size(), StatSettings.Percentiles[PercentileIdx]*0.01);
 		else
-		{
 			StatsOut.Percentiles[PercentileIdx] = Null;
-		}
 	}
-	
 	
 	Variance /= (double)FiniteCount;
 	
@@ -181,16 +177,7 @@ void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len
 	{
 		StatsOut.Min = SortedData[0];
 		StatsOut.Max = SortedData[SortedData.size()-1];
-		
-		size_t Middle = FiniteCount / 2;
-		if(FiniteCount % 2 == 0)
-		{
-			StatsOut.Median = 0.5 * (SortedData[Middle] + SortedData[Middle-1]);
-		}
-		else
-		{
-			StatsOut.Median = SortedData[Middle];
-		}
+		StatsOut.Median = MedianOfSorted(SortedData.data(), SortedData.size());
 	}
 	else
 	{

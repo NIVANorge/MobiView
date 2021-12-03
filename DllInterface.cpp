@@ -36,83 +36,12 @@ bool model_dll_interface::Load(const char *DllName)
 
 	if(!hinstModelDll) return false;
 
-//#define LoadProcedure(Name) \
-//	Name = ( Name##_t )  LoadProc(hinstModelDll, "Dll"#Name ); \
-//	if(!Name) return false;
-	
 #define DLL_FUNCTION(RetType, Name, ...) \
 	Name = ( Name##_t )  LoadProc(hinstModelDll, "Dll"#Name ); \
 	if(!Name) return false;
 #include "DllFunctions.h"
 #undef DLL_FUNCTION
-	/*
-	LoadProcedure(SetupModel);
-	LoadProcedure(SetupModelBlankIndexSets);
-	LoadProcedure(ReadInputs);
-	LoadProcedure(SetIndexes);
-	LoadProcedure(SetBranchIndexes);
-	LoadProcedure(EncounteredError);
-	LoadProcedure(EncounteredWarning);
-	LoadProcedure(GetModelName);
-	LoadProcedure(RunModel);
-	LoadProcedure(CopyDataSet);
-	LoadProcedure(DeleteDataSet);
-	LoadProcedure(DeleteModelAndDataSet);
-	LoadProcedure(GetTimesteps);
-	LoadProcedure(GetStartDate);
-	LoadProcedure(GetInputTimesteps);
-	LoadProcedure(GetInputStartDate);
-	LoadProcedure(GetResultSeries);
-	LoadProcedure(GetInputSeries);
-	LoadProcedure(SetParameterDouble);
-	LoadProcedure(SetParameterUInt);
-	LoadProcedure(SetParameterBool);
-	LoadProcedure(SetParameterTime);
-	LoadProcedure(SetParameterEnum);
-	LoadProcedure(GetParameterDouble);
-	LoadProcedure(GetParameterUInt);
-	LoadProcedure(GetParameterBool);
-	LoadProcedure(GetParameterTime);
-	LoadProcedure(GetParameterEnum);
-	LoadProcedure(GetEnumValuesCount);
-	LoadProcedure(GetEnumValues);
-	LoadProcedure(GetParameterDoubleMinMax);
-	LoadProcedure(GetParameterUIntMinMax);
-	LoadProcedure(GetParameterDescription);
-	LoadProcedure(GetParameterUnit);
-	LoadProcedure(GetResultUnit);
-	LoadProcedure(GetInputUnit);
-	LoadProcedure(WriteParametersToFile);
-	LoadProcedure(GetIndexSetsCount);
-	LoadProcedure(GetIndexSets);
-	LoadProcedure(GetIndexCount);
-	LoadProcedure(GetIndexes);
-	LoadProcedure(IsParameterGroupName);
-	LoadProcedure(GetParameterGroupIndexSetsCount);
-	LoadProcedure(GetParameterGroupIndexSets);
-	LoadProcedure(GetResultIndexSetsCount);
-	LoadProcedure(GetResultIndexSets);
-	LoadProcedure(GetInputIndexSetsCount);
-	LoadProcedure(GetInputIndexSets);
-	LoadProcedure(GetAllParameterGroupsCount);
-	LoadProcedure(GetAllParameterGroups);
-	LoadProcedure(GetAllModulesCount);
-	LoadProcedure(GetAllModules);
-	LoadProcedure(GetModuleDescription);
-	LoadProcedure(GetAllParametersCount);
-	LoadProcedure(GetAllParameters);
-	LoadProcedure(GetAllResultsCount);
-	LoadProcedure(GetAllResults);
-	LoadProcedure(GetAllInputsCount);
-	LoadProcedure(GetAllInputs);
-	LoadProcedure(InputWasProvided);
-	LoadProcedure(ResultWasComputed);
-	LoadProcedure(GetBranchInputsCount);
-	LoadProcedure(GetBranchInputs);
-	LoadProcedure(PrintResultStructure);
-	LoadProcedure(GetTimestepSize);
-	LoadProcedure(CopyData);
-	*/
+
 	return true;
 }
 

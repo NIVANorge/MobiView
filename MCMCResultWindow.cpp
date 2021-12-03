@@ -16,15 +16,11 @@
 Possible TODO:
 
 - Responsivity of halt button (or rather reintroduce one that works).
-- More dynamic choice of LL function/error structure (per target instead of global). Also use LL function in optimizer.
-- More error structures (e.g. some that remove autocorrelation).
-- Don't recompute autocorrelation times every time that tab is clicked (it is slow).
-- Other samplers or sampler moves.
+- More error structures (e.g. some more advanced hydrological ones).
 - Fix duration timer (sometimes negative number).
 - Make result format more robust (it can have encoding problems it seems, so doesn't allow
 editing by hand).
-- In Projection window, show multiple confidence intervals (if desired), residual plot of
-median.
+- In Projection window, show multiple confidence intervals (if desired).
 */
 
 
@@ -52,7 +48,7 @@ MCMCResultWindow::MCMCResultWindow()
 	ViewProjections.EditSamples.Min(1);
 	ViewProjections.EditSamples.SetData(1000);
 	ViewProjections.GenerateProgress.Hide();
-	//ViewProjections.PlotScroll.AddPane(ProjectionPlotPane.SizePos());
+
 	ViewProjections.Confidence.MinMax(0.0, 100.0).SetData(95.0);
 	ViewProjections.PlotSelectTab.Add(ProjectionPlotScroll.SizePos(), "Confidence interval");
 	ViewProjections.PlotSelectTab.Add(ResidPlotScroll.SizePos(), "Meadian residuals");
@@ -180,8 +176,8 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 		
 		if(NumValues > 0)
 		{
-			int LowerQuant = (int)((double)NumValues * 0.025);
-			int UpperQuant = (int)((double)NumValues * 0.975);
+			double LowerQuant = 0.025;
+			double UpperQuant = 0.975;
 			
 			int PlotIdx = 0;
 			if(Data->NPars > 1)
@@ -190,9 +186,10 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 				{
 					std::vector<double> &Par1Data = ParValues[Par1];
 					
-					double Minx = Par1Data[LowerQuant];
-					double Maxx = Par1Data[UpperQuant];
-					double MedianX = Par1Data[Par1Data.size()/2]; //TODO: Make more precise.
+					double Minx = QuantileOfSorted(Par1Data.data(), Par1Data.size(), LowerQuant);
+					double Maxx = QuantileOfSorted(Par1Data.data(), Par1Data.size(), UpperQuant);
+						
+					double MedianX = MedianOfSorted(Par1Data.data(), Par1Data.size());
 					
 					double StrideX = (Maxx - Minx)/(double)(DistrResolution);
 					
@@ -241,10 +238,8 @@ void MCMCResultWindow::RefreshPlots(int CurStep)
 						
 						std::vector<double> &Par2Data = ParValues[Par2];
 						
-						
-						double Miny = Par2Data[LowerQuant];
-						double Maxy = Par2Data[UpperQuant];
-						
+						double Miny = QuantileOfSorted(Par2Data.data(), Par2Data.size(), LowerQuant);
+						double Maxy = QuantileOfSorted(Par2Data.data(), Par2Data.size(), UpperQuant);
 						
 						double StrideY = (Maxy - Miny)/(double)(DistrResolution);
 						
@@ -669,8 +664,6 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 	Table << "[* Table 1:] Statistics about the posterior distribution of the parameters. MAP = most accurate prediction. Percents are percentiles of the distribution. Int.acor.T.=(estimated) integrated autocorrelation time.&&";
 
 	ResultSummary.Append(Table);
-	
-	//TODO: Finish computing correlation coefficients
 
 	Table = "{{1:";
 	for(int Par = 0; Par < Data->NPars-2; ++Par) Table << "1:";
@@ -814,6 +807,14 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	ResidPlots.Clear();
 	ResidPlots.InsertN(0, Targets.size());
 	
+	for(MyPlot &Plot : ResidHistograms)
+	{
+		Plot.ClearAll(false);
+		Plot.Remove();
+	}
+	ResidHistograms.Clear();
+	ResidHistograms.InsertN(0, Targets.size());
+	
 	for(MyPlot &Plot : AutoCorrPlots)
 	{
 		Plot.ClearAll(false);
@@ -835,8 +836,11 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	int TargetIdx = 0;
 	for(optimization_target &Target : Targets)
 	{
+		int HSizeSmall = (int)(0.60*(double)HSize);
+		
 		ProjectionPlotPane.Add(ProjectionPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
-		ResidPlotPane.Add     (ResidPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
+		ResidPlotPane.Add     (ResidPlots[TargetIdx].LeftPos(0, HSizeSmall).TopPos(AccumY, PlotHeight));
+		ResidPlotPane.Add     (ResidHistograms[TargetIdx].LeftPos(HSizeSmall, HSize-HSizeSmall).TopPos(AccumY, PlotHeight));
 		AutoCorrPlotPane.Add  (AutoCorrPlots[TargetIdx].LeftPos(0, HSize).TopPos(AccumY, PlotHeight));
 		AccumY += PlotHeight;
 		++TargetIdx;
@@ -1037,10 +1041,9 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			
 			std::sort(Buffer.begin(), Buffer.end());
 	
-			//TODO: Should be more robust...
-			UpperYValues[Ts]  = Buffer[(int)((double)NSamples*MaxConf/100.0)];
-			MedianYValues[Ts] = Buffer[NSamples/2];
-			LowerYValues[Ts]  = Buffer[(int)((double)NSamples*MinConf/100.0)];
+			UpperYValues[Ts]  = QuantileOfSorted(Buffer.data(), Buffer.size(), MaxConf*0.01);
+			MedianYValues[Ts] = MedianOfSorted(Buffer.data(), Buffer.size());
+			LowerYValues[Ts]  = QuantileOfSorted(Buffer.data(), Buffer.size(), MinConf*0.01);
 			
 			if(std::isfinite(InputYValues[Ts]))
 			{
@@ -1100,17 +1103,22 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		
 		assert(YValuesStored.size() == ResidualYValues.size());
 		
-		//ResidPlot.PlotSetup = PlotSetups[TargetIdx];
-		//ResidPlot.PlotSetup.ScatterInputs = true;
 		GraphColor = ResidPlot.PlotColors.Next();
 		ResidPlot.SetSequentialXAll(false);
 		ResidPlot.SetTitle(Target.ResultName.data());
 		ResidPlot.AddSeries(YValuesStored.data(), ResidualYValues.data(), YValuesStored.size()).Stroke(0.0, GraphColor).MarkColor(GraphColor).MarkStyle<CircleMarkPlot>();
-		ResidPlot.SetLabelX("Simulated").SetLabelY("Standard residual");
+		ResidPlot.SetLabelX("Simulated").SetLabelY("Standard residual").ShowLegend(false);
 		ResidPlot.ZoomToFit(true, true);
-		//PromptOK(Format("%f %f %f %f", ResidualYValues[0], ResidualYValues[1], ResidualYValues[2], ResidualYValues[3]));
 		SetBetterGridLinePositions(ResidPlot, 0);
 		SetBetterGridLinePositions(ResidPlot, 1);
+		
+		MyPlot &ResidHistogram = ResidHistograms[TargetIdx];
+		ResidHistogram.SetTitle("St. resid. distr.");
+		ResidHistogram.AddHistogram(Null, Null, ResidualYValues.data(), ResidualYValues.size());
+		ResidHistogram.ZoomToFit(true, true);
+		ResidHistogram.SetMouseHandling(false, false);
+		ResidHistogram.ShowLegend(false);
+		//TODO: Format axes better
 		
 		
 		

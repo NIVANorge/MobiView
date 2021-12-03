@@ -9,6 +9,7 @@ enum mcmc_sampler_method
 	MCMCMethod_AffineStretch,
 	MCMCMethod_AffineWalk,
 	MCMCMethod_DifferentialEvolution,
+	MCMCMethod_MetropolisHastings,
 };
 
 
@@ -116,7 +117,7 @@ struct mcmc_data
 	}
 };
 
-bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
+bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double *Scales, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
 
 
 #endif

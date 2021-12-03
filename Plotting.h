@@ -199,6 +199,23 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 void AggregateData(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, double *Data, aggregation_period IntervalType, aggregation_type AggregationType, timestep_size TimestepSize, std::vector<double> &XValues, std::vector<double> &YValues);
 
 
+inline double MedianOfSorted(double *Data, size_t Size)
+{
+	size_t Idx = Size / 2;
+	if(Size % 2 == 0)
+		return 0.5*(Data[Idx] + Data[Idx+1]);
+	else
+		return Data[Idx];
+}
+
+inline double QuantileOfSorted(double *Data, size_t Size, double Quantile)
+{
+	//TODO: Should we make Quantile interpolate to be more in line with Median?
+	size_t Idx = std::ceil(Quantile * (double)(Size - 1));
+	return Data[Idx];
+}
+
+
 void ComputeTimeseriesStats(timeseries_stats &StatsOut, double *Data, size_t Len, const StatisticsSettings &StatSettings, bool AlreadySorted = false);
 void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, size_t Len);
 void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);

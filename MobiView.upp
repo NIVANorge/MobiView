@@ -17,7 +17,7 @@ file
 	Statistics.cpp,
 	VisualizeBranches.cpp,
 	Plotting.cpp,
-	ModelnfoViewWindow.cpp,
+	ModelInfoViewWindow.cpp,
 	StructureViewWindow.cpp,
 	ChangeIndexesWindow.cpp,
 	EditStatSettingsWindow.cpp,

@@ -7,9 +7,32 @@
 using namespace Upp;
 
 
-typedef bool (*SamplerMove)(double *, int, int, int, int, size_t, mcmc_data *, double (*LogLikelyhood)(void *, int, int), void *);
+//NOTE: Using Box-Muller to draw independent normally distributed variables since u++ doesn't have a random normal distribution, and we don't
+	    //want to use <random> since it is not thread safe.
+void DrawIndependentStandardNormals(double *NormalsOut, int Size)
+{
+	double Z2;
+	for(int Idx = 0; Idx < Size; ++Idx)
+	{
+		if(Idx % 2 == 0)
+		{
+			double U1 = Randomf();
+			double U2 = Randomf();
+			double A = std::sqrt(-2.0*std::log(U1));
+			double Z1 = A*std::cos(2.0*M_PI*U2);
+			       Z2 = A*std::sin(2.0*M_PI*U2);
+			       
+			NormalsOut[Idx] = Z1;
+		}
+		else
+			NormalsOut[Idx] = Z2;
+	}
+}
 
-bool AffineStretchMove(double *SamplerParams, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
+
+typedef bool (*SamplerMove)(double *, double *, int, int, int, int, size_t, mcmc_data *, double (*LogLikelyhood)(void *, int, int), void *);
+
+bool AffineStretchMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
 {
 	/*
@@ -58,38 +81,23 @@ bool AffineStretchMove(double *SamplerParams, int Step, int Walker, int FirstEns
 	return Accepted;
 }
 
-
-bool AffineWalkMove(double *SamplerParams, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
+bool AffineWalkMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
-{
+{	
 	int S0 = (int)SamplerParams[0];
 	
 	bool Accepted = true;
 	
 	double PrevLL = Data->LLValue(Walker, Step-1);
 	
-	//NOTE: Using Box-Muller since u++ doesn't have a random normal distribution, and we don't
-	//want to use <random> since it is not thread safe.
 	double *Z = (double *)malloc(S0*sizeof(double));
 	int    *Ens = (int *)malloc(S0*sizeof(int));
 	
-	double U1, U2, Z1, Z2;
+	DrawIndependentStandardNormals(Z, S0);
+	
+	double Z2;
 	for(int S = 0; S < S0; ++S)
-	{
-		if(S % 2 == 0)
-		{
-			U1 = Randomf();
-			U2 = Randomf();
-			Z1 = std::sqrt(-2.0*std::log(U1))*std::cos(2.0*M_PI*U2);
-			Z2 = std::sqrt(-2.0*std::log(U1))*std::sin(2.0*M_PI*U2);
-			
-			Z[S] = Z1;
-		}
-		else
-			Z[S] = Z2;
-	}
-	for(int S = 0; S < S0; ++S)
-		Ens[S] = (int)Random(S0); // NOTE: Unlike in Differential Evolution, it looks like these are allowed to overlap
+		Ens[S] = (int)Random(S0); // NOTE: Unlike in Differential Evolution, the members of the sub-ensemble could be repeating (or at least I can't see it mentioned in the paper).
 	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
@@ -132,7 +140,7 @@ bool AffineWalkMove(double *SamplerParams, int Step, int Walker, int FirstEnsemb
 	return Accepted;
 }
 
-bool DifferentialEvolutionMove(double *SamplerParams, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
+bool DifferentialEvolutionMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
 {
 	/*
@@ -145,33 +153,44 @@ bool DifferentialEvolutionMove(double *SamplerParams, int Step, int Walker, int 
 	
 	double C = SamplerParams[0];
 	double B = SamplerParams[1];
+	double CR = SamplerParams[2];
 	
-	//TODO: Also implement crossover probability?
+	if(C < 0.0) C = 2.38 / std::sqrt(2.0 * (double)Data->NPars); // Default.
 	
 	bool Accepted = true;
 	
 	double PrevLL = Data->LLValue(Walker, Step-1);
 	
 	int EnsW1 = (int)Random(NEnsemble) + FirstEnsembleWalker;
-	int EnsW2 = EnsW1;
-	while(EnsW2 == EnsW1)
+	int EnsW2;
+	do	
 		EnsW2 = (int)Random(NEnsemble) + FirstEnsembleWalker;
+	while(EnsW2 == EnsW1);
 	
 	for(int Par = 0; Par < Data->NPars; ++Par)
 	{
-		//TODO: Shouldn't BB be scaled relative to the par |max-min| ??
-		double BB = -B + Randomf()*2.0*B; // Uniform [-B, B]
-		
-		double Xr1 = (*Data)(EnsW1, Par, EnsembleStep);
-		double Xr2 = (*Data)(EnsW2, Par, EnsembleStep);
 		double Xk  = (*Data)(Walker, Par, Step-1);
-		(*Data)(Walker, Par, Step) = Xk + C*(Xr1 - Xr2) + BB;
+		
+		double Cross = Randomf();
+		if(Cross <= CR)
+		{
+			double BS = B*Scale[Par];  //Scale relative to |max - min| for the parameter.
+			double BB = -BS + Randomf()*2.0*BS; // Uniform [-BS, BS]
+			
+			double Xr1 = (*Data)(EnsW1, Par, EnsembleStep);
+			double Xr2 = (*Data)(EnsW2, Par, EnsembleStep);
+			
+			(*Data)(Walker, Par, Step) = Xk + C*(Xr1 - Xr2) + BB;
+		}
+		else
+			(*Data)(Walker, Par, Step) = Xk;
 	}
 	
 	double LL = LogLikelyhood(LLFunState, Walker, Step);
 	double R = Randomf();
 	double Q = LL - PrevLL;
-	if(Q < std::log(R))
+	
+	if(Q < std::log(R))  // Reject
 	{
 		for(int Par = 0; Par < Data->NPars; ++Par)
 			(*Data)(Walker, Par, Step) = (*Data)(Walker, Par, Step-1);
@@ -179,17 +198,54 @@ bool DifferentialEvolutionMove(double *SamplerParams, int Step, int Walker, int 
 		LL = PrevLL;
 		Accepted = false;
 	}
-	
 	Data->LLValue(Walker, Step) = LL;
+	
+	return Accepted;
+}
+
+bool MetropolisMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
+	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
+{
+	// Single-chain Metropolis hastings.
+	assert(Data->NWalkers == 1);
+	
+	double B = SamplerParams[0];   // Scale of normal perturbation.
+	
+	double *Perturb = (double *)malloc(sizeof(double)*Data->NPars);
+	DrawIndependentStandardNormals(Perturb, Data->NPars);
+	
+	bool Accepted = true;
+	double PrevLL = Data->LLValue(Walker, Step-1);
+	
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		double Xk  = (*Data)(Walker, Par, Step-1);
+		double P = B*Perturb[Par]*Scale[Par];   // Scale[Par] is a scaling relative to the par |max - min|
+		(*Data)(Walker, Par, Step) = Xk + P;
+	}
+	
+	double LL = LogLikelyhood(LLFunState, Walker, Step);
+	double R = Randomf();
+	double Q = LL - PrevLL;
+	if(Q < std::log(R))  // Reject
+	{
+		for(int Par = 0; Par < Data->NPars; ++Par)
+			(*Data)(Walker, Par, Step) = (*Data)(Walker, Par, Step-1);
+			
+		LL = PrevLL;
+		Accepted = false;
+	}
+	Data->LLValue(Walker, Step) = LL;
+	
+	free(Perturb);
 	return Accepted;
 }
 
 
 
-
 #define MCMC_MULTITHREAD 1
 
-bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep)
+bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double *Scale, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep)
 {
 	SamplerMove Move;
 	switch(Method)
@@ -202,6 +258,9 @@ bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLike
 			break;
 		case MCMCMethod_DifferentialEvolution :
 			Move = DifferentialEvolutionMove;
+			break;
+		case MCMCMethod_MetropolisHastings :
+			Move = MetropolisMove;
 			break;
 		default:
 			assert(!"MCMC method not implemented!");
@@ -228,14 +287,14 @@ bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLike
 		
 #if MCMC_MULTITHREAD
 		for(int Walker = 0; Walker < NEns1; ++Walker)
-			Workers[Walker].Do([=]()->int {return (int)Move(SamplerParams, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);});
+			Workers[Walker].Do([=]()->int {return (int)Move(SamplerParams, Scale, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);});
 		
 		for(int Walker = 0; Walker < NEns1; ++Walker)
 			Data->NAccepted += Workers[Walker].Get();
 			
 #else
 		for(int Walker = 0; Walker < NEns1; ++Walker)
-			Data->NAccepted += (int)Move(SamplerParams, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);
+			Data->NAccepted += (int)Move(SamplerParams, Scale, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns2, Data, LogLikelyhood, LLFunState);
 #endif
 		
 		
@@ -245,15 +304,14 @@ bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double (*LogLike
 
 #if MCMC_MULTITHREAD
 		for(int Walker = NEns1; Walker < Data->NWalkers; ++Walker)
-			Workers[Walker-NEns1].Do([=]()->int {return (int)Move(SamplerParams, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState); });
+			Workers[Walker-NEns1].Do([=]()->int {return (int)Move(SamplerParams, Scale, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState); });
 			
-		//for(auto &Worker : Workers2)
 		for(int Walker = NEns1; Walker < Data->NWalkers; ++Walker)
 			Data->NAccepted += Workers[Walker-NEns1].Get();
 	
 #else
 		for(int Walker = NEns1; Walker < Data->NWalkers; ++Walker)
-			Data->NAccepted += (int)Move(SamplerParams, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState);
+			Data->NAccepted += (int)Move(SamplerParams, Scale, Step, Walker, FirstEnsembleWalker, EnsembleStep, NEns1, Data, LogLikelyhood, LLFunState);
 #endif
 		
 		bool Halt = false;

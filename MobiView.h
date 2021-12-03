@@ -514,6 +514,7 @@ private:
 	AutoScroller        ResidPlotScroll;
 	ParentCtrl          ResidPlotPane;
 	Array<MyPlot>       ResidPlots;
+	Array<MyPlot>       ResidHistograms;
 	
 	AutoScroller        AutoCorrPlotScroll;
 	ParentCtrl          AutoCorrPlotPane;

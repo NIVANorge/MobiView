@@ -142,9 +142,9 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.SamplerParamView.ColumnWidths("3 2 5");
 	
 	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineStretch, "Affine stretch (recommended)");
-	//MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineWalk, "Affine walk");     //NOTE: This
-	//seems to be broken, at least it works very poorly.
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineWalk, "Affine walk");
 	MCMCSetup.SelectSampler.Add((int)MCMCMethod_DifferentialEvolution, "Differential evolution");
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_MetropolisHastings, "Metropolis-Hastings (single chain)");
 	MCMCSetup.SelectSampler.GoBegin();
 	MCMCSetup.SelectSampler.WhenAction << THISBACK(SamplerMethodSelected);
 	SamplerMethodSelected(); //To set the sampler parameters for the initial selection
@@ -663,9 +663,14 @@ void OptimizationWindow::SamplerMethodSelected()
 		
 		case MCMCMethod_DifferentialEvolution :
 		{
-			MCMCSetup.SamplerParamView.Add("\u03B3", 0.1, "Stretch factor. Should be about 2.38/sqrt(2*dim)");
-			MCMCSetup.SamplerParamView.Add("b", 1e-4, "Max. random walk step");
-			//TODO: Crossover probability
+			MCMCSetup.SamplerParamView.Add("\u03B3", -1.0, "Stretch factor. If negative, will be set to default of 2.38/sqrt(2*dim)");
+			MCMCSetup.SamplerParamView.Add("b", 1e-3, "Max. random walk step (multiplied by |max - min| for each par.)");
+			MCMCSetup.SamplerParamView.Add("CR", 1.0, "Crossover probability");
+		} break;
+		
+		case MCMCMethod_MetropolisHastings :
+		{
+			MCMCSetup.SamplerParamView.Add("b", 0.02, "Std. dev. of random walk step (multiplied by |max - min| for each par.)");
 		} break;
 	}
 	
@@ -1014,10 +1019,11 @@ double MCMCLogLikelyhoodEval(void *RunData, int Walker, int Step)
 	return RunData0->Model->EvaluateObjectives(RunData0->DataSets[Walker], Pars);
 }
 
-bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers, size_t NSteps, optimization_model *OptimModel,
+bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *SamplerParams, size_t NWalkers0, size_t NSteps, optimization_model *OptimModel,
 	double *InitialValue, double *MinBound, double *MaxBound, int InitialType, int CallbackInterval, int RunType)
 {
 	size_t NPars = OptimModel->FreeParCount;
+	size_t NWalkers = NWalkers0;
 	
 	int InitialStep = 0;
 	{
@@ -1025,6 +1031,12 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 		
 		MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
 		ResultWin->ClearPlots();
+		
+		if(Method == MCMCMethod_MetropolisHastings)
+		{
+			NWalkers = 1; //TODO: Could also run independent samples in parallel??
+			ParentWindow->Log("Warning: Metropolis-Hastings can only run with one chain, ignoring the set number of walkers");
+		}
 		
 		if(RunType == 2) // NOTE RunType==2 means extend the previous run.
 		{
@@ -1111,6 +1123,13 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 	
 	ParentWindow->ProcessEvents();
 	
+	std::vector<double> Scales(NPars);
+	for(int Par = 0; Par < NPars; ++Par)
+	{
+		Scales[Par] = MaxBound[Par] - MinBound[Par];
+		assert(Scales[Par] >= 0.0);
+	}
+	
 	mcmc_run_data RunData;
 	RunData.Model = OptimModel;
 	RunData.Data  = &Data;
@@ -1128,7 +1147,7 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 	
 	//TODO: We have to check the SamplerParams for correctness somehow!
 	
-	bool Finished = RunMCMC(Method, SamplerParams, MCMCLogLikelyhoodEval, (void *)&RunData, &Data, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
+	bool Finished = RunMCMC(Method, SamplerParams, Scales.data(), MCMCLogLikelyhoodEval, (void *)&RunData, &Data, MCMCCallbackFun, (void *)&CallbackData, CallbackInterval, InitialStep);
 	
 	for(int Walker = 0; Walker < NWalkers; ++Walker)
 		ParentWindow->ModelDll.DeleteDataSet(RunData.DataSets[Walker]);

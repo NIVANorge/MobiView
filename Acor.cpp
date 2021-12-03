@@ -5,9 +5,7 @@
 #include "MCMC.h"
 #include "Acor.h"
 
-
 //NOTE: Code adapted from python,  https://github.com/dfm/emcee/blob/main/src/emcee/autocorr.py
-//NOTE: Code is neither finished nor tested!!
 
 int NextPow2(int N)
 {
