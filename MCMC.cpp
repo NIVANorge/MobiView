@@ -206,8 +206,7 @@ bool DifferentialEvolutionMove(double *SamplerParams, double *Scale, int Step, i
 bool MetropolisMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
 {
-	// Single-chain Metropolis hastings.
-	assert(Data->NWalkers == 1);
+	// Metropolis-Hastings (single chain).
 	
 	double B = SamplerParams[0];   // Scale of normal perturbation.
 	
@@ -241,6 +240,35 @@ bool MetropolisMove(double *SamplerParams, double *Scale, int Step, int Walker, 
 	return Accepted;
 }
 
+
+void DrawLatinHyperCubeSamples(mcmc_data *Data, double *MinBound, double *MaxBound)
+{
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		double Span = (MaxBound[Par] - MinBound[Par]);
+		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
+			(*Data)(0, Par, Sample) = MinBound[Par] + Span * (((double)Sample + Randomf()) / ((double)Data->NSteps));
+		
+		// Shuffle
+		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
+		{
+			int Swap = Random(Data->NSteps);
+			double Temp = (*Data)(0, Par, Sample);
+			(*Data)(0, Par, Sample) = (*Data)(0, Par, Swap);
+			(*Data)(0, Par, Swap) = Temp;
+		}
+	}
+}
+
+void DrawUniformSamples(mcmc_data *Data, double *MinBound, double *MaxBound)
+{
+	for(int Par = 0; Par < Data->NPars; ++Par)
+	{
+		double Span = (MaxBound[Par] - MinBound[Par]);
+		for(int Sample = 0; Sample < Data->NSteps; ++Sample)
+			(*Data)(0, Par, Sample) = MinBound[Par] + Randomf()*Span;
+	}
+}
 
 
 #define MCMC_MULTITHREAD 1

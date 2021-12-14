@@ -117,6 +117,8 @@ struct mcmc_data
 	}
 };
 
+void DrawLatinHyperCubeSamples(mcmc_data *Data, double *MinBound, double *MaxBound);
+void DrawUniformSamples(mcmc_data *Data, double *MinBound, double *MaxBound);
 bool RunMCMC(mcmc_sampler_method Method, double *SamplerParams, double *Scales, double (*LogLikelyhood)(void *, int, int), void *LLFunState, mcmc_data *Data, bool (*Callback)(void *, int), void *CallbackState, int CallbackInterval, int InitialStep);
 
 

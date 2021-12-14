@@ -34,7 +34,7 @@ void DisplayStat(String ValName, double Val, String &Display, bool &TrackedFirst
 	Display << ValName << "::@W " << FormatDouble(Val, Precision);
 }
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col)
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col, bool ShowInitialValue)
 {
 	int Precision = StatSettings.Precision;
 	
@@ -59,6 +59,8 @@ void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit,
 	#undef SET_RES_SETTING
 	
 	DisplayStat("data points", Stats.DataPoints, Display, TrackedFirst, Precision);
+	if(ShowInitialValue)
+		DisplayStat("initial value", Stats.InitialValue, Display, TrackedFirst, Precision);
 	Display << "}}&";
 	
 	PlotInfo.Append(Display);

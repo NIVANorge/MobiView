@@ -346,6 +346,9 @@ MobiView::MobiView() : Plotter(this)
 	Value BFIJson = StatsJson["BFIParam"];
 	if(!IsNull(BFIJson))
 		StatSettings.EckhardtFilterParam = (double)BFIJson;
+	Value ShowInitial = StatsJson["ShowInitial"];
+	if(!IsNull(ShowInitial))
+		StatSettings.ShowInitialValue = (bool)ShowInitial;
 
 	Value IdxEditWindowDim = SettingsJson["Index set editor window dimensions"];
 	if(IdxEditWindowDim.GetCount() == 2 && (int)IdxEditWindowDim[0] > 0 && (int)IdxEditWindowDim[1] > 0)
@@ -588,6 +591,7 @@ void MobiView::StoreSettings(bool OverwriteFavorites)
 	
 	Statistics("Precision", StatSettings.Precision);
 	Statistics("BFIParam", StatSettings.EckhardtFilterParam);
+	Statistics("ShowInitial", StatSettings.ShowInitialValue);
 	
 	SettingsJson("Statistics", Statistics);
 	

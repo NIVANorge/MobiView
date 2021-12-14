@@ -378,7 +378,7 @@ private:
 		int CallbackInterval, int RunType);
 		
 		
-	bool RunVarianceBasedSensitivity(int NSamples, optimization_model *Optim, double *MinBound, double *MaxBound);
+	bool RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound);
 	
 	
 	Array<EditDoubleNotNull> EditMinCtrls;

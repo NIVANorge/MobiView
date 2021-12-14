@@ -141,10 +141,10 @@ OptimizationWindow::OptimizationWindow()
 	MCMCSetup.SamplerParamView.AddColumn("Description");
 	MCMCSetup.SamplerParamView.ColumnWidths("3 2 5");
 	
-	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineStretch, "Affine stretch (recommended)");
-	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineWalk, "Affine walk");
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineStretch,         "Affine stretch (recommended)");
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_AffineWalk,            "Affine walk");
 	MCMCSetup.SelectSampler.Add((int)MCMCMethod_DifferentialEvolution, "Differential evolution");
-	MCMCSetup.SelectSampler.Add((int)MCMCMethod_MetropolisHastings, "Metropolis-Hastings (single chain)");
+	MCMCSetup.SelectSampler.Add((int)MCMCMethod_MetropolisHastings,    "Metropolis-Hastings (independent chains)");
 	MCMCSetup.SelectSampler.GoBegin();
 	MCMCSetup.SelectSampler.WhenAction << THISBACK(SamplerMethodSelected);
 	SamplerMethodSelected(); //To set the sampler parameters for the initial selection
@@ -155,6 +155,10 @@ OptimizationWindow::OptimizationWindow()
 	SensitivitySetup.PushViewResults.WhenPush = [&]() {	if(!ParentWindow->VarSensitivityWin.IsOpen()) ParentWindow->VarSensitivityWin.Open(); };
 	SensitivitySetup.PushRun.SetImage(IconImg4::Run());
 	SensitivitySetup.PushViewResults.SetImage(IconImg4::ViewMorePlots());
+	
+	SensitivitySetup.SelectMethod.Add(0, "Latin hypercube");
+	SensitivitySetup.SelectMethod.Add(1, "Independent uniform");
+	SensitivitySetup.SelectMethod.GoBegin();
 	
 	AddFrame(Tool);
 	Tool.Set(THISBACK(SubBar));
@@ -310,7 +314,7 @@ void OptimizationWindow::AddVirtualClicked()
 void OptimizationWindow::AddGroupClicked()
 {
 	int RowCount = ParentWindow->Params.ParameterView.GetCount();
-	//PromptOK(Format("Row count %d", RowCount));
+	
 	for(int Row = 0; Row < RowCount; ++Row)
 	{
 		indexed_parameter Parameter = ParentWindow->GetParameterAtRow(Row);
@@ -1032,12 +1036,6 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 		MCMCResultWindow *ResultWin = &ParentWindow->MCMCResultWin;
 		ResultWin->ClearPlots();
 		
-		if(Method == MCMCMethod_MetropolisHastings)
-		{
-			NWalkers = 1; //TODO: Could also run independent samples in parallel??
-			ParentWindow->Log("Warning: Metropolis-Hastings can only run with one chain, ignoring the set number of walkers");
-		}
-		
 		if(RunType == 2) // NOTE RunType==2 means extend the previous run.
 		{
 			if(Data.NSteps == 0)
@@ -1159,7 +1157,7 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 
 
 
-bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_model *Optim, double *MinBound, double *MaxBound)
+bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, optimization_model *Optim, double *MinBound, double *MaxBound)
 {
 	
 	int ProgressInterval = 50; //TODO: Make the caller set this.
@@ -1168,6 +1166,7 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	if(!SensWin.IsOpen()) SensWin.Open();
 	
 	SensWin.Plot.ClearAll(true);
+	SensWin.Plot.SetLabels("Combined statistic", "Frequency");
 	
 	SensWin.ShowProgress.Show();
 	SensWin.ResultData.Clear();
@@ -1180,25 +1179,43 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	
 	int NPars = Optim->FreeParCount;
 	
-	std::vector<double> matA(NSamples*NPars);
-	std::vector<double> matB(NSamples*NPars);
+	//NOTE: We re-appropriate the MCMC data for use here.
+	mcmc_data MatA;
+	mcmc_data MatB;
+	MatA.Allocate(1, NPars, NSamples);
+	MatB.Allocate(1, NPars, NSamples);
 	
+	if(Method == 0)
+	{
+		DrawLatinHyperCubeSamples(&MatA, MinBound, MaxBound);
+		DrawLatinHyperCubeSamples(&MatB, MinBound, MaxBound);
+	}
+	else if(Method == 1)
+	{
+		DrawUniformSamples(&MatA, MinBound, MaxBound);
+		DrawUniformSamples(&MatB, MinBound, MaxBound);
+	}
+	/*
 	std::mt19937_64 Generator;
-	
-	for(int J = 0; J < NSamples; ++J)
-		for(int I = 0; I < NPars; ++I)
+	for(int Sample = 0; Sample < NSamples; ++Sample)
+		for(int Par = 0; Par < NPars; ++Par)
 		{
-			std::uniform_real_distribution<double> Distr(MinBound[I], MaxBound[I]);
-			matA[J*NPars + I] = Distr(Generator);
+			std::uniform_real_distribution<double> Distr(MinBound[Par], MaxBound[Par]);
+			MatA(0, Par, Sample) = Distr(Generator);
 		}
 	
-	for(int J = 0; J < NSamples; ++J)
-		for(int I = 0; I < NPars; ++I)
+	for(int Sample = 0; Sample < NSamples; ++Sample)
+		for(int Par = 0; Par < NPars; ++Par)
 		{
-			std::uniform_real_distribution<double> Distr(MinBound[I], MaxBound[I]);
-			matB[J*NPars + I] = Distr(Generator);
+			std::uniform_real_distribution<double> Distr(MinBound[Par], MaxBound[Par]);
+			MatB(0, Par, Sample) = Distr(Generator);
 		}
+	*/
 	
+	
+	
+	//NOTE This is a bit wasteful since we already allocated storage for result data in the
+	//mcmc_data. But it is very convenient to have these in one large vector below ...
 	std::vector<double> f0(NSamples*2);
 	double *fA = f0.data();
 	double *fB = fA + NSamples;
@@ -1219,20 +1236,20 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	{
 		for(int Worker = 0; Worker < NWorkers; ++Worker)
 		{
-			int J = SuperSample*NWorkers + Worker;
-			if(J >= NSamples) break;
-			Workers[Worker].Do([=, & matA, & matB, & fA, & fB, &DataSets] () -> double {
+			int Sample = SuperSample*NWorkers + Worker;
+			if(Sample >= NSamples) break;
+			Workers[Worker].Do([=, & MatA, & MatB, & fA, & fB, &DataSets] () -> double {
 				column_vector Pars(NPars);
-				for(int I = 0; I < NPars; ++I)
-					Pars(I) = matA[J*NPars + I];
+				for(int Par = 0; Par < NPars; ++Par)
+					Pars(Par) = MatA(0, Par, Sample);
 				
-				fA[J] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
+				fA[Sample] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
 		
+				for(int Par = 0; Par < NPars; ++Par)
+					Pars(Par) = MatB(0, Par, Sample);
 				
-				for(int I = 0; I < NPars; ++I)
-					Pars(I) = matB[J*NPars + I];
+				fB[Sample] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
 				
-				fB[J] = Optim->EvaluateObjectives(DataSets[Worker], Pars);
 				return 0.0; //NOTE: Just to be able to reuse the same workers. we have them returning double
 			});
 		}
@@ -1269,15 +1286,15 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 		{
 			for(int Worker = 0; Worker < NWorkers; ++Worker)
 			{
-				int J = SuperSample*NWorkers + Worker;
-				if(J >= NSamples) break;
+				int Sample = SuperSample*NWorkers + Worker;
+				if(Sample >= NSamples) break;
 				
-				Workers[Worker].Do([=, & matA, & matB, & DataSets] () -> double {
+				Workers[Worker].Do([=, & MatA, & MatB, & DataSets] () -> double {
 					column_vector Pars(NPars);
 					for(int II = 0; II < NPars; ++II)
 					{
-						if(II == I) Pars(II) = matB[J*NPars + II];
-						else        Pars(II) = matA[J*NPars + II];
+						if(II == I) Pars(II) = MatB(0, II, Sample);//matB[Sample*NPars + II];
+						else        Pars(II) = MatA(0, II, Sample);//matA[Sample*NPars + II];
 					}
 					return Optim->EvaluateObjectives(DataSets[Worker], Pars);
 				});
@@ -1314,9 +1331,12 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, optimization_
 	for(int Worker = 0; Worker < NWorkers; ++Worker)
 		ParentWindow->ModelDll.DeleteDataSet(DataSets[Worker]);
 	
+	MatA.Free();
+	MatB.Free();
+	
 	return true;
 	
-	#undef DO_PROGRESS
+//	#undef DO_PROGRESS
 }
 
 VarianceSensitivityWindow::VarianceSensitivityWindow()
@@ -1330,6 +1350,8 @@ VarianceSensitivityWindow::VarianceSensitivityWindow()
 	ResultData.AddColumn("__par", "Parameter");
 	ResultData.AddColumn("__main", "First-order sensitivity coefficient");
 	ResultData.AddColumn("__total", "Total effect index");
+	
+	Plot.SetLabels("Combined statistic", "Frequency");
 }
 
 
@@ -1774,6 +1796,7 @@ void OptimizationWindow::RunClicked(int RunType)
 	else if(RunType == 3)
 	{
 		int NSamples = SensitivitySetup.EditSampleSize.GetData();
+		int Method   = SensitivitySetup.SelectMethod.GetData();
 		
 		int NPars = OptimizationModel.FreeParCount;
 		std::vector<double> MinVals(NPars);
@@ -1793,7 +1816,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		auto BeginTime = std::chrono::system_clock::now();
 		
-		RunVarianceBasedSensitivity(NSamples, &OptimizationModel, MinVals.data(), MaxVals.data());
+		RunVarianceBasedSensitivity(NSamples, Method, &OptimizationModel, MinVals.data(), MaxVals.data());
 		
 		auto EndTime = std::chrono::system_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
@@ -1955,10 +1978,10 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	if(!IsNull(InitType))
 		MCMCSetup.InitialTypeSwitch.SetData(InitType);
 	
-	Value Method = SetupJson["Sampler"];
-	if(!IsNull(Method))
+	Value Sampler = SetupJson["Sampler"];
+	if(!IsNull(Sampler))
 	{
-		int Key = MCMCSetup.SelectSampler.FindValue(Method);
+		int Key = MCMCSetup.SelectSampler.FindValue(Sampler);
 		MCMCSetup.SelectSampler.SetData(Key);
 	}
 	SamplerMethodSelected();
@@ -1969,10 +1992,16 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 			MCMCSetup.SamplerParamView.Set(Par, 1, (double)SamplerPars[Par]);
 	}
 	
-	
 	Value NSamples = SetupJson["Samples"];
 	if(!IsNull(NSamples))
 		SensitivitySetup.EditSampleSize.SetData(NSamples);
+	
+	Value Method = SetupJson["Method"];
+	if(!IsNull(Method))
+	{
+		int Key = SensitivitySetup.SelectMethod.FindValue(Method);
+		SensitivitySetup.SelectMethod.SetData(Key);
+	}
 	
 	Value RunType  = SetupJson["RunType"];
 	if(!IsNull(RunType))
@@ -2146,8 +2175,8 @@ String OptimizationWindow::SaveToJsonString()
 	int InitType = MCMCSetup.InitialTypeSwitch.GetData();
 	MainFile("InitType", InitType);
 	
-	String Method = MCMCSetup.SelectSampler.GetValue();
-	MainFile("Sampler", Method);
+	String Sampler = MCMCSetup.SelectSampler.GetValue();
+	MainFile("Sampler", Sampler);
 	JsonArray SamplerPars;
 	for(int Row = 0; Row < MCMCSetup.SamplerParamView.GetCount(); ++Row)
 		SamplerPars << MCMCSetup.SamplerParamView.Get(Row, 1);
@@ -2158,6 +2187,9 @@ String OptimizationWindow::SaveToJsonString()
 	
 	int NSamples = SensitivitySetup.EditSampleSize.GetData();
 	MainFile("Samples", NSamples);
+	
+	String Method = SensitivitySetup.SelectMethod.GetValue();
+	MainFile("Method", Method);
 	
 	JsonArray TargetArr;
 	

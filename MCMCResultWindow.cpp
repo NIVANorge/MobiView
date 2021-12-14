@@ -51,7 +51,7 @@ MCMCResultWindow::MCMCResultWindow()
 
 	ViewProjections.Confidence.MinMax(0.0, 100.0).SetData(95.0);
 	ViewProjections.PlotSelectTab.Add(ProjectionPlotScroll.SizePos(), "Confidence interval");
-	ViewProjections.PlotSelectTab.Add(ResidPlotScroll.SizePos(), "Meadian residuals");
+	ViewProjections.PlotSelectTab.Add(ResidPlotScroll.SizePos(), "Median residuals");
 	ViewProjections.PlotSelectTab.Add(AutoCorrPlotScroll.SizePos(), "Median residual autocorr.");
 	
 

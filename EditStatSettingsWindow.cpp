@@ -43,6 +43,7 @@ void EditStatSettingsWindow::LoadData()
 	
 	PrecisionEdit.SetData(Stat.Precision);
 	EckhardtEdit.SetData(Stat.EckhardtFilterParam);
+	ShowInitial.SetData(Stat.ShowInitialValue);
 }
 
 void EditStatSettingsWindow::SaveDataAndClose()
@@ -64,6 +65,7 @@ void EditStatSettingsWindow::SaveDataAndClose()
 	
 	Stat.Precision = PrecisionEdit.GetData();
 	Stat.EckhardtFilterParam = EckhardtEdit.GetData();
+	Stat.ShowInitialValue = ShowInitial.GetData();
 	
 	if(Success && Percentiles.size() >= 1)
 	{

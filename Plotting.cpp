@@ -134,6 +134,7 @@ void PlotCtrl::GatherCurrentPlotSetup(plot_setup &C)
 		C.ScatterInputs = ScatterInputs.Get();
 	else
 		C.ScatterInputs = false;
+
 	
 	if(!Parent->ModelDll.IsLoaded() || !Parent->DataSet) return;
 	
@@ -1512,7 +1513,11 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		
 		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max, Null, MajorMode);
 		
-		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo, Col);
+		bool ShowInitial = Parent->StatSettings.ShowInitialValue && (MajorMode == MajorMode_Regular);
+		if(ShowInitial)
+			Stats.InitialValue = Parent->ModelDll.GetResultInitialValue(Parent->DataSet, Name.data(), IndexData, Indexes.size());
+		
+		DisplayTimeseriesStats(Stats, Legend, Unit, Parent->StatSettings, PlotInfo, Col, ShowInitial);
 	}
 	else
 	{

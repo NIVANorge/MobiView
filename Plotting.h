@@ -53,6 +53,7 @@ struct timeseries_stats
 {
 	#include "SetStatSettings.h"
 	
+	double InitialValue;
 	std::vector<double> Percentiles;
 	size_t DataPoints;
 };
@@ -111,6 +112,8 @@ struct StatisticsSettings
 	#include "SetStatSettings.h"
 	
 	std::vector<double> Percentiles = {2.5, 5.0, 15.0, 25.0, 50.0, 75.0, 85.0, 95.0, 97.5};
+	
+	bool ShowInitialValue;
 	
 	int Precision = 5;
 	double EckhardtFilterParam = 0.925;
@@ -221,7 +224,7 @@ void ComputeResidualStats(residual_stats &StatsOut, double *Obs, double *Mod, si
 void ComputeTrendStats(double *XData, double *YData, size_t Len, double YMean, double &XMeanOut, double &XVarOut, double &XYCovarOut);
 
 
-void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0));
+void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col = Color(0, 0, 0), bool ShowInitialValue = false);
 void DisplayResidualStats(residual_stats &Stats, residual_stats &CachedStats, String &Name, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, bool DisplayChange);
 
 void SetBetterGridLinePositions(ScatterDraw &Scatter, int Dim);

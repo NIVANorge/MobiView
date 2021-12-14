@@ -22,6 +22,7 @@ DLL_FUNCTION(void,         GetNextStartDate,                 void *DataSetPtr, c
 DLL_FUNCTION(uint64_t,     GetInputTimesteps,                void *DataSetPtr)
 DLL_FUNCTION(void,         GetInputStartDate,                void *DataSetPtr, char *DateOut)
 DLL_FUNCTION(void,         GetResultSeries,                  void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double *WriteTo)
+DLL_FUNCTION(double,       GetResultInitialValue,            void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount)
 DLL_FUNCTION(void,         GetInputSeries,                   void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double *WriteTo, bool AlignWithResults)
 DLL_FUNCTION(void,         SetParameterDouble,               void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, double Value)
 DLL_FUNCTION(void,         SetParameterUInt,                 void *DataSetPtr, const char *Name, char **IndexNames, uint64_t IndexCount, uint64_t Value)
