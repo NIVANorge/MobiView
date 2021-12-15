@@ -1513,7 +1513,7 @@ void MyPlot::AddPlotRecursive(MobiView *Parent, MyRichView &PlotInfo, std::strin
 		
 		Color Col = AddPlot(Legend, Unit, XIn, Dat, Len, IsInput, ReferenceDate, StartDate, Parent->TimestepSize, Stats.Min, Stats.Max, Null, MajorMode);
 		
-		bool ShowInitial = Parent->StatSettings.ShowInitialValue && (MajorMode == MajorMode_Regular);
+		bool ShowInitial = !IsInput && Parent->StatSettings.ShowInitialValue && (MajorMode == MajorMode_Regular);
 		if(ShowInitial)
 			Stats.InitialValue = Parent->ModelDll.GetResultInitialValue(Parent->DataSet, Name.data(), IndexData, Indexes.size());
 		
