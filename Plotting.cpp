@@ -1967,9 +1967,7 @@ void MyPlot::ClearAll(bool FullClear)
 void AdvanceTimesteps(Time &T, uint64 Timesteps, timestep_size TimestepSize)
 {
 	if(TimestepSize.Type == 0)  //Timestep magnitude measured in seconds.
-	{
 		T += ((int64)Timesteps)*((int64)TimestepSize.Magnitude);
-	}
 	else                        //Timestep magnitude measured in months.
 	{
 		int Month = (int)T.month + (int)Timesteps*TimestepSize.Magnitude;  //NOTE: Can't use T.month directly here since it is 8-bit and will overflow.
@@ -1988,13 +1986,9 @@ int64 TimestepsBetween(const Time &T1, const Time &T2, timestep_size TimestepSiz
 	//timestep exactly. So that should be ensured by the caller!
 	
 	if(TimestepSize.Type == 0)   //Timestep magnitude measured in seconds.
-	{
 		return (T2 - T1) / TimestepSize.Magnitude;
-	}
 	else                         //Timestep magnitude measured in months.
-	{
 		return ((T2.year - T1.year)*12 + T2.month - T1.month) / TimestepSize.Magnitude;
-	}
 }
 
 int GetSmallestStepResolution(aggregation_period IntervalType, timestep_size TimestepSize)
@@ -2031,9 +2025,7 @@ void ComputeXValues(Time &ReferenceTime, Time &StartTime, uint64 Timesteps, time
 	if(TimestepSize.Type == 0)        //Timestep magnitude measured in seconds.
 	{
 		for(size_t Idx = 0; Idx < Timesteps; ++Idx)
-		{
 			WriteX[Idx] = (double)(StartTime - ReferenceTime) + (double)Idx*(double)TimestepSize.Magnitude;
-		}
 	}
 	else                              //Timestep magnitude measured in months.
 	{
@@ -2097,13 +2089,9 @@ void MobiView::GetSingleResultSeries(plot_setup &PlotSetup, void *DataSet, std::
 		size_t Id = IndexSetNameToId[IndexSet];
 		
 		if(Id == SelectRowFor)
-		{
 			Indexes[Idx] = (char *)Row.data();
-		}
 		else
-		{
 			Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
-		}
 	}
 	
 	ModelDll.GetResultSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo);
@@ -2125,13 +2113,9 @@ void MobiView::GetSingleInputSeries(plot_setup &PlotSetup, void *DataSet, std::s
 		size_t Id = IndexSetNameToId[IndexSet];
 		
 		if(Id == SelectRowFor)
-		{
 			Indexes[Idx] = (char *)Row.data();
-		}
 		else
-		{
 			Indexes[Idx] = (char *)PlotSetup.SelectedIndexes[Id][0].data();
-		}
 	}
 	
 	ModelDll.GetInputSeries(DataSet, Name.data(), Indexes.data(), Indexes.size(), WriteTo, false);
@@ -2217,9 +2201,7 @@ void MobiView::GetResultDataRecursive(std::string &Name, std::vector<char *> &In
 	{
 		std::vector<char *> Indexes(CurrentIndexes.size());
 		for(size_t Idx = 0; Idx < CurrentIndexes.size(); ++Idx)
-		{
 			Indexes[Idx] = (char *)CurrentIndexes[Idx].data();
-		}
 		char **IndexData = Indexes.data();
 		if(CurrentIndexes.size() == 0) IndexData = nullptr;
 		

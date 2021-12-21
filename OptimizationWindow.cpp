@@ -1672,6 +1672,15 @@ void OptimizationWindow::RunClicked(int RunType)
 	MCMCSetup.PushExtendRun.Disable();
 	SensitivitySetup.PushRun.Disable();
 	
+	#define END_CLEANUP() \
+	RunSetup.PushRun.Enable(); \
+	MCMCSetup.PushRun.Enable(); \
+	if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable(); \
+	SensitivitySetup.PushRun.Enable(); \
+	RunSetup.ProgressLabel.SetText(""); \
+	SetError("");
+	
+	
 	if(RunType == 0)
 	{
 		dlib::function_evaluation InitialEval;
@@ -1726,7 +1735,10 @@ void OptimizationWindow::RunClicked(int RunType)
 					Duration, NewScore, InitialScore));
 				ParentWindow->RunModel();  // We call the RunModel function of the ParentWindow instead of doing it directly on the dll so that plots etc. are updated.
 			}
+			
+			END_CLEANUP();
 		});
+
 	}
 	else if(RunType == 1 || RunType == 2)
 	{
@@ -1790,7 +1802,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			
 			MCMCSetup.PushExtendRun.Enable();
 			
-			
+		END_CLEANUP()
 		//});
 	}
 	else if(RunType == 3)
@@ -1821,15 +1833,9 @@ void OptimizationWindow::RunClicked(int RunType)
 		auto EndTime = std::chrono::system_clock::now();
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 		ParentWindow->Log(Format("Variance based sensitivity sampling finished after %g seconds.", Duration));
+		
+		END_CLEANUP()
 	}
-	
-	RunSetup.PushRun.Enable();
-	MCMCSetup.PushRun.Enable();
-	if(PushExtendEnabled) MCMCSetup.PushExtendRun.Enable();
-	SensitivitySetup.PushRun.Enable();
-	
-	RunSetup.ProgressLabel.SetText("");
-	SetError("");
 }
 
 void OptimizationWindow::TabChange()

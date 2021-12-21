@@ -146,18 +146,14 @@ void AdditionalPlotView::BuildAll(bool CausedByReRun)
 void AdditionalPlotView::ClearAll()
 {
 	for(int Row = 0; Row < MAX_ADDITIONAL_PLOTS; ++Row)
-	{
 		Plots[Row].Plot.ClearAll();
-	}
 }
 
 void AdditionalPlotView::SetAll(std::vector<plot_setup> &Setups)
 {
 	int Count = std::min((int)MAX_ADDITIONAL_PLOTS, (int)Setups.size());
 	for(int Row = 0; Row < Count; ++Row)
-	{
 		Plots[Row].Plot.PlotSetup = Setups[Row];
-	}
 	EditNumRows.SetData(Count);
 	NumRowsChanged(true);	
 }
@@ -310,9 +306,7 @@ void DeserializePlotSetup(ValueMap &SetupJson, plot_setup &Setup, MobiView *Pare
 			if(!IsNull(Indexes))
 			{
 				for(String Index : Indexes)
-				{
 					Setup.SelectedIndexes[IndexSet].push_back(Index.ToStd());
-				}
 			}
 		}
 	}

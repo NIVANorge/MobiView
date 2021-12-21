@@ -76,9 +76,7 @@ void EditStatSettingsWindow::SaveDataAndClose()
 		ParentWindow->PlotRebuild(); // To reflect the new settings!
 	}
 	else
-	{
 		PromptOK("The percentiles has to be a comma-separated list of numeric values between 0 and 100, containing at least one value.");
-	}
 }
 
 bool EditStatSettingsWindow::ParseDoubleList(String &ListStr, std::vector<double> &Result)
