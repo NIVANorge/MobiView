@@ -56,6 +56,8 @@ MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, 
 	Vector<int> Selected = ParameterGroupSelecter.GetSel();
 	if(Selected.size() == 0) return false;
 	
+	if(!ModelDll.IsLoaded()) return false;
+	
 	//NOTE: Only one group can be selected at a time.
 	GroupNameOut = ParameterGroupSelecter.Get(Selected[0]).ToString();
 	std::string SelectedGroupName = GroupNameOut.ToStd();

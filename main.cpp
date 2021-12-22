@@ -628,6 +628,8 @@ void MobiView::CleanInterface()
 	Plotter.MainPlot.ClearAll();
 	OtherPlots.ClearAll();
 	
+	PlotInfo.Clear();
+	
 	OptimizationWin.ClearAll();
 }
 
