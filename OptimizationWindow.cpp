@@ -1643,9 +1643,7 @@ void OptimizationWindow::RunClicked(int RunType)
 	
 	double InitialScore;
 	if(RunType == 0)
-	{
 		InitialScore = OptimizationModel(InitialPars);
-	}
 	else
 	{
 		void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
@@ -1836,6 +1834,8 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		END_CLEANUP()
 	}
+	
+	#undef END_CLEANUP
 }
 
 void OptimizationWindow::TabChange()
