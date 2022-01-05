@@ -1141,6 +1141,13 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 					s = FormatDoubleExp(pow(10., d), 2);
 				};
 			}
+			else
+			{
+				this->cbModifFormatY << [](String &s, int i, double d)
+				{
+					s = FormatDouble(d, 2, FD_REL);
+				};
+			}
 
 			//if(PlotMajorMode != MajorMode_QQ) 
 			SetBetterGridLinePositions(*this, 1);
