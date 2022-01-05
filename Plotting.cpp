@@ -1134,6 +1134,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 		if(PlotMajorMode != MajorMode_Profile2D)
 		{
 			this->cbModifFormatY.Clear();
+			this->cbModifFormatYGridUnits.Clear();
 			if(this->PlotSetup.YAxisMode == YAxis_Logarithmic)
 			{
 				this->cbModifFormatY << [](String &s, int i, double d)
@@ -1143,7 +1144,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 			}
 			else
 			{
-				this->cbModifFormatY << [](String &s, int i, double d)
+				this->cbModifFormatYGridUnits << [](String &s, int i, double d)
 				{
 					s = FormatDouble(d, 2, FD_REL);
 				};
