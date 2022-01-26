@@ -893,7 +893,8 @@ void MobiView::Load()
 	}
 
 	FileSel InputSel;
-	InputSel.Type("Input dat files", "*.dat");
+	InputSel.Type("Input .dat or spreadsheet files", "*.dat *.xls *.xlsx");
+
 	if(!ChangedDll && !PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
 		InputSel.PreSelect(PreviouslyLoadedInputFile);
 	else
@@ -935,15 +936,26 @@ void MobiView::Load()
 	
 	Log(Format("Selecting parameter file: %s", ParameterFile.data()));
 
-	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
+	Success = false;
+
+	String InputExt = GetFileExt(InputFile.data());
 	
-	if(CheckDllUserError())
+	//if(InputExt == ".xls" || InputExt == ".xlsx")
+	//{
+	//	Success = LoadFromExcel(this, ParameterFile.data(), InputFile.data());
+	//}
+	//else
+	//{
+	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
+	Success = !CheckDllUserError();
+	//}
+	
+	if(!Success)
 	{
 		ModelDll.UnLoad();
 		StoreSettings(false); // So that it still remembers what files you selected for your next attempt at loading.
 		return;
 	}
-
 	
 	BuildInterface();
 	

@@ -535,7 +535,7 @@ public :
 };
 
 
-
+//bool LoadFromExcel(MobiView *Parent, const char *ParFile, const char *Infile);
 
 
 

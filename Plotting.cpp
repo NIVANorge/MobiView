@@ -1091,7 +1091,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 				};
 			}
 			
-			//NOTE: Format to be displayed at popup or data table
+			//NOTE: Format to be displayed at data table
 			if(DoStep == 0 || DoStep == 1 || DoStep == 2)
 			{
 				this->cbModifFormatX << [this, InputStartTime](String &s, int i, double d)
@@ -1137,7 +1137,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 			this->cbModifFormatYGridUnits.Clear();
 			if(this->PlotSetup.YAxisMode == YAxis_Logarithmic)
 			{
-				this->cbModifFormatY << [](String &s, int i, double d)
+				this->cbModifFormatYGridUnits << [](String &s, int i, double d)
 				{
 					s = FormatDoubleExp(pow(10., d), 2);
 				};
@@ -1150,7 +1150,6 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 				};
 			}
 
-			//if(PlotMajorMode != MajorMode_QQ) 
 			SetBetterGridLinePositions(*this, 1);
 		}
 

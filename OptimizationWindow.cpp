@@ -1800,7 +1800,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			
 			MCMCSetup.PushExtendRun.Enable();
 			
-		END_CLEANUP()
+		END_CLEANUP();
 		//});
 	}
 	else if(RunType == 3)
@@ -1832,7 +1832,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 		ParentWindow->Log(Format("Variance based sensitivity sampling finished after %g seconds.", Duration));
 		
-		END_CLEANUP()
+		END_CLEANUP();
 	}
 	
 	#undef END_CLEANUP
