@@ -861,7 +861,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	
 	
 	
-	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 	
 	ParentWindow->ModelDll.RunModel(DataSet); //NOTE: One initial run so that everything is set up.
 	
@@ -900,7 +900,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	std::vector<void *> DataSets(NWorkers);
 	DataSets[0] = DataSet;
 	for(int Worker = 1; Worker < NWorkers; ++Worker)
-		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(DataSet, false);
+		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(DataSet, false, true);
 	
 	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
 	{

@@ -93,6 +93,7 @@ void MobiView::SubBar(Bar &bar)
 	bar.Add(IconImg::Run(), THISBACK(RunModel)).Tip("Run model").Key(K_F7);
 	bar.Add(IconImg::ViewMorePlots(), THISBACK(OpenAdditionalPlotView)).Tip("Open additional plot view");
 	bar.Add(IconImg::SaveCsv(), THISBACK(SaveToCsv)).Tip("Save results to .csv").Key(K_CTRL_R);
+	//bar.Add(IconImg::SaveCsv(), THISBACK(SaveInputsAsDat)).Tip("Save inputs to .dat");
 	bar.Separator();
 	//bar.Gap(60);
 	bar.Add(IconImg::SaveBaseline(), THISBACK(SaveBaseline)).Tip("Save baseline");
@@ -893,7 +894,11 @@ void MobiView::Load()
 	}
 
 	FileSel InputSel;
+#ifdef PLATFORM_WIN32
 	InputSel.Type("Input .dat or spreadsheet files", "*.dat *.xls *.xlsx");
+#else
+	InputSel.Type("Input .dat files", "*.dat");
+#endif
 
 	if(!ChangedDll && !PreviouslyLoadedInputFile.IsEmpty() && FileExists(PreviouslyLoadedInputFile))
 		InputSel.PreSelect(PreviouslyLoadedInputFile);
@@ -997,7 +1002,7 @@ void MobiView::SaveBaseline()
 		if(BaselineDataSet)
 			ModelDll.DeleteDataSet(BaselineDataSet);
 		
-		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true);
+		BaselineDataSet = ModelDll.CopyDataSet(DataSet, true, true);
 		
 		Log("Baseline saved");
 		
@@ -1031,6 +1036,33 @@ void MobiView::RevertBaseline()
 	else
 		Log("You can only revert to a baseline if you have one saved", true);
 }
+
+void MobiView::SaveInputsAsDat()
+{
+	if(!ModelDll.IsLoaded() || !DataSet)
+	{
+		Log("You can only export inputs if there is a Model and DataSet loaded", true);
+		return;
+	}
+	
+	FileSel InputSel;
+	InputSel.Type("Input .dat files", "*.dat");
+
+	if(InputFile!="" && FileExists(InputFile.data()))
+		InputSel.ActiveDir(GetFileFolder(InputFile.data()));
+	else
+		InputSel.ActiveDir(GetFileFolder(DllFile.data()));
+	InputSel.ExecuteSaveAs();
+	std::string SaveFile = InputSel.Get().ToStd();
+	
+	if(SaveFile != "")
+	{
+		ModelDll.WriteInputsToFile(DataSet, SaveFile.data());
+		if(CheckDllUserError()) return;
+		Log(Format("Saving input data to %s", SaveFile.data()));
+	}
+}
+
 
 
 void MobiView::ClosingChecks()

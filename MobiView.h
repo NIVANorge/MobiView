@@ -534,11 +534,6 @@ public :
 	VarianceSensitivityWindow();
 };
 
-
-//bool LoadFromExcel(MobiView *Parent, const char *ParFile, const char *Infile);
-
-
-
 class MobiView : public TopWindow
 {
 	
@@ -589,6 +584,8 @@ public:
 	void SaveBaseline();
 	void RevertBaseline();
 	bool BaselineWasJustSaved = false;
+	
+	void SaveInputsAsDat();
 	
 	void StoreSettings(bool OverwriteFavorites = true);
 	

@@ -1138,7 +1138,7 @@ bool OptimizationWindow::RunMobiviewMCMC(mcmc_sampler_method Method, double *Sam
 	//TODO: For Emcee we really only need a set of datasets that is the size of a
 	//partial ensemble, which is about half of the total ensemble.
 	for(int Walker = 0; Walker < NWalkers; ++Walker)
-		RunData.DataSets[Walker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		RunData.DataSets[Walker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 	
 	mcmc_callback_data CallbackData;
 	CallbackData.ParentWindow = ParentWindow;
@@ -1230,7 +1230,7 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, o
 	
 	std::vector<void *> DataSets(NWorkers);
 	for(int Worker = 0; Worker < NWorkers; ++Worker)
-		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		DataSets[Worker] = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 	
 	for(int SuperSample = 0; SuperSample < NSamples/NWorkers+1; ++SuperSample)
 	{
@@ -1559,7 +1559,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		ProgressLabel = &RunSetup.ProgressLabel;
 	
 	void *DataSetBase = nullptr;
-	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, DataSetBase);
 	
 	// Initial evaluation on the parameters given in the main dataset.
@@ -1646,7 +1646,7 @@ void OptimizationWindow::RunClicked(int RunType)
 		InitialScore = OptimizationModel(InitialPars);
 	else
 	{
-		void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false);
+		void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 		InitialScore = OptimizationModel.EvaluateObjectives(DataSet, InitialPars);
 		ParentWindow->ModelDll.DeleteDataSet(DataSet);
 	}

@@ -12,7 +12,7 @@ DLL_FUNCTION(void,         SetIndexes,                       void *DataSetPtr, c
 DLL_FUNCTION(void,         SetBranchIndexes,                 void *DataSetPtr, const char *IndexSetName, uint64_t IndexCount, dll_branch_index *Indexes)
 DLL_FUNCTION(const char *, GetModelName,                     void *DataSetPtr)
 DLL_FUNCTION(void,         RunModel,                         void *DataSetPtr)
-DLL_FUNCTION(void *,       CopyDataSet,                      void *DataSetPtr, bool CopyResults)
+DLL_FUNCTION(void *,       CopyDataSet,                      void *DataSetPtr, bool CopyResults, bool BorrowInputs)
 DLL_FUNCTION(void,         DeleteDataSet,                    void *DataSetPtr)
 DLL_FUNCTION(void,         DeleteModelAndDataSet,            void *DataSetPtr)
 DLL_FUNCTION(void,         CopyData,                         void *SourceDataSetPtr, void *TargetDataSetPtr, bool CopyParams, bool CopyInputs, bool CopyResults)
@@ -55,6 +55,7 @@ DLL_FUNCTION(timestep_size, GetTimestepSize,                 void *DataSetPtr)
 DLL_FUNCTION(const char *, GetParameterShortName,            void *DataSetPtr, const char *Name)
 
 DLL_FUNCTION(void,         WriteParametersToFile,            void *DataSetPtr, const char *Filename)
+DLL_FUNCTION(void,         WriteInputsToFile,                void *DataSetPtr, const char *Filename)
 DLL_FUNCTION(void,         PrintResultStructure,             void *DataSetPtr, char *Buf, uint64_t BufLen)
 
 DLL_FUNCTION(uint64_t,     GetIndexSetsCount,                void *DataSetPtr)
