@@ -173,9 +173,11 @@ END_LAYOUT
 LAYOUT(OptimizerSetupLayout, 672, 52)
 	ITEM(Upp::Button, PushRun, SetLabel(t_("Run")).RightPosZ(4, 108).TopPosZ(4, 20))
 	ITEM(Upp::Label, MaxEvalsLabel, SetLabel(t_("Max evals.:")).LeftPosZ(40, 56).TopPosZ(4, 20))
+	ITEM(Upp::Label, MinDeltaLabel, SetLabel(t_("Epsilon:")).LeftPosZ(276, 44).TopPosZ(4, 20))
 	ITEM(Upp::EditIntSpin, EditMaxEvals, NotNull(true).LeftPosZ(100, 108).TopPosZ(4, 20))
 	ITEM(Upp::Option, OptionShowProgress, SetLabel(t_("Show progress")).LeftPosZ(4, 92).TopPosZ(28, 20))
 	ITEM(Upp::Label, ProgressLabel, HSizePosZ(100, 4).TopPosZ(28, 20))
+	ITEM(Upp::EditDoubleNotNull, EditEpsilon, LeftPosZ(324, 108).TopPosZ(4, 19))
 END_LAYOUT
 
 LAYOUT(MCMCSetupLayout, 672, 88)

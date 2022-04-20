@@ -121,6 +121,9 @@ OptimizationWindow::OptimizationWindow()
 	RunSetup.EditMaxEvals.Min(1);
 	RunSetup.EditMaxEvals.SetData(1000);
 	
+	RunSetup.EditEpsilon.Min(0.0);
+	RunSetup.EditEpsilon.SetData(0.0);
+	
 	
 	MCMCSetup.PushRun.WhenPush         = [&](){ RunClicked(1); };
 	MCMCSetup.PushRun.SetImage(IconImg4::Run());
@@ -1695,6 +1698,7 @@ void OptimizationWindow::RunClicked(int RunType)
 			return;
 		
 		int MaxFunctionCalls = RunSetup.EditMaxEvals.GetData();
+		double Epsilon       = RunSetup.EditEpsilon.GetData();
 
 		double ExpectedDuration = Ms*1e-3*(double)MaxFunctionCalls;
 			
@@ -1703,8 +1707,6 @@ void OptimizationWindow::RunClicked(int RunType)
 		SetError("Running optimization. This may take a few minutes or more.");
 		
 		ParentWindow->ProcessEvents();
-		
-		auto BeginTime = std::chrono::high_resolution_clock::now();
 		
 		//TODO: We need to disable some interactions with the main dataset when this is running
 		//(such as running the model or editing parameters!)
@@ -1721,7 +1723,19 @@ void OptimizationWindow::RunClicked(int RunType)
 		
 		Thread().Run([=, & InitialEvals](){
 			
-			dlib::function_evaluation Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
+			auto BeginTime = std::chrono::high_resolution_clock::now();
+			
+			std::vector<bool> Dummy;
+			dlib::function_evaluation Result 
+				= dlib::find_max_global(OptimizationModel, 
+										MinBound, 
+										MaxBound,
+										dlib::max_function_calls(MaxFunctionCalls), 
+										dlib::FOREVER, 
+										Epsilon, 
+										InitialEvals
+				);
+				
 			auto EndTime = std::chrono::high_resolution_clock::now();
 			double Duration = std::chrono::duration_cast<std::chrono::seconds>(EndTime - BeginTime).count();
 			
@@ -1913,6 +1927,10 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	Value MaxEvalsJson = SetupJson["MaxEvals"];
 	if(!IsNull(MaxEvalsJson))
 		RunSetup.EditMaxEvals.SetData((int)MaxEvalsJson);
+	
+	Value EpsilonJson = SetupJson["Epsilon"];
+	if(!IsNull(EpsilonJson))
+		RunSetup.EditEpsilon.SetData((double)EpsilonJson);
 
 	
 	ValueArray ParameterArr = SetupJson["Parameters"];
@@ -2139,6 +2157,8 @@ String OptimizationWindow::SaveToJsonString()
 	Json MainFile;
 	
 	MainFile("MaxEvals", RunSetup.EditMaxEvals.GetData());
+	
+	MainFile("Epsilon", RunSetup.EditEpsilon.GetData());
 	
 	JsonArray ParameterArr;
 	

@@ -901,8 +901,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				double Min = std::min(ModeledStats.Percentiles[0], ObservedStats.Percentiles[0]);
 				double Max = std::max(ModeledStats.Percentiles[Last], ObservedStats.Percentiles[Last]);
 				
-				//double Min = std::min(ModeledStats.Min, ObservedStats.Min);
-				//double Max = std::max(ModeledStats.Max, ObservedStats.Max);
 				String Dum = "";
 				AddLine(Dum, Min, Max, Min, Max);
 			}
