@@ -1,7 +1,3 @@
-#ifndef _MobiView_Statistics_h_
-#define _MobiView_Statistics_h_
-
-
 #include "MobiView.h"
 #include "MyRichView.h"
 #include <numeric>
@@ -387,5 +383,65 @@ void ComputeTrendStats(double *XData, double *YData, size_t Len, double MeanY, d
 	XYCovarOut = CovarAcc / (double)FiniteCount;
 }
 
+struct vec2
+{
+	double x, y;
+};
+double dot(const vec2 &A, const vec2 &B)
+{
+	return A.x*B.x + A.y*B.y;
+}
+vec2 operator+(const vec2 &A, const vec2 &B)
+{
+	vec2 Res;
+	Res.x = A.x + B.x;
+	Res.y = A.y + B.y;
+	return Res;
+}
+vec2 operator-(const vec2 &A, const vec2 &B)
+{
+	vec2 Res;
+	Res.x = A.x - B.x;
+	Res.y = A.y - B.y;
+	return Res;
+}
+vec2 operator*(double T, const vec2 &A)
+{
+	vec2 Res;
+	Res.x = A.x*T;
+	Res.y = A.y*T;
+	return Res;
+}
 
-#endif
+void CurveDistance(double *XData, double *Obs, double *Mod, size_t Len, double XWeight, int XDistMax, double &SumAbsOut, double &SumSqOut)
+{
+	//NOTE: Passed XWeight should be modified with mean(Obs) or similar, and with (average) time step length before sent to this
+	//routine
+	
+	SumAbsOut = 0.0;
+	SumSqOut  = 0.0;
+	
+	for(int Idx = 0; Idx < Len; ++Idx)
+	{
+		if(std::isfinite(Obs[Idx]))
+		{
+			double MinDist = std::numeric_limits<double>::infinity();
+			int IdxMin = std::max(0, Idx-XDistMax);
+			int IdxMax = std::min((int)Len-1, Idx+XDistMax-1);
+			
+			vec2 Pt = {XData[Idx]*XWeight, Obs[Idx]};
+			
+			for(int II = IdxMin; II <= IdxMax; ++II)
+			{
+				vec2 P0 = {XData[II]*XWeight, Mod[II]};
+				vec2 P1 = {XData[II+1]*XWeight, Mod[II+1]};
+				double LenSegSq = dot(P1-P0, P1-P0);
+				double TT = std::max(0.0, std::min(1.0, dot(Pt-P0, P1-P0)/LenSegSq));
+				vec2 Proj = P0 + TT*(P1-P0);
+				double Dist = std::sqrt(dot(Pt-Proj, Pt-Proj));
+				SumAbsOut += std::abs(Dist);
+				SumSqOut  += Dist*Dist;
+			}
+		}
+	}
+}

@@ -439,13 +439,17 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 	
 	Time GofStartTime;
 	Time GofEndTime;
-	int64 GofOffset;
-	int64 GofTimesteps;
+	int64 InputGofOffset;
+	int64 InputGofTimesteps;
+	int64 ResultGofOffset; //= GofOffset;
+	int64 ResultGofTimesteps; //= GofTimesteps;
+	
 	String ModeledLegend;
 	String ObservedLegend;
 	String ModUnit, ObsUnit;
 	
 	Time ReferenceTime = InputStartTime;
+	
 	{
 		int64 ReferenceTimesteps = InputTimesteps;
 		if(PlotMajorMode == MajorMode_Residuals || PlotMajorMode == MajorMode_ResidualHistogram || PlotMajorMode == MajorMode_QQ)
@@ -453,20 +457,23 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			ReferenceTime = ResultStartTime;
 			ReferenceTimesteps = ResultTimesteps;
 		}
-		Parent->GetGofOffsets(ReferenceTime, ReferenceTimesteps, GofStartTime, GofEndTime, GofOffset, GofTimesteps);
+		Parent->GetGofOffsets(ReferenceTime, ReferenceTimesteps, GofStartTime, GofEndTime, InputGofOffset, InputGofTimesteps);
+		
+		Parent->GetGofOffsets(ResultStartTime, ResultTimesteps, GofStartTime, GofEndTime, ResultGofOffset, ResultGofTimesteps);
 	}
 	
-	int64 ResultGofOffset = GofOffset;
-	int64 ResultGofTimesteps = GofTimesteps;
+	
+	/*
 	if(ReferenceTime != ResultStartTime)
 	{
 		int64 Diff = TimestepsBetween(InputStartTime, ResultStartTime, Parent->TimestepSize);
 		ResultGofOffset = GofOffset - Diff;
-		ResultGofTimesteps = GofTimesteps - Diff;
-		if(ResultGofOffset < 0) { ResultGofTimesteps += ResultGofOffset; ResultGofOffset = 0; }
-		if(ResultGofTimesteps+ResultGofOffset > ResultTimesteps) ResultGofTimesteps = ResultTimesteps-ResultGofOffset;
+		//ResultGofTimesteps = GofTimesteps;
+		if(ResultGofOffset < 0) { GofTimesteps += ResultGofOffset; ResultGofOffset = 0; }
+		if(GofTimesteps+ResultGofOffset > ResultTimesteps) ResultGofTimesteps = ResultTimesteps-ResultGofOffset;
 		if(ResultGofTimesteps < 0) ResultGofTimesteps = 0;
 	}
+	*/
 	
 	//PromptOK(Format("resultgofoffset %d, resultgoftimesteps %d, gofoffset %d, goftimesteps %d", ResultGofOffset, ResultGofTimesteps, GofOffset, GofTimesteps));
 	
@@ -511,7 +518,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			if(Parent->CheckDllUserError()) return;
 			
 			std::vector<std::string> CurrentIndexes(IndexSets.size());
-			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues, PlotMajorMode, GofOffset, GofTimesteps);
+			AddPlotRecursive(Parent, PlotInfo, Name, IndexSets, CurrentIndexes, 0, true, InputTimesteps, InputStartTime, InputStartTime, InputXValues, PlotMajorMode, InputGofOffset, InputGofTimesteps);
 			
 			if(Parent->CheckDllUserError()) return;
 		}
@@ -547,8 +554,8 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String Legend;
 			String Unit;
 			
-			int64 Offset = GofOffset;
-			int64 StatTimesteps = GofTimesteps;
+			int64 Offset = InputGofOffset;
+			int64 StatTimesteps = InputGofTimesteps;
 			if(PlotSetup.SelectedResults.size() == 1)
 			{
 				Data.resize(ResultTimesteps);
@@ -560,7 +567,6 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			{
 				Data.resize(InputTimesteps);
 				Parent->GetSingleSelectedInputSeries(PlotSetup, Parent->DataSet, PlotSetup.SelectedInputs[0], Legend, Unit, Data.data(), false);
-			
 			}
 			
 			NBinsHistogram = AddHistogram(Legend, Unit, Data.data(), Data.size());
@@ -789,7 +795,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 				ComputeXValues(InputStartTime, InputStartTime, InputTimesteps, Parent->TimestepSize, InputXValues);
 				
 				timeseries_stats Stats3 = {};
-				ComputeTimeseriesStats(Stats3, Obs.data()+GofOffset, GofTimesteps, Parent->StatSettings, false);
+				ComputeTimeseriesStats(Stats3, Obs.data()+InputGofOffset, InputGofTimesteps, Parent->StatSettings, false);
 				
 				Color Col = AddPlot(InputLegend, Unit, InputXValues, Obs.data(), Obs.size(), true, InputStartTime, InputStartTime, Parent->TimestepSize, Stats3.Min, Stats3.Max);
 				
@@ -847,11 +853,11 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			String Legend = String("Residuals of ") + ModeledLegend + " vs " + ObservedLegend;
 			
 			timeseries_stats ObservedStats = {};
-			ComputeTimeseriesStats(ObservedStats, ObservedSeries+GofOffset, GofTimesteps, Parent->StatSettings, false);
+			ComputeTimeseriesStats(ObservedStats, ObservedSeries+InputGofOffset, InputGofTimesteps, Parent->StatSettings, false);
 			DisplayTimeseriesStats(ObservedStats, ObservedLegend, ObsUnit, Parent->StatSettings, PlotInfo);
 			
 			timeseries_stats ModeledStats = {};
-			ComputeTimeseriesStats(ModeledStats, ModeledSeries+GofOffset, GofTimesteps, Parent->StatSettings, false);
+			ComputeTimeseriesStats(ModeledStats, ModeledSeries+ResultGofOffset, ResultGofTimesteps, Parent->StatSettings, false);
 			DisplayTimeseriesStats(ModeledStats, ModeledLegend, ModUnit, Parent->StatSettings, PlotInfo);
 			
 			if(PlotMajorMode == MajorMode_Residuals)
@@ -865,7 +871,7 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 					ComputeXValues(InputStartTime, ResultStartTime, ResultTimesteps, Parent->TimestepSize, ResidualXValues);
 					
 					double XMean, XVar, XYCovar;
-					ComputeTrendStats(ResidualXValues + GofOffset, Residuals.data() + GofOffset, GofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
+					ComputeTrendStats(ResidualXValues + InputGofOffset, Residuals.data() + InputGofOffset, InputGofTimesteps, ResidualStats.MeanError, XMean, XVar, XYCovar);
 					
 					//NOTE: Using the input start date as reference date is just so that we agree with the date formatting below.
 					AddPlot(Legend, ModUnit, ResidualXValues, Residuals.data(), ResultTimesteps, true, InputStartTime, ResultStartTime, Parent->TimestepSize);
@@ -879,11 +885,11 @@ void MyPlot::BuildPlot(MobiView *Parent, PlotCtrl *Control, bool IsMainPlot, MyR
 			}
 			else if(PlotMajorMode == MajorMode_ResidualHistogram)
 			{
-				NBinsHistogram = AddHistogram(Legend, ModUnit, Residuals.data()+GofOffset, GofTimesteps);
+				NBinsHistogram = AddHistogram(Legend, ModUnit, Residuals.data()+InputGofOffset, InputGofTimesteps);
 				String NormLegend = "Normal distr.";
 				
 				timeseries_stats RS2;
-				ComputeTimeseriesStats(RS2, Residuals.data()+GofOffset, GofTimesteps, Parent->StatSettings, false);
+				ComputeTimeseriesStats(RS2, Residuals.data()+InputGofOffset, InputGofTimesteps, Parent->StatSettings, false);
 				
 				AddNormalApproximation(NormLegend, NBinsHistogram, RS2.Min, RS2.Max, RS2.Mean, RS2.StandardDev);
 			}

@@ -828,6 +828,8 @@ struct optimization_model
 				
 				GofOffsets[Obj]   = TimestepsBetween(ResultStartTime, Begin, ParentWindow->TimestepSize);
 				GofTimesteps[Obj] = TimestepsBetween(Begin, End, ParentWindow->TimestepSize) + 1; //NOTE: if start time = end time, there is still one timestep.
+				
+				//PromptOK(Format("Begin: %s, end: %s, Gof offset: %d, gof timesteps: %d", Format(Begin), Format(End), GofOffsets[Obj], GofTimesteps[Obj]));
 			}
 			
 			ValuesLoadedOnce = true;
@@ -877,7 +879,7 @@ struct optimization_model
 					if(false){}
 					#define SET_SETTING(Handle, Name, Type)
 					#define SET_RES_SETTING(Handle, Name, Type) \
-						else if(Target.ResidualStat == ResidualType_##Handle) Value = ResidualStats.Handle;     //TODO: Could do this with an array lookup, but would be a little hacky
+						else if(Target.ResidualStat == ResidualType_##Handle) Value = ResidualStats.Handle;  //TODO: Could do this with an array lookup, but would be a little hacky
 					#include "SetStatSettings.h"
 					#undef SET_SETTING
 					#undef SET_RES_SETTING
@@ -1651,6 +1653,8 @@ void OptimizationWindow::RunClicked(int RunType)
 		ParentWindow->ModelDll.DeleteDataSet(DataSet);
 	}
 	
+	if(ParentWindow->CheckDllUserError()) return;
+	
 	auto End = std::chrono::high_resolution_clock::now();
 	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
 	
@@ -1710,6 +1714,11 @@ void OptimizationWindow::RunClicked(int RunType)
 		//cached in the first initialization run above, and not changed after that!
 		
 		//TODO: Threading here sometimes crashes on some machines, but not all!
+		
+		//TODO: Sometimes the new best score (Result.y) is reported as higher than what you get
+		//when setting the parameters to be Result.x and re-running!!! What is going on there?
+		//Also, sometimes the reported initial value is wrong.!!
+		
 		Thread().Run([=, & InitialEvals](){
 			
 			dlib::function_evaluation Result = dlib::find_max_global(OptimizationModel, MinBound, MaxBound, dlib::max_function_calls(MaxFunctionCalls), dlib::FOREVER, 0, InitialEvals);
@@ -1718,7 +1727,6 @@ void OptimizationWindow::RunClicked(int RunType)
 			
 			double NewScore = Result.y;
 			if(!PositiveGood) NewScore = -NewScore;
-			
 			
 			GuiLock Lock;
 			if((PositiveGood && (NewScore <= InitialScore)) || (!PositiveGood && (NewScore >= InitialScore)) || !std::isfinite(NewScore))
