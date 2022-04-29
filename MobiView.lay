@@ -150,13 +150,13 @@ LAYOUT(SensitivityLayout, 884, 448)
 END_LAYOUT
 
 LAYOUT(OptimizationLayout, 688, 256)
-	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(32, 28))
+	ITEM(Upp::ArrayCtrl, ParameterView, HSizePosZ(4, 4).VSizePosZ(24, 28))
 	ITEM(Upp::Button, PushAddParameter, SetLabel(t_("Add parameter")).LeftPosZ(4, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushClearParameters, SetLabel(t_("Clear all")).LeftPosZ(336, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushAddGroup, SetLabel(t_("Add group")).LeftPosZ(116, 108).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushRemoveParameter, SetLabel(t_("Remove sel.")).LeftPosZ(228, 104).BottomPosZ(4, 20))
 	ITEM(Upp::Button, PushAddVirtual, SetLabel(t_("Add virtual")).LeftPosZ(448, 108).BottomPosZ(4, 20))
-	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.\nNote: The calibration uses the GOF interval that you can set in the main window.")).HSizePosZ(4, 4).TopPosZ(4, 28))
+	ITEM(Upp::Label, WarningLabel, SetLabel(t_("Warning: Running an optimization overwrites your current parameter set. Remember to save it first.")).HSizePosZ(4, 4).TopPosZ(4, 16))
 	ITEM(Upp::Option, OptionUseExpr, NotNull(true).SetLabel(t_("Enable expressions")).RightPosZ(4, 108).BottomPosZ(4, 20))
 END_LAYOUT
 

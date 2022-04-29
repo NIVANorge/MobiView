@@ -1200,24 +1200,6 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, o
 		DrawUniformSamples(&MatA, MinBound, MaxBound);
 		DrawUniformSamples(&MatB, MinBound, MaxBound);
 	}
-	/*
-	std::mt19937_64 Generator;
-	for(int Sample = 0; Sample < NSamples; ++Sample)
-		for(int Par = 0; Par < NPars; ++Par)
-		{
-			std::uniform_real_distribution<double> Distr(MinBound[Par], MaxBound[Par]);
-			MatA(0, Par, Sample) = Distr(Generator);
-		}
-	
-	for(int Sample = 0; Sample < NSamples; ++Sample)
-		for(int Par = 0; Par < NPars; ++Par)
-		{
-			std::uniform_real_distribution<double> Distr(MinBound[Par], MaxBound[Par]);
-			MatB(0, Par, Sample) = Distr(Generator);
-		}
-	*/
-	
-	
 	
 	//NOTE This is a bit wasteful since we already allocated storage for result data in the
 	//mcmc_data. But it is very convenient to have these in one large vector below ...
@@ -1281,6 +1263,7 @@ bool OptimizationWindow::RunVarianceBasedSensitivity(int NSamples, int Method, o
 	mA /= 2.0*(double)NSamples;
 	for(int J = 0; J < 2*NSamples; ++J) vA += (f0[J]-mA)*(f0[J]-mA);
 	vA /= 2.0*(double)NSamples;
+	
 	
 	for(int I = 0; I < NPars; ++I)
 	{
