@@ -863,7 +863,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	
 	void *DataSet = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
 	
-	ParentWindow->ModelDll.RunModel(DataSet); //NOTE: One initial run so that everything is set up.
+	ParentWindow->ModelDll.RunModel(DataSet, -1); //NOTE: One initial run so that everything is set up.
 	
 	char TimeStr[256];
 	uint64 ResultTimesteps = ParentWindow->ModelDll.GetTimesteps(DataSet);
@@ -920,7 +920,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 				
 				ParentWindow->OptimizationWin.SetParameterValues(DataSets[Worker], Pars.data(), Pars.size(), Parameters);
 			
-				ParentWindow->ModelDll.RunModel(DataSets[Worker]);
+				ParentWindow->ModelDll.RunModel(DataSets[Worker], -1);
 				
 				for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 				{
@@ -995,7 +995,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		Pars[Par] = Stats.Median;
 	}
 	ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
-	ParentWindow->ModelDll.RunModel(DataSet);
+	ParentWindow->ModelDll.RunModel(DataSet, -1);
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 	{
 		double *ResultYValues = DataBlock[TargetIdx][NSamples].data();

@@ -11,7 +11,7 @@ DLL_FUNCTION(void,         SetInputSpan,                     void *DataSetPtr, c
 DLL_FUNCTION(void,         SetIndexes,                       void *DataSetPtr, const char *IndexSetName, uint64_t IndexCount, char **IndexNames)
 DLL_FUNCTION(void,         SetBranchIndexes,                 void *DataSetPtr, const char *IndexSetName, uint64_t IndexCount, dll_branch_index *Indexes)
 DLL_FUNCTION(const char *, GetModelName,                     void *DataSetPtr)
-DLL_FUNCTION(void,         RunModel,                         void *DataSetPtr)
+DLL_FUNCTION(bool,         RunModel,                         void *DataSetPtr, int64_t MillisecondTimeout)
 DLL_FUNCTION(void *,       CopyDataSet,                      void *DataSetPtr, bool CopyResults, bool BorrowInputs)
 DLL_FUNCTION(void,         DeleteDataSet,                    void *DataSetPtr)
 DLL_FUNCTION(void,         DeleteModelAndDataSet,            void *DataSetPtr)

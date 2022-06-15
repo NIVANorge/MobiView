@@ -56,17 +56,7 @@ bool MobiView::CheckDllUserError()
 	if(ModelDll.IsLoaded())
 	{
 		const uint64 MsgBufLen = 2048;
-		
-		String Errstr;
 		char MsgBuf[MsgBufLen];
-		int Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
-		while(Errlen > 0)
-		{
-			Errstr += MsgBuf;
-			Error = true;
-			Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
-		}
-		if(Error) Log(Errstr, true);
 		
 		bool Warning = false;
 		String Warnstr;
@@ -78,6 +68,16 @@ bool MobiView::CheckDllUserError()
 			Warnlen = ModelDll.EncounteredWarning(MsgBuf, MsgBufLen);
 		}
 		if(Warning) Log(Warnstr);
+		
+		String Errstr;
+		int Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
+		while(Errlen > 0)
+		{
+			Errstr += MsgBuf;
+			Error = true;
+			Errlen = ModelDll.EncounteredError(MsgBuf, MsgBufLen);
+		}
+		if(Error) Log(Errstr, true);
 	}
 	return Error;
 }
@@ -978,7 +978,7 @@ void MobiView::RunModel()
 	}
 	
 	auto Begin = std::chrono::high_resolution_clock::now();
-	ModelDll.RunModel(DataSet);
+	ModelDll.RunModel(DataSet, -1);
 	auto End = std::chrono::high_resolution_clock::now();
 	double Ms = std::chrono::duration_cast<std::chrono::milliseconds>(End - Begin).count();
 	

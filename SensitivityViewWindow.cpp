@@ -248,7 +248,7 @@ SensitivityViewWindow::Run()
 		SetParameterValue(CurrentParameter, DataSetCopy, Val, ParentWindow->ModelDll);
 		
 		// Run the model
-		ParentWindow->ModelDll.RunModel(DataSetCopy);
+		ParentWindow->ModelDll.RunModel(DataSetCopy, -1);
 		
 		
 		

@@ -90,6 +90,8 @@ OptimizationWindow::OptimizationWindow()
 	
 	//TargetSetup.TargetView.HeaderObject().HideTab(5);
 	
+	TargetSetup.EditTimeout.SetData(-1);
+	
 	ParSetup.PushAddParameter.WhenPush    = THISBACK(AddParameterClicked);
 	ParSetup.PushAddGroup.WhenPush        = THISBACK(AddGroupClicked);
 	ParSetup.PushRemoveParameter.WhenPush = THISBACK(RemoveParameterClicked);
@@ -763,6 +765,9 @@ struct optimization_model
 	int ExprCount;
 	int FreeParCount;
 	
+	int64 RunTimeout = -1;
+	int64 Timeouts = 0;
+	
 	int64 NumEvals = 0;
 	double InitialScore, BestScore;
 	bool  IsMaximizing = true;
@@ -772,12 +777,13 @@ struct optimization_model
 	
 	
 	optimization_model(MobiView *ParentWindow, std::vector<indexed_parameter> *Parameters, std::vector<optimization_target> *Targets,
-		Label *ProgressLabel, void *DataSetBase)
+		Label *ProgressLabel, void *DataSetBase, int64 RunTimeout)
 	{
 		this->ParentWindow = ParentWindow;
 		this->Parameters   = Parameters;
 		this->Targets      = Targets;
 		this->ProgressLabel = ProgressLabel;
+		this->RunTimeout   = RunTimeout;
 		
 		ExprCount = 0;
 		for(indexed_parameter &Parameter : *Parameters)
@@ -792,7 +798,7 @@ struct optimization_model
 	{
 		SetParameters(DataSet, Parameters, Par, ExprCount > 0, ParentWindow->ModelDll);
 		
-		ParentWindow->ModelDll.RunModel(DataSet);
+		bool RunFinished = ParentWindow->ModelDll.RunModel(DataSet, RunTimeout);
 		
 		// Extract result and input values to compute them.
 		
@@ -836,6 +842,12 @@ struct optimization_model
 			}
 			
 			ValuesLoadedOnce = true;
+		}
+		
+		if(!RunFinished)
+		{
+			Timeouts++;
+			return IsMaximizing ? -std::numeric_limits<double>::infinity() : std::numeric_limits<double>::infinity();
 		}
 		
 		double Aggregate = 0.0;
@@ -942,7 +954,7 @@ struct optimization_model
 		{
 			GuiLock Lock;
 			
-			ProgressLabel->SetText(Format("Current evaluations: %d, best score: %g (initial: %g)", NumEvals, BestScore, InitialScore));
+			ProgressLabel->SetText(Format("Current evaluations: %d, timeouts: %d, best score: %g (initial: %g)", NumEvals, Timeouts, BestScore, InitialScore));
 			
 			if(View->IsOpen())
 				View->BuildAll(true);
@@ -1542,13 +1554,15 @@ void OptimizationWindow::RunClicked(int RunType)
 		}
 	}
 	
+	int64 RunTimeout = TargetSetup.EditTimeout.GetData();
+	
 	Label *ProgressLabel = nullptr;
 	if(RunSetup.OptionShowProgress.Get())
 		ProgressLabel = &RunSetup.ProgressLabel;
 	
 	void *DataSetBase = nullptr;
 	if(RunType==0) DataSetBase = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
-	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, DataSetBase);
+	optimization_model OptimizationModel(ParentWindow, &Parameters, &Targets, ProgressLabel, DataSetBase, RunTimeout);
 	
 	// Initial evaluation on the parameters given in the main dataset.
 	column_vector InitialPars(OptimizationModel.FreeParCount);
