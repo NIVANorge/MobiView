@@ -2036,6 +2036,10 @@ void OptimizationWindow::LoadFromJsonString(String &JsonData)
 	if(!IsNull(RunType))
 		TargetSetup.OptimizerTypeTab.Set(RunType);
 	
+	Value Timeout  = SetupJson["TimeoutMs"];
+	if(!IsNull(Timeout))
+		TargetSetup.EditTimeout.SetData(Timeout);
+	
 	ValueArray TargetArr = SetupJson["Targets"];
 	if(!IsNull(TargetArr))
 	{
@@ -2215,6 +2219,9 @@ String OptimizationWindow::SaveToJsonString()
 	
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);
+	
+	int64 Timeout = TargetSetup.EditTimeout.GetData();
+	MainFile("TimeoutMs", Timeout);
 	
 	int NSamples = SensitivitySetup.EditSampleSize.GetData();
 	MainFile("Samples", NSamples);
