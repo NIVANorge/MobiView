@@ -8,7 +8,7 @@ void DisplayStat(String ValName, int PositiveGood, double ValOld, double ValNow,
 {
 	if(!TrackedFirst) Display << "::@W ";
 	TrackedFirst = false;
-	Display << ValName << "::@W " << FormatDouble(ValNow, Precision, FD_REL);
+	Display << ValName << "::@W " << FormatDouble(ValNow, Precision);
 	if(DisplayChange && ValOld != ValNow && std::isfinite(ValOld) && std::isfinite(ValNow))
 	{
 		if((PositiveGood==1 && ValNow > ValOld) || (PositiveGood==0 && ValNow < ValOld) || (PositiveGood==-1 && std::abs(ValNow) < std::abs(ValOld)))
@@ -16,7 +16,7 @@ void DisplayStat(String ValName, int PositiveGood, double ValOld, double ValNow,
 		else
 			Display << "::@R ";
 		if(ValNow > ValOld) Display << "+";
-		Display << FormatDouble(ValNow - ValOld, Precision, FD_REL);
+		Display << FormatDouble(ValNow - ValOld, Precision);
 	}
 	else
 		Display << ":: ";
@@ -27,7 +27,7 @@ void DisplayStat(String ValName, double Val, String &Display, bool &TrackedFirst
 {
 	if(!TrackedFirst) Display << "::@W ";
 	TrackedFirst = false;
-	Display << ValName << "::@W " << FormatDouble(Val, Precision, FD_REL);
+	Display << ValName << "::@W " << FormatDouble(Val, Precision);
 }
 
 void DisplayTimeseriesStats(timeseries_stats &Stats, String &Name, String &Unit, const StatisticsSettings &StatSettings, MyRichView &PlotInfo, Color Col, bool ShowInitialValue)

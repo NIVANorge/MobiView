@@ -144,7 +144,7 @@ SensitivityViewWindow::Run()
 	
 	double Stride = (Max - Min) / (double) (NSteps - 1);
 	
-	void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, false, true);
+	void *DataSetCopy = ParentWindow->ModelDll.CopyDataSet(ParentWindow->DataSet, true, true);
 	ParentWindow->CheckDllUserError();
 	
 	

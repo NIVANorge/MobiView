@@ -2220,7 +2220,7 @@ String OptimizationWindow::SaveToJsonString()
 	int RunType  = TargetSetup.OptimizerTypeTab.Get();
 	MainFile("RunType", RunType);
 	
-	int64 Timeout = TargetSetup.EditTimeout.GetData();
+	int Timeout = TargetSetup.EditTimeout.GetData();
 	MainFile("TimeoutMs", Timeout);
 	
 	int NSamples = SensitivitySetup.EditSampleSize.GetData();

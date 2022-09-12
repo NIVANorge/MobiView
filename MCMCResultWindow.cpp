@@ -647,17 +647,17 @@ void MCMCResultWindow::RefreshResultSummary(int CurStep)
 		if(BelowTolerance) AnyBelowTolerance = true;
 		
 		
-		String AcorStr = FormatDouble(Acor, Precision, FD_REL);
+		String AcorStr = FormatDouble(Acor, Precision);
 		if(BelowTolerance) AcorStr = Format("[@R `*%s]", AcorStr);
 		
 		Table
 			<< ":: " << Sym
 			<< ":: " << AcorStr
-			<< ":: " << FormatDouble(Stats.Mean, Precision, FD_REL)
-			<< ":: " << FormatDouble(Stats.Median, Precision, FD_REL)
-			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision, FD_REL) : "N/A")
-			<< ":: " << FormatDouble(Stats.StandardDev, Precision, FD_REL);
-		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision, FD_REL);
+			<< ":: " << FormatDouble(Stats.Mean, Precision)
+			<< ":: " << FormatDouble(Stats.Median, Precision)
+			<< ":: " << (BestW>=0 && BestS>=0 ? FormatDouble((*Data)(BestW, Par, BestS), Precision) : "N/A")
+			<< ":: " << FormatDouble(Stats.StandardDev, Precision);
+		for(double Perc : Stats.Percentiles) Table << ":: " << FormatDouble(Perc, Precision);
 	}
 	Table << "}}&";
 	if(AnyBelowTolerance) Table << Format("[@R `*The chain is shorter than %d times the integrated autocorrelation time for this parameter. Consider running for more steps.]&", Tol);
@@ -921,16 +921,26 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 				ParentWindow->OptimizationWin.SetParameterValues(DataSets[Worker], Pars.data(), Pars.size(), Parameters);
 			
 				ParentWindow->ModelDll.RunModel(DataSets[Worker], -1);
-				
+
 				for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 				{
 					double *ResultYValues = (*DataBlockPtr)[TargetIdx][Sample].data();
-					String Legend;
+					/*String Legend;
 					String Unit;
 					ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSets[Worker], PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+					*/
+					optimization_target &Target = Targets[TargetIdx];
+					
+					std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
+					for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
+						ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
+			
+					ParentWindow->ModelDll.GetResultSeries(DataSets[Worker], Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
+					
+		
 					if(!ParametricOnly)
 					{
-						optimization_target &Target = Targets[TargetIdx];
+						
 						std::vector<double> ErrParam(Target.ErrParNum.size());
 						for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
 						AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generators[Worker]);
@@ -939,7 +949,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			});
 		}
 		for(auto &Worker : Workers) Worker.Get();
-		
+	
 		ViewProjections.GenerateProgress.Set(std::min((SuperSample+1)*NWorkers-1, NSamples));
 		if(SuperSample % 8 == 0)
 			ParentWindow->ProcessEvents();
@@ -961,17 +971,22 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		
 		ParentWindow->OptimizationWin.SetParameterValues(DataSet, Pars.data(), Pars.size(), Parameters);
 	
-		ParentWindow->ModelDll.RunModel(DataSet);
+		ParentWindow->ModelDll.RunModel(DataSet, -1);
 		
 		for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 		{
 			double *ResultYValues = DataBlock[TargetIdx][Sample].data();
-			String Legend;
-			String Unit;
-			ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+			optimization_target &Target = Targets[TargetIdx];
+					
+			std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
+			for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
+				ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
+	
+			ParentWindow->ModelDll.GetResultSeries(DataSet, Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
+			
 			if(!ParametricOnly)
 			{
-				optimization_target &Target = Targets[TargetIdx];
+				//optimization_target &Target = Targets[TargetIdx];
 				std::vector<double> ErrParam(Target.ErrParNum.size());
 				for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
 				AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generator);
@@ -999,9 +1014,18 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 	for(int TargetIdx = 0; TargetIdx < Targets.size(); ++TargetIdx)
 	{
 		double *ResultYValues = DataBlock[TargetIdx][NSamples].data();
-		String Legend;
+		/*String Legend;
 		String Unit;
 		ParentWindow->GetSingleSelectedResultSeries(PlotSetups[TargetIdx], DataSet, PlotSetups[TargetIdx].SelectedResults[0], Legend, Unit, ResultYValues);
+	*/
+		optimization_target &Target = Targets[TargetIdx];
+					
+		std::vector<const char *> ResultIndexes(Target.ResultIndexes.size());
+		for(int Idx = 0; Idx < ResultIndexes.size(); ++Idx)
+			ResultIndexes[Idx] = Target.ResultIndexes[Idx].data();
+
+		ParentWindow->ModelDll.GetResultSeries(DataSet, Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
+		
 	}
 	
 	
@@ -1021,11 +1045,19 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		
 		double *InputYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();
 		
-		String Legend;
+		//String Legend;
 		String Unit;
 		Color GraphColor = Plot.PlotColors.Next();
-		ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSet, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, true);
-		Legend = "Observed";
+		//ParentWindow->GetSingleSelectedInputSeries(Plot.PlotSetup, DataSet, Plot.PlotSetup.SelectedInputs[0], Legend, Unit, InputYValues, true);
+					
+		std::vector<const char *> InputIndexes(Target.InputIndexes.size());
+		for(int Idx = 0; Idx < InputIndexes.size(); ++Idx)
+			InputIndexes[Idx] = Target.InputIndexes[Idx].data();
+
+		ParentWindow->ModelDll.GetInputSeries(DataSet, Target.InputName.data(), (char**)InputIndexes.data(), InputIndexes.size(), InputYValues, true);
+		
+		
+		String Legend = "Observed";
 		Plot.AddPlot(Legend, Unit, ResultXValues, InputYValues, ResultTimesteps, true, ResultStartTime, ResultStartTime, ParentWindow->TimestepSize, 0.0, 0.0, GraphColor);
 		
 		double *UpperYValues  = Plot.PlotData.Allocate(ResultTimesteps).data();

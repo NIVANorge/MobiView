@@ -102,7 +102,10 @@ MyPlot::MyPlot()
 	this->SetGridColor(Grey);
 	
 	this->RemoveMouseBehavior(ScatterCtrl::ZOOM_WINDOW);
-	this->AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
+	this->RemoveMouseBehavior(ScatterCtrl::SHOW_INFO);
+	this->AddMouseBehavior(true, false, false, true, false, 0, false, ScatterCtrl::SHOW_INFO);
+	this->AddMouseBehavior(false, false, false, true, false, 0, false, ScatterCtrl::SCROLL);
+	this->AddMouseBehavior(false, false, false, false, true, 0, false, ScatterCtrl::SCROLL);
 }
 
 
@@ -1150,7 +1153,7 @@ void MyPlot::FormatAxes(plot_major_mode PlotMajorMode, int NBinsHistogram, Time 
 			{
 				this->cbModifFormatYGridUnits << [](String &s, int i, double d)
 				{
-					s = FormatDouble(d, 2, FD_REL);
+					s = FormatDouble(d, 2);
 				};
 			}
 
