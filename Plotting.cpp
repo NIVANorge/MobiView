@@ -90,7 +90,7 @@ MyPlot::MyPlot()
 {
 	
 	//this->SetFastViewX(true); Can't be used with scatter plot data since it combines points.
-	this->SetSequentialXAll(true);
+	//this->SetSequentialXAll(true); // And this crops lines that go outside the boundary.
 	
 	Size PlotReticleSize = GetTextSize("00000000", this->GetReticleFont());
 	Size PlotUnitSize    = GetTextSize("[dummy]", this->GetLabelsFont());
@@ -1379,7 +1379,7 @@ void MyPlot::StackedPlotFixup(plot_major_mode MajorMode)
 	
 	//NOTE we have to do backwards iteration so that the ones that were added first are the
 	//ones on top. Otherwise the ones in front will be higher and over-paint them.
-	for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx) 
+	for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx)
 	{
 		double *Ys = this->CachedStackY[Idx];
 		for(size_t Ts = 0; Ts < Len; ++Ts)
@@ -1391,7 +1391,7 @@ void MyPlot::StackedPlotFixup(plot_major_mode MajorMode)
 	}
 	if(MajorMode == MajorMode_StackedShare)
 	{
-		for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx) 
+		for(int Idx = this->CachedStackY.size()-1; Idx >= 0; --Idx)
 		{
 			double *Ys = this->CachedStackY[Idx];
 			for(size_t Ts = 0; Ts < Len; ++Ts)
@@ -2085,7 +2085,7 @@ void MobiView::GetGofOffsets(const Time &ReferenceTime, uint64 ReferenceTimestep
 	Time AttemptBegin = CalibrationIntervalStart.GetData();
 	Time AttemptEnd   = CalibrationIntervalEnd.GetData();
 	
-	GetGofOffsetsBase(AttemptBegin, AttemptEnd, ReferenceTime, ReferenceTimesteps, BeginOut, EndOut, GofOffsetOut, GofTimestepsOut);	
+	GetGofOffsetsBase(AttemptBegin, AttemptEnd, ReferenceTime, ReferenceTimesteps, BeginOut, EndOut, GofOffsetOut, GofTimestepsOut);
 }
 
 

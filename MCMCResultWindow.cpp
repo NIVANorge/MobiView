@@ -937,10 +937,8 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 			
 					ParentWindow->ModelDll.GetResultSeries(DataSets[Worker], Target.ResultName.data(), (char**)ResultIndexes.data(), ResultIndexes.size(), ResultYValues);
 					
-		
 					if(!ParametricOnly)
 					{
-						
 						std::vector<double> ErrParam(Target.ErrParNum.size());
 						for(int Idx = 0; Idx < ErrParam.size(); ++Idx) ErrParam[Idx] = Pars[Target.ErrParNum[Idx]];
 						AddRandomError(ResultYValues, ResultTimesteps, ErrParam, Target.ErrStruct, Generators[Worker]);
@@ -1133,7 +1131,7 @@ void MCMCResultWindow::GenerateProjectionsPushed()
 		ResidualYValues.reserve(ResultTimesteps);
 		ComputeStandardizedResiduals(InputYValues, YValuesOfMedian, ResultTimesteps, ErrPar, Target.ErrStruct, ResidualYValues);
 		
-		assert(YValuesStored.size() == ResidualYValues.size());
+		//assert(YValuesStored.size() == ResidualYValues.size());
 		
 		GraphColor = ResidPlot.PlotColors.Next();
 		ResidPlot.SetSequentialXAll(false);

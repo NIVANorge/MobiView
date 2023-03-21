@@ -83,7 +83,7 @@ bool AffineStretchMove(double *SamplerParams, double *Scale, int Step, int Walke
 
 bool AffineWalkMove(double *SamplerParams, double *Scale, int Step, int Walker, int FirstEnsembleWalker, int EnsembleStep, size_t NEnsemble, mcmc_data *Data,
 	double (*LogLikelyhood)(void *, int, int), void *LLFunState)
-{	
+{
 	int S0 = (int)SamplerParams[0];
 	
 	bool Accepted = true;
@@ -163,7 +163,7 @@ bool DifferentialEvolutionMove(double *SamplerParams, double *Scale, int Step, i
 	
 	int EnsW1 = (int)Random(NEnsemble) + FirstEnsembleWalker;
 	int EnsW2;
-	do	
+	do
 		EnsW2 = (int)Random(NEnsemble) + FirstEnsembleWalker;
 	while(EnsW2 == EnsW1);
 	

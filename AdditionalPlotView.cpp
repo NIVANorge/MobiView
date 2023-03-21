@@ -155,7 +155,7 @@ void AdditionalPlotView::SetAll(std::vector<plot_setup> &Setups)
 	for(int Row = 0; Row < Count; ++Row)
 		Plots[Row].Plot.PlotSetup = Setups[Row];
 	EditNumRows.SetData(Count);
-	NumRowsChanged(true);	
+	NumRowsChanged(true);
 }
 
 void SerializePlotSetup(Json &SetupJson, plot_setup &Setup, MobiView *ParentWindow)

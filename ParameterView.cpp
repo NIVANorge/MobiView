@@ -77,7 +77,7 @@ MobiView::GetSelectedParameterGroupIndexSets(std::vector<char *> &IndexSetsOut, 
 
 indexed_parameter
 MobiView::GetParameterAtRow(int Row)
-{	
+{
 	indexed_parameter Result = {};
 	Result.Valid = false;
 	
@@ -101,26 +101,26 @@ MobiView::GetParameterAtRow(int Row)
 	for(char * IndexSetName : IndexSetNames)
 	{
 		int IdxSetId = IndexSetNameToId[IndexSetName];
-	 	
-	 	parameter_index Idx = {};
-	 	String IndexName;
-	 	if(SecondExpandedSetLocal == IdxIdx)
-	 	{
-	 		//NOTE: This is a "little" hacky...
-	 		for(int Col = 0; Col < Params.ParameterView.GetColumnCount(); ++Col)
-	 		{
-	 			LineEdit *Control = (LineEdit *)Params.ParameterView.GetCtrl(Row, Col);
-	 			if(Control->HasFocus())
-	 			{
-	 				IndexName = Params.ParameterView.GetId(Col);
-	 				break;
-	 			}
-	 		}
-	 	}
-	 	else if(ExpandedSetLocal == IdxIdx)
-	 		IndexName = Params.ParameterView.Get(Row, Id("__index"));
-	 	else
-	 		IndexName = IndexList[IdxSetId]->Get();
+
+		parameter_index Idx = {};
+		String IndexName;
+		if(SecondExpandedSetLocal == IdxIdx)
+		{
+			//NOTE: This is a "little" hacky...
+			for(int Col = 0; Col < Params.ParameterView.GetColumnCount(); ++Col)
+			{
+				LineEdit *Control = (LineEdit *)Params.ParameterView.GetCtrl(Row, Col);
+				if(Control->HasFocus())
+				{
+					IndexName = Params.ParameterView.GetId(Col);
+					break;
+				}
+			}
+		}
+		else if(ExpandedSetLocal == IdxIdx)
+			IndexName = Params.ParameterView.Get(Row, Id("__index"));
+		else
+			IndexName = IndexList[IdxSetId]->Get();
 
 		Idx.IndexSetName = std::string(IndexSetName);
 		Idx.Name = IndexName.ToStd();
@@ -271,7 +271,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 			Params.ParameterView.AddColumn(Id("__value"), "Value");
 		}
 		else
-		{	
+		{
 			for(char *IndexName : SecondExpandedIndexSet)
 				Params.ParameterView.AddColumn(Id(IndexName), IndexName);
 		}
@@ -313,7 +313,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 			//NOTE: We don't store info about it being locked here, since that has to be
 			//overridden later anyway (the lock status can have changed since the table was
 			//constructed.
-			Parameter.Indexes[Idx].Locked = false; 
+			Parameter.Indexes[Idx].Locked = false;
 		}
 	}
 		
@@ -448,7 +448,7 @@ void MobiView::RefreshParameterView(bool RefreshValuesOnly)
 					StrToTime(D, TimeVal); //Error handling? But should not be necessary.
 					RowData.Set(ValueColumn, D);
 					
-					if(!RefreshValuesOnly) 
+					if(!RefreshValuesOnly)
 					{
 						ParameterControls.Create<EditTimeNotNull>();
 						

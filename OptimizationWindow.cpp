@@ -126,6 +126,8 @@ OptimizationWindow::OptimizationWindow()
 	RunSetup.EditEpsilon.Min(0.0);
 	RunSetup.EditEpsilon.SetData(0.0);
 	
+	RunSetup.OptionShowProgress.SetData(true);
+	
 	
 	MCMCSetup.PushRun.WhenPush         = [&](){ RunClicked(1); };
 	MCMCSetup.PushRun.SetImage(IconImg4::Run());
@@ -1723,13 +1725,13 @@ void OptimizationWindow::RunClicked(int RunType)
 			auto BeginTime = std::chrono::high_resolution_clock::now();
 			
 			std::vector<bool> Dummy;
-			dlib::function_evaluation Result 
-				= dlib::find_max_global(OptimizationModel, 
-										MinBound, 
+			dlib::function_evaluation Result
+				= dlib::find_max_global(OptimizationModel,
+										MinBound,
 										MaxBound,
-										dlib::max_function_calls(MaxFunctionCalls), 
-										dlib::FOREVER, 
-										Epsilon, 
+										dlib::max_function_calls(MaxFunctionCalls),
+										dlib::FOREVER,
+										Epsilon,
 										InitialEvals
 				);
 				
@@ -2147,6 +2149,8 @@ void OptimizationWindow::LoadFromJson()
 		PromptOK("settings.json is used by MobiView to store various settings and should not be used to store calibration setups.");
 		return;
 	}
+	
+	//PromptOK("Bing!");
 	
 	String JsonData = LoadFile(Filename);
 	

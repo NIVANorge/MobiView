@@ -945,15 +945,11 @@ void MobiView::Load()
 
 	String InputExt = GetFileExt(InputFile.data());
 	
-	//if(InputExt == ".xls" || InputExt == ".xlsx")
-	//{
-	//	Success = LoadFromExcel(this, ParameterFile.data(), InputFile.data());
-	//}
-	//else
-	//{
+
+	//PromptOK("Bing!");
+	
 	DataSet = ModelDll.SetupModel(ParameterFile.data(), InputFile.data());
 	Success = !CheckDllUserError();
-	//}
 	
 	if(!Success)
 	{
